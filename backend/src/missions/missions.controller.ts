@@ -32,6 +32,15 @@ export class MissionsController {
     return this.missionsService.create(req.user.sub, dto);
   }
 
+  @Post('submit-general')
+  @UseGuards(JwtAuthGuard)
+  submitGeneral(
+    @Request() req: { user: { sub: string } },
+    @Body() body: { postUrl: string; section: string; platform: string; description: string; missionId?: string },
+  ) {
+    return this.missionsService.submitGeneral(req.user.sub, body);
+  }
+
   @Post('escrow')
   @UseGuards(JwtAuthGuard)
   createWithEscrow(

@@ -816,6 +816,13 @@ function setLang(l) {
 }
 
 // ═══════════════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════════════
+const API_URL = 'https://ai119-bot-production.up.railway.app/api';
+let authToken = null;
+let currentUser = null;
+
+// ═══════════════════════════════════════════════════
 // Telegram WebApp
 // ═══════════════════════════════════════════════════
 const tg = window.Telegram?.WebApp;
@@ -828,14 +835,14 @@ if (tg) {
     if (tp.text_color) document.documentElement.style.setProperty('--tg-text', tp.text_color);
     if (tp.hint_color) document.documentElement.style.setProperty('--tg-hint', tp.hint_color);
   }
-  const user = tg.initDataUnsafe?.user;
-  if (user) {
+  const tgUser = tg.initDataUnsafe?.user;
+  if (tgUser) {
     document.getElementById('profileName').textContent =
-      ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || '-';
+      ((tgUser.first_name || '') + ' ' + (tgUser.last_name || '')).trim() || '-';
     document.getElementById('profileUsername').textContent =
-      user.username ? '@' + user.username : '';
+      tgUser.username ? '@' + tgUser.username : '';
     document.getElementById('profileAvatar').textContent =
-      (user.first_name || '?')[0].toUpperCase();
+      (tgUser.first_name || '?')[0].toUpperCase();
   }
 }
 
@@ -844,20 +851,58 @@ if (tg) {
 // ═══════════════════════════════════════════════════
 window.onload = function() {
   setLang(lang);
+  initApp();
+};
 
+async function initApp() {
+  let authenticated = false;
+
+  if (tg && tg.initData) {
+    try {
+      const res = await fetch(API_URL + '/auth/miniapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: tg.initData })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        authToken = data.token;
+        currentUser = data.user;
+        authenticated = true;
+
+        updateBalance(currentUser.points || 0);
+        document.getElementById('myRefCode').textContent = currentUser.referralCode || '------';
+        document.getElementById('myRefLink').textContent = data.referralLink || '-';
+        document.getElementById('profileMentor').textContent =
+          currentUser.mentorUsername
+            ? '@' + currentUser.mentorUsername
+            : currentUser.mentorId ? '✅' : '-';
+      }
+    } catch (e) {}
+  }
+
+  if (!authenticated) {
+    loadFromCache();
+  }
+
+  loadRanking();
+}
+
+function loadFromCache() {
   const ap = parseInt(localStorage.getItem('aimAP') || '0');
-  document.getElementById('apBalance').textContent = ap.toLocaleString();
-  document.getElementById('apUsd').textContent = (ap / 10000).toFixed(2);
-  document.getElementById('profileAP').textContent = ap.toLocaleString() + ' AP';
-  document.getElementById('profileUSD').textContent = '$' + (ap / 10000).toFixed(2);
-
+  updateBalance(ap);
   let ref = localStorage.getItem('aimRef');
   if (!ref) { ref = 'AIM' + Math.random().toString(36).substring(2, 8).toUpperCase(); localStorage.setItem('aimRef', ref); }
   document.getElementById('myRefCode').textContent = ref;
   document.getElementById('myRefLink').textContent = 'https://t.me/AIMHubBot?start=' + ref;
+}
 
-  loadRanking();
-};
+function updateBalance(ap) {
+  document.getElementById('apBalance').textContent = ap.toLocaleString();
+  document.getElementById('apUsd').textContent = (ap / 10000).toFixed(2);
+  document.getElementById('profileAP').textContent = ap.toLocaleString() + ' AP';
+  document.getElementById('profileUSD').textContent = '$' + (ap / 10000).toFixed(2);
+}
 
 // ═══════════════════════════════════════════════════
 // Navigation
@@ -903,22 +948,72 @@ function toggleChip(el) { el.classList.toggle('selected'); }
 // ═══════════════════════════════════════════════════
 // Submit
 // ═══════════════════════════════════════════════════
-function submitContent() {
+async function submitContent() {
   const url  = document.getElementById('contentUrl').value.trim();
   const desc = document.getElementById('contentDesc').value.trim();
   if (!url) { showToast(t('fillUrl')); return; }
   if (!desc.toLowerCase().includes('#aim')) { showToast(t('addHashtag')); return; }
-  showToast(t('submitted'));
-  document.getElementById('contentUrl').value   = '';
-  document.getElementById('contentDesc').value  = '';
-  document.getElementById('missionId').value    = '';
+
+  const section   = document.getElementById('submitSection').value;
+  const missionId = document.getElementById('missionId').value.trim();
+  const platforms = Array.from(document.querySelectorAll('.chip.selected')).map(c => c.textContent);
+
+  if (authToken) {
+    try {
+      const useGeneral = !missionId;
+      const endpoint = useGeneral
+        ? `${API_URL}/missions/submit-general`
+        : `${API_URL}/missions/${missionId}/submit`;
+      const body = useGeneral
+        ? { postUrl: url, section, platform: platforms.join(','), description: desc }
+        : { postUrl: url, tags: platforms };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + authToken },
+        body: JSON.stringify(body)
+      });
+      const msg = res.ok ? t('submitted') : ((await res.json().catch(() => ({}))).message || t('submitted'));
+      showToast(msg);
+    } catch (e) {
+      showToast(t('submitted'));
+    }
+  } else {
+    showToast(t('submitted'));
+  }
+
+  document.getElementById('contentUrl').value  = '';
+  document.getElementById('contentDesc').value = '';
+  document.getElementById('missionId').value   = '';
   document.querySelectorAll('.chip.selected').forEach(c => c.classList.remove('selected'));
 }
 
 // ═══════════════════════════════════════════════════
-// Ranking (mock data)
+// Ranking
 // ═══════════════════════════════════════════════════
-function loadRanking() {
+const RANK_MEDALS = ['🥇','🥈','🥉','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
+
+async function loadRanking() {
+  try {
+    const res = await fetch(`${API_URL}/users/leaderboard/list?period=all`);
+    if (res.ok) {
+      const board = await res.json();
+      if (Array.isArray(board) && board.length > 0) {
+        document.getElementById('rankList').innerHTML = board.slice(0, 10).map((u, i) => `
+          <div class="rank-item">
+            <div style="font-size:18px;font-weight:900;width:28px;text-align:center">${RANK_MEDALS[i] || (i+1)}</div>
+            <div class="rank-avatar">${(u.firstName || u.username || '?')[0].toUpperCase()}</div>
+            <div style="flex:1;font-weight:600;font-size:14px">${u.firstName || u.username || 'User'}</div>
+            <div class="rank-ap">${(u.points || 0).toLocaleString()} AP</div>
+          </div>`).join('');
+        return;
+      }
+    }
+  } catch (e) {}
+  renderMockRanking();
+}
+
+function renderMockRanking() {
   const mock = [
     { name:'CryptoKim',   ap:128500, medal:'🥇' },
     { name:'AImaster',    ap:97200,  medal:'🥈' },

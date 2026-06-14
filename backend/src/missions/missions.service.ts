@@ -23,6 +23,24 @@ export class MissionsService {
     return { id: doc.id, ...doc.data() };
   }
 
+  async submitGeneral(
+    userId: string,
+    dto: { postUrl: string; section: string; platform: string; description: string; missionId?: string },
+  ) {
+    const sub = {
+      userId,
+      postUrl: dto.postUrl,
+      section: dto.section,
+      platform: dto.platform,
+      description: dto.description,
+      missionId: dto.missionId || null,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    const ref = await this.firebase.collection('submissions').add(sub);
+    return { id: ref.id, ...sub };
+  }
+
   // ── Legacy create (no escrow) ──────────────────────────────────────────────
 
   async create(advertiserId: string, dto: Record<string, unknown>) {

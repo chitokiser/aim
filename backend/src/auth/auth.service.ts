@@ -35,6 +35,93 @@ export class AuthService {
     return computedHash === hash;
   }
 
+  createBotLoginToken(
+    telegramId: string,
+    from?: { first_name?: string; last_name?: string; username?: string },
+  ): string {
+    return this.jwt.sign(
+      {
+        telegramId,
+        type: 'bot-login',
+        firstName: from?.first_name,
+        lastName: from?.last_name,
+        username: from?.username,
+      },
+      { expiresIn: '15m' },
+    );
+  }
+
+  private verifyMiniAppInitData(initData: string): Record<string, string> | null {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return null;
+
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN') ?? '';
+    const secretKey = crypto.createHmac('sha256', 'WebAppData').update(botToken).digest();
+
+    const checkParts: string[] = [];
+    params.forEach((val, key) => {
+      if (key !== 'hash') checkParts.push(`${key}=${val}`);
+    });
+    checkParts.sort();
+    const checkString = checkParts.join('\n');
+
+    const computedHash = crypto.createHmac('sha256', secretKey).update(checkString).digest('hex');
+    if (computedHash !== hash) return null;
+
+    const result: Record<string, string> = {};
+    params.forEach((val, key) => { result[key] = val; });
+    return result;
+  }
+
+  async loginFromMiniApp(initData: string) {
+    const data = this.verifyMiniAppInitData(initData);
+    if (!data) return null;
+
+    let tgUser: Record<string, unknown> = {};
+    try { tgUser = JSON.parse(data.user ?? '{}') as Record<string, unknown>; } catch { return null; }
+
+    const telegramId = String(tgUser.id ?? '');
+    if (!telegramId) return null;
+
+    const result = await this.loginOrRegister({
+      id: telegramId,
+      username: String(tgUser.username ?? ''),
+      first_name: String(tgUser.first_name ?? ''),
+      last_name: String(tgUser.last_name ?? ''),
+      photo_url: String(tgUser.photo_url ?? ''),
+    });
+
+    const botUsername = this.config.get<string>('TELEGRAM_BOT_USERNAME') ?? 'AIMHubBot';
+    const user = result.user as Record<string, unknown>;
+    const referralLink = `https://t.me/${botUsername}?start=${user.referralCode}`;
+    return { ...result, referralLink };
+  }
+
+  async exchangeBotToken(oneTimeToken: string) {
+    let payload: {
+      telegramId: string;
+      type: string;
+      firstName?: string;
+      lastName?: string;
+      username?: string;
+    };
+    try {
+      payload = this.jwt.verify(oneTimeToken) as typeof payload;
+    } catch {
+      return null;
+    }
+    if (payload.type !== 'bot-login') return null;
+
+    // loginOrRegister finds existing user or auto-registers a new one with admin mentor fallback
+    return this.loginOrRegister({
+      id: payload.telegramId,
+      first_name: payload.firstName ?? '',
+      last_name: payload.lastName ?? '',
+      username: payload.username ?? '',
+    });
+  }
+
   async loginOrRegister(telegramData: Record<string, string>) {
     const telegramId = telegramData.id;
     const refCode = telegramData.ref;
@@ -53,6 +140,7 @@ export class AuthService {
       const referralCode = this.generateReferralCode();
       let mentorId: string | null = null;
       let mentorUsername: string | null = null;
+      let mentorCurrentPoints: number | null = null;
 
       if (refCode) {
         const mentorSnap = await usersRef
@@ -61,7 +149,19 @@ export class AuthService {
         if (!mentorSnap.empty) {
           const mentorDoc = mentorSnap.docs[0];
           mentorId = mentorDoc.id;
-          mentorUsername = mentorDoc.data().username ?? null;
+          mentorUsername = (mentorDoc.data().username as string | null) ?? null;
+          mentorCurrentPoints = (mentorDoc.data().points as number) ?? 0;
+        }
+      }
+
+      // Admin fallback: auto-assign current admin as default mentor
+      if (!mentorId) {
+        const adminSnap = await usersRef.where('isAdmin', '==', true).limit(1).get();
+        if (!adminSnap.empty) {
+          const adminDoc = adminSnap.docs[0];
+          mentorId = adminDoc.id;
+          mentorUsername = (adminDoc.data().username as string | null) ?? null;
+          mentorCurrentPoints = (adminDoc.data().points as number) ?? 0;
         }
       }
 
@@ -83,6 +183,11 @@ export class AuthService {
       const docRef = await usersRef.add(newUser);
       userId = docRef.id;
       user = newUser;
+
+      // Credit 1,000 AP referral bonus to mentor
+      if (mentorId && mentorCurrentPoints !== null) {
+        await usersRef.doc(mentorId).update({ points: mentorCurrentPoints + 1000 });
+      }
     }
 
     const token = this.jwt.sign({ sub: userId, telegramId });

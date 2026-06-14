@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UnauthorizedException, HttpCode } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -10,5 +10,22 @@ export class AuthController {
     const isValid = this.authService.verifyTelegramAuth(data);
     if (!isValid) throw new UnauthorizedException('Invalid Telegram auth data');
     return this.authService.loginOrRegister(data);
+  }
+
+  @Post('miniapp')
+  @HttpCode(200)
+  async miniAppLogin(@Body() body: { initData: string }) {
+    if (!body?.initData) throw new UnauthorizedException('Missing initData');
+    const result = await this.authService.loginFromMiniApp(body.initData);
+    if (!result) throw new UnauthorizedException('Invalid Mini App auth data');
+    return result;
+  }
+
+  @Get('bot-token')
+  async exchangeBotToken(@Query('token') token: string) {
+    if (!token) throw new UnauthorizedException('Missing token');
+    const result = await this.authService.exchangeBotToken(token);
+    if (!result) throw new UnauthorizedException('Invalid or expired token');
+    return result;
   }
 }

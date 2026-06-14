@@ -92,7 +92,7 @@ export class UsersService {
 
     // AP bonus to mentor for the referral
     if (mentor?.id) {
-      await this.addPoints(mentor.id as string, 5000);
+      await this.addPoints(mentor.id as string, 1000);
     }
 
     return { user: { id: ref.id, ...newUser }, isNew: true };

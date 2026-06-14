@@ -1,8 +1,13 @@
 # AIM Platform - Development Guidelines
 
+## Code Language (CRITICAL)
+- All code, variable names, function names, type names, and comments MUST be written in **English**.
+- Do NOT write code, comments, or identifiers in Korean or Vietnamese.
+- Korean/Vietnamese appear ONLY in user-facing string values (UI text, bot messages, translations).
+
 ## Multilingual Requirement (CRITICAL)
-All user-facing text MUST support 3 languages:
-1. **English** (default/base)
+All user-facing text MUST support 3 languages, with **English as the default**:
+1. **English** (default — all messages and UI text start in English)
 2. **한국어** (Korean)
 3. **Tiếng Việt** (Vietnamese)
 
