@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 
+function generateReferralCode(telegramId: string): string {
+  const base = parseInt(telegramId, 10) % 1000000;
+  return `AIM${base.toString().padStart(6, '0')}`;
+}
+
 @Injectable()
 export class UsersService {
   constructor(private firebase: FirebaseService) {}
@@ -24,6 +29,73 @@ export class UsersService {
   async update(id: string, data: Partial<Record<string, unknown>>) {
     await this.firebase.collection('users').doc(id).update(data);
     return this.findById(id);
+  }
+
+  async findByReferralCode(code: string) {
+    const snap = await this.firebase
+      .collection('users')
+      .where('referralCode', '==', code)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() };
+  }
+
+  private async findAdminUser(): Promise<{ id: string } & Record<string, unknown> | null> {
+    const snap = await this.firebase
+      .collection('users')
+      .where('role', '==', 'admin')
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() } as { id: string } & Record<string, unknown>;
+  }
+
+  async registerFromTelegram(params: {
+    telegramId: string;
+    firstName: string;
+    lastName?: string;
+    username?: string;
+    refCode?: string;
+  }): Promise<{ user: Record<string, unknown>; isNew: boolean }> {
+    const existing = await this.findByTelegramId(params.telegramId);
+    if (existing) return { user: existing, isNew: false };
+
+    // Resolve mentor — referral code takes priority, else admin fallback
+    let mentor: ({ id: string } & Record<string, unknown>) | null = null;
+    if (params.refCode) {
+      mentor = (await this.findByReferralCode(params.refCode)) as typeof mentor;
+    }
+    if (!mentor) {
+      mentor = await this.findAdminUser();
+    }
+
+    const referralCode = generateReferralCode(params.telegramId);
+    const now = new Date().toISOString();
+
+    const newUser = {
+      telegramId: params.telegramId,
+      firstName: params.firstName,
+      lastName: params.lastName ?? '',
+      username: params.username ?? '',
+      referralCode,
+      mentorId: mentor?.id ?? null,
+      points: 0,
+      postCount: 0,
+      role: 'member',
+      createdAt: now,
+    };
+
+    const ref = await this.firebase.collection('users').add(newUser);
+
+    // AP bonus to mentor for the referral
+    if (mentor?.id) {
+      await this.addPoints(mentor.id as string, 5000);
+    }
+
+    return { user: { id: ref.id, ...newUser }, isNew: true };
   }
 
   async addPoints(userId: string, amount: number): Promise<void> {
