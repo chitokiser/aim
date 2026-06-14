@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 const LANG_OPTIONS: { code: Lang; label: string }[] = [
@@ -29,6 +29,8 @@ export function Navbar() {
   const { user, logout } = useAuthStore();
   const { lang, setLang, t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const navLinks = [
     { href: "/", label: t.nav.home, icon: Home },
@@ -88,7 +90,7 @@ export function Navbar() {
             ))}
           </div>
 
-          {user ? (
+          {(mounted && user) ? (
             <>
               {/* Telegram ID + Points Badge */}
               <div className="hidden sm:flex items-center gap-2">
@@ -206,7 +208,7 @@ export function Navbar() {
               {label}
             </Link>
           ))}
-          {user && (
+          {(mounted && user) && (
             <div className="pt-2 border-t mt-2">
               <div className="flex items-center gap-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 px-3 py-1.5 w-fit">
                 <Coins className="h-4 w-4 text-violet-600" />
