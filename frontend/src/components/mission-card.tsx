@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Coins, Users, Clock, Tag, Video, FileText, Music, Star, ExternalLink } from "lucide-react";
+import { Coins, Users, Clock, Tag, Video, FileText, Music, Star, ExternalLink, ThumbsUp, Megaphone, Send, Zap } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useLanguage } from "@/lib/i18n";
@@ -16,6 +16,10 @@ const MISSION_TYPE_ICONS = {
   cm_song: { icon: Music, color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" },
   review: { icon: Star, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
   signup: { icon: ExternalLink, color: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400" },
+  youtube_sub: { icon: ThumbsUp, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+  sns_banner: { icon: Megaphone, color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
+  telegram_join: { icon: Send, color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
+  jumpdao: { icon: Zap, color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
 };
 
 interface MissionCardProps {
@@ -49,21 +53,32 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
     cm_song: mf.filterCM,
     review: mf.filterReview,
     signup: mf.filterSignup,
+    youtube_sub: mf.filterYoutubeSub,
+    sns_banner: mf.filterSnsBanner,
+    telegram_join: mf.filterTelegramJoin,
+    jumpdao: mf.filterJumpdao,
   };
+  const isJumpdao = mission.missionType === "jumpdao";
   const budgetUsed = ((mission.totalBudget - mission.remainingBudget) / mission.totalBudget) * 100;
   const daysLeft = formatDistanceToNow(new Date(mission.endDate), { locale: ko, addSuffix: true });
 
   return (
-    <Card className="flex flex-col hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 border-0 shadow-sm">
+    <Card className={`flex flex-col hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 shadow-sm ${isJumpdao ? "border-2 border-yellow-400 dark:border-yellow-500 shadow-yellow-200 dark:shadow-yellow-900/40" : "border-0"}`}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <Badge className={`${typeIcons.color} border-0 font-medium text-xs`}>
             <Icon className="h-3 w-3 mr-1" />
             {TYPE_LABELS[mission.missionType]}
           </Badge>
-          <Badge variant="outline" className="text-xs text-muted-foreground">
-            {mission.advertiserName}
-          </Badge>
+          {isJumpdao ? (
+            <Badge className="border-0 font-bold text-xs bg-gradient-to-r from-yellow-400 to-amber-500 text-white">
+              ✨ SPECIAL
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs text-muted-foreground">
+              {mission.advertiserName}
+            </Badge>
+          )}
         </div>
         <h3 className="font-bold text-base mt-2 leading-snug">{mission.title}</h3>
         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
@@ -121,7 +136,7 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
 
       <CardFooter className="pt-0">
         <Button
-          className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 font-semibold"
+          className={`w-full text-white hover:opacity-90 font-semibold ${isJumpdao ? "bg-gradient-to-r from-yellow-400 to-amber-500" : "bg-gradient-to-r from-violet-600 to-cyan-500"}`}
           disabled={mission.status !== "active"}
           onClick={() => mission.status === "active" && onJoin?.(mission)}
         >
