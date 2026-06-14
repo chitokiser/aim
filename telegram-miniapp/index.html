@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>AIM - AI Money Makers Hub</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    :root {
+      --aim-violet: #7c3aed;
+      --aim-cyan: #06b6d4;
+      --aim-gradient: linear-gradient(135deg, #7c3aed, #06b6d4);
+      --tg-color-scheme: light;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--tg-theme-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+      min-height: 100vh;
+      padding-bottom: 70px;
+    }
+
+    /* Header */
+    .aim-header {
+      background: var(--aim-gradient);
+      color: white;
+      padding: 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .aim-logo { font-weight: 900; font-size: 1.3rem; letter-spacing: -0.5px; }
+    .aim-logo span { opacity: 0.85; font-size: 0.8rem; font-weight: 400; display: block; }
+
+    /* Bottom nav */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: var(--tg-theme-bg-color, #fff);
+      border-top: 1px solid rgba(0,0,0,0.1);
+      display: flex;
+      z-index: 200;
+    }
+    .nav-item {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 8px 4px;
+      cursor: pointer;
+      font-size: 0.65rem;
+      color: #888;
+      transition: color 0.15s;
+      border: none;
+      background: none;
+    }
+    .nav-item.active { color: var(--aim-violet); }
+    .nav-item i { font-size: 1.3rem; margin-bottom: 2px; }
+
+    /* Sections */
+    .section { display: none; padding: 16px; }
+    .section.active { display: block; }
+
+    /* Stat cards */
+    .stat-card {
+      background: var(--aim-gradient);
+      color: white;
+      border-radius: 16px;
+      padding: 16px;
+      text-align: center;
+    }
+    .stat-card .value { font-size: 1.8rem; font-weight: 900; }
+    .stat-card .label { font-size: 0.75rem; opacity: 0.85; }
+
+    .card-aim {
+      background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    /* Mission card */
+    .mission-card {
+      background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+    }
+    .mission-card:active { opacity: 0.8; }
+    .badge-type {
+      display: inline-block;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: rgba(124, 58, 237, 0.15);
+      color: var(--aim-violet);
+      margin-bottom: 6px;
+    }
+    .reward-tag {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--aim-violet);
+    }
+
+    /* Progress bar */
+    .progress-aim { height: 6px; border-radius: 99px; background: rgba(0,0,0,0.1); overflow: hidden; }
+    .progress-fill { height: 100%; border-radius: 99px; background: var(--aim-gradient); transition: width 0.3s; }
+
+    /* Platform tabs */
+    .platform-tab-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .platform-tab-scroll::-webkit-scrollbar { display: none; }
+    .platform-tab {
+      white-space: nowrap;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid rgba(124, 58, 237, 0.3);
+      background: none;
+      color: var(--tg-theme-text-color, #333);
+    }
+    .platform-tab.active {
+      background: var(--aim-gradient);
+      color: white;
+      border-color: transparent;
+    }
+
+    /* Form styles */
+    .form-control-aim {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1.5px solid rgba(0,0,0,0.12);
+      background: var(--tg-theme-bg-color, #fff);
+      color: var(--tg-theme-text-color, #000);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .form-control-aim:focus { border-color: var(--aim-violet); }
+    .form-label-aim { font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; display: block; }
+    .form-group-aim { margin-bottom: 14px; }
+
+    /* Button */
+    .btn-aim {
+      width: 100%;
+      padding: 13px;
+      border-radius: 12px;
+      border: none;
+      background: var(--aim-gradient);
+      color: white;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn-aim:active { opacity: 0.8; }
+    .btn-aim-outline {
+      background: none;
+      border: 1.5px solid var(--aim-violet);
+      color: var(--aim-violet);
+    }
+
+    /* Leaderboard */
+    .rank-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .rank-num { width: 28px; font-weight: 900; font-size: 1rem; text-align: center; }
+    .rank-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--aim-gradient);
+      display: flex; align-items: center; justify-content: center;
+      color: white; font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
+    }
+    .rank-info { flex: 1; min-width: 0; }
+    .rank-name { font-weight: 600; font-size: 0.9rem; truncate: clip; }
+    .rank-points { font-size: 0.75rem; color: var(--aim-violet); font-weight: 700; }
+
+    /* AI content type */
+    .content-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .content-type-card {
+      padding: 14px 10px;
+      border-radius: 12px;
+      background: var(--tg-theme-secondary-bg-color, #f4f4f5);
+      text-align: center;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+    .content-type-card.selected { border-color: var(--aim-violet); }
+    .content-type-card i { font-size: 1.6rem; color: var(--aim-violet); margin-bottom: 6px; display: block; }
+    .content-type-card span { font-size: 0.75rem; font-weight: 600; }
+
+    /* Toast */
+    .toast-aim {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a2e;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 24px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 999;
+      display: none;
+      white-space: nowrap;
+    }
+    .toast-aim.show { display: block; animation: fadeInOut 2.5s ease forwards; }
+    @keyframes fadeInOut {
+      0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      15% { opacity: 1; transform: translateX(-50%) translateY(0); }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* Points popup */
+    .points-banner {
+      background: var(--aim-gradient);
+      color: white;
+      border-radius: 14px;
+      padding: 14px;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+    .points-banner .big { font-size: 2rem; font-weight: 900; }
+    .points-banner .sub { font-size: 0.75rem; opacity: 0.85; }
+
+    /* Section title */
+    .section-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 14px; }
+
+    /* Ad type select */
+    .ad-type-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .ad-type-btn {
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1.5px solid rgba(0,0,0,0.15);
+      background: none;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--tg-theme-text-color, #333);
+    }
+    .ad-type-btn.selected {
+      background: var(--aim-gradient);
+      color: white;
+      border-color: transparent;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="aim-header d-flex align-items-center justify-content-between">
+  <div class="aim-logo">AIM <span>AI Money Makers Hub</span></div>
+  <div id="headerPoints" style="font-size:0.85rem; font-weight:700; background:rgba(255,255,255,0.2); border-radius:20px; padding:4px 12px;">
+    0 AP
+  </div>
+</div>
+
+<!-- HOME SECTION -->
+<div id="sec-home" class="section active">
+  <div class="points-banner mt-2">
+    <div class="sub">내 AIM Point</div>
+    <div class="big" id="homePts">0 AP</div>
+    <div class="sub" id="homeUsd">≈ 0.00 USD</div>
+  </div>
+
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <div class="card-aim text-center">
+        <div style="font-size:1.4rem; font-weight:900; color:var(--aim-violet)" id="statMissions">24</div>
+        <div style="font-size:0.75rem; color:#888">활성 미션</div>
+      </div>
+    </div>
+    <div class="col-6">
+      <div class="card-aim text-center">
+        <div style="font-size:1.4rem; font-weight:900; color:#06b6d4">12,450</div>
+        <div style="font-size:0.75rem; color:#888">총 크리에이터</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="section-title">빠른 메뉴</p>
+  <div class="row g-2 mb-3">
+    <div class="col-4">
+      <button class="card-aim text-center w-100 border-0 cursor-pointer" onclick="switchTab('missions')">
+        <i class="bi bi-bullseye" style="font-size:1.5rem; color:var(--aim-violet)"></i>
+        <div style="font-size:0.75rem; margin-top:4px">미션</div>
+      </button>
+    </div>
+    <div class="col-4">
+      <button class="card-aim text-center w-100 border-0 cursor-pointer" onclick="switchTab('register')">
+        <i class="bi bi-plus-circle-fill" style="font-size:1.5rem; color:#06b6d4"></i>
+        <div style="font-size:0.75rem; margin-top:4px">콘텐츠 등록</div>
+      </button>
+    </div>
+    <div class="col-4">
+      <button class="card-aim text-center w-100 border-0 cursor-pointer" onclick="switchTab('rank')">
+        <i class="bi bi-trophy-fill" style="font-size:1.5rem; color:#f59e0b"></i>
+        <div style="font-size:0.75rem; margin-top:4px">랭킹</div>
+      </button>
+    </div>
+  </div>
+
+  <p class="section-title">포인트 획득 방법</p>
+  <div class="card-aim">
+    <table style="width:100%; font-size:0.82rem;">
+      <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
+        <td style="padding:7px 0; color:#888">게시물 등록</td>
+        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+1,000 AP</td>
+      </tr>
+      <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
+        <td style="padding:7px 0; color:#888">좋아요 획득</td>
+        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+500 AP</td>
+      </tr>
+      <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
+        <td style="padding:7px 0; color:#888">댓글 획득</td>
+        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+500 AP</td>
+      </tr>
+      <tr>
+        <td style="padding:7px 0; color:#888">미션 완료</td>
+        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+50,000 AP~</td>
+      </tr>
+    </table>
+  </div>
+
+  <p class="section-title mt-3">추천 링크 공유</p>
+  <div class="card-aim">
+    <div style="font-size:0.82rem; color:#888; margin-bottom:8px">멘티 수당 10% 적용</div>
+    <div style="display:flex; gap:8px">
+      <div id="referralLink" style="flex:1; font-size:0.78rem; font-family:monospace; background:rgba(0,0,0,0.05); padding:8px 10px; border-radius:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
+        로딩 중...
+      </div>
+      <button onclick="copyReferral()" style="border:none; background:var(--aim-violet); color:white; border-radius:8px; padding:8px 12px; font-size:0.8rem; font-weight:600">복사</button>
+    </div>
+  </div>
+</div>
+
+<!-- MISSIONS SECTION -->
+<div id="sec-missions" class="section">
+  <p class="section-title">미션 목록</p>
+
+  <div class="platform-tab-scroll mb-3">
+    <button class="platform-tab active" onclick="filterMissions('all', this)">전체</button>
+    <button class="platform-tab" onclick="filterMissions('cf_video', this)">CF 영상</button>
+    <button class="platform-tab" onclick="filterMissions('sns_post', this)">SNS 게시물</button>
+    <button class="platform-tab" onclick="filterMissions('blog_post', this)">블로그</button>
+    <button class="platform-tab" onclick="filterMissions('cm_song', this)">CM송</button>
+    <button class="platform-tab" onclick="filterMissions('review', this)">리뷰</button>
+    <button class="platform-tab" onclick="filterMissions('signup', this)">가입</button>
+  </div>
+
+  <div id="missionList">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- CONTENT REGISTER SECTION -->
+<div id="sec-register" class="section">
+  <p class="section-title">콘텐츠 등록</p>
+
+  <div class="platform-tab-scroll mb-3">
+    <button class="platform-tab active" onclick="selectPlatform('YouTube', this)">YouTube</button>
+    <button class="platform-tab" onclick="selectPlatform('Instagram', this)">Instagram</button>
+    <button class="platform-tab" onclick="selectPlatform('TikTok', this)">TikTok</button>
+    <button class="platform-tab" onclick="selectPlatform('Facebook', this)">Facebook</button>
+    <button class="platform-tab" onclick="selectPlatform('X', this)">X (Twitter)</button>
+    <button class="platform-tab" onclick="selectPlatform('Telegram', this)">Telegram</button>
+    <button class="platform-tab" onclick="selectPlatform('Reddit', this)">Reddit</button>
+    <button class="platform-tab" onclick="selectPlatform('Blog', this)">Blog</button>
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">게시물 URL *</label>
+    <input type="url" id="postUrl" class="form-control-aim" placeholder="https://www.youtube.com/watch?v=..." />
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">사용된 태그 (공백 구분)</label>
+    <input type="text" id="postTags" class="form-control-aim" placeholder="#AIM #AIcf #창작" />
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">관련 미션 (선택)</label>
+    <select id="missionSelect" class="form-control-aim">
+      <option value="">미션 없이 등록</option>
+    </select>
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">추가 메모</label>
+    <textarea id="postNote" class="form-control-aim" rows="3" placeholder="콘텐츠 설명을 입력하세요..."></textarea>
+  </div>
+
+  <div class="card-aim mb-3" style="border-left: 3px solid var(--aim-violet)">
+    <div style="font-size:0.8rem; color:#888; margin-bottom:6px">필수 태그 포함 시 자동 보상</div>
+    <div style="font-size:0.85rem; font-weight:700">#AIM 포함 → +1,000 AP 즉시 지급</div>
+  </div>
+
+  <button class="btn-aim" onclick="submitContent()">콘텐츠 등록하기</button>
+</div>
+
+<!-- RANK SECTION -->
+<div id="sec-rank" class="section">
+  <p class="section-title">리더보드</p>
+
+  <div class="platform-tab-scroll mb-3">
+    <button class="platform-tab active" onclick="switchRankPeriod('daily', this)">일간</button>
+    <button class="platform-tab" onclick="switchRankPeriod('weekly', this)">주간</button>
+    <button class="platform-tab" onclick="switchRankPeriod('monthly', this)">월간</button>
+    <button class="platform-tab" onclick="switchRankPeriod('all', this)">전체</button>
+  </div>
+
+  <div id="rankList" class="card-aim" style="padding:0; overflow:hidden">
+    <!-- Populated by JS -->
+  </div>
+</div>
+
+<!-- AD REGISTER SECTION -->
+<div id="sec-ad" class="section">
+  <p class="section-title">광고 등록</p>
+
+  <!-- Ad Type -->
+  <div class="form-group-aim">
+    <label class="form-label-aim">광고 유형</label>
+    <div class="ad-type-row" id="adTypeRow">
+      <button class="ad-type-btn selected" onclick="selectAdType(this, '클릭')">클릭 (50 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '노출')">노출 (10 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '좋아요')">좋아요 (100 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '댓글')">댓글 (300 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '공유')">공유 (300 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '구독')">구독 (500 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '팔로우')">팔로우 (500 AP)</button>
+      <button class="ad-type-btn" onclick="selectAdType(this, '가입')">가입 (500 AP)</button>
+    </div>
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">광고 제목 *</label>
+    <input type="text" id="adTitle" class="form-control-aim" placeholder="미션 제목을 입력하세요" />
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">대상 URL *</label>
+    <input type="url" id="adTargetUrl" class="form-control-aim" placeholder="https://..." />
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim">총 예산 (AP) *</label>
+    <input type="number" id="adBudget" class="form-control-aim" placeholder="1,000,000" oninput="updateAdSplit()" />
+  </div>
+
+  <!-- Revenue split preview -->
+  <div class="card-aim mb-3">
+    <div style="font-size:0.82rem; font-weight:700; margin-bottom:8px">수익 분배 구조</div>
+    <div style="display:flex; gap:0; border-radius:8px; overflow:hidden; margin-bottom:8px">
+      <div style="flex:2; background:#7c3aed; color:white; text-align:center; padding:6px; font-size:0.72rem; font-weight:700">플랫폼 20%</div>
+      <div style="flex:1; background:#06b6d4; color:white; text-align:center; padding:6px; font-size:0.72rem; font-weight:700">멘토 10%</div>
+      <div style="flex:7; background:#10b981; color:white; text-align:center; padding:6px; font-size:0.72rem; font-weight:700">참여자 70%</div>
+    </div>
+    <div style="font-size:0.8rem; color:#888" id="splitPreview">예산 입력 시 분배 금액이 표시됩니다</div>
+  </div>
+
+  <!-- Dates -->
+  <div class="row g-2 mb-3">
+    <div class="col-6">
+      <label class="form-label-aim">시작일</label>
+      <input type="date" id="adStart" class="form-control-aim" />
+    </div>
+    <div class="col-6">
+      <label class="form-label-aim">종료일</label>
+      <input type="date" id="adEnd" class="form-control-aim" />
+    </div>
+  </div>
+
+  <!-- AI Content Request toggle -->
+  <div class="card-aim mb-3">
+    <div class="d-flex align-items-center justify-content-between">
+      <div>
+        <div style="font-weight:700; font-size:0.9rem">AI 콘텐츠 제작 의뢰</div>
+        <div style="font-size:0.75rem; color:#888">AI로 CF/CM송/리뷰 등 제작</div>
+      </div>
+      <label style="position:relative; width:42px; height:24px">
+        <input type="checkbox" id="aiContentToggle" style="opacity:0; width:0; height:0" onchange="toggleAiContent()" />
+        <span id="toggleTrack" style="position:absolute; inset:0; border-radius:999px; background:#ddd; cursor:pointer; transition:0.2s"></span>
+        <span id="toggleThumb" style="position:absolute; left:3px; top:3px; width:18px; height:18px; border-radius:50%; background:white; transition:0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span>
+      </label>
+    </div>
+  </div>
+
+  <div id="aiContentSection" style="display:none">
+    <div class="content-type-grid" id="aiTypeGrid">
+      <div class="content-type-card selected" onclick="selectAiType(this, 'review_video')">
+        <i class="bi bi-camera-video-fill"></i>
+        <span>리뷰 영상</span>
+      </div>
+      <div class="content-type-card" onclick="selectAiType(this, 'cf_video')">
+        <i class="bi bi-film"></i>
+        <span>CF 영상</span>
+      </div>
+      <div class="content-type-card" onclick="selectAiType(this, 'cm_song')">
+        <i class="bi bi-music-note-beamed"></i>
+        <span>CM송</span>
+      </div>
+      <div class="content-type-card" onclick="selectAiType(this, 'music_video')">
+        <i class="bi bi-play-circle-fill"></i>
+        <span>뮤직비디오</span>
+      </div>
+      <div class="content-type-card" onclick="selectAiType(this, 'brochure')">
+        <i class="bi bi-file-earmark-pdf-fill"></i>
+        <span>브로셔</span>
+      </div>
+      <div class="content-type-card" onclick="selectAiType(this, 'landing_page')">
+        <i class="bi bi-globe"></i>
+        <span>랜딩페이지</span>
+      </div>
+      <div class="content-type-card" onclick="selectAiType(this, 'poster')">
+        <i class="bi bi-image-fill"></i>
+        <span>포스터</span>
+      </div>
+    </div>
+
+    <div class="form-group-aim">
+      <label class="form-label-aim">제품/서비스 설명 *</label>
+      <textarea class="form-control-aim" id="aiProductDesc" rows="3" placeholder="AI가 제작할 콘텐츠의 제품/서비스를 설명해주세요..."></textarea>
+    </div>
+  </div>
+
+  <button class="btn-aim" onclick="submitAd()">광고 등록하기</button>
+</div>
+
+<!-- Toast -->
+<div class="toast-aim" id="toast"></div>
+
+<!-- Bottom Nav -->
+<div class="bottom-nav">
+  <button class="nav-item active" id="nav-home" onclick="switchTab('home')">
+    <i class="bi bi-house-fill"></i> 홈
+  </button>
+  <button class="nav-item" id="nav-missions" onclick="switchTab('missions')">
+    <i class="bi bi-bullseye"></i> 미션
+  </button>
+  <button class="nav-item" id="nav-register" onclick="switchTab('register')">
+    <i class="bi bi-plus-circle-fill" style="font-size:1.6rem"></i>
+  </button>
+  <button class="nav-item" id="nav-rank" onclick="switchTab('rank')">
+    <i class="bi bi-trophy-fill"></i> 랭킹
+  </button>
+  <button class="nav-item" id="nav-ad" onclick="switchTab('ad')">
+    <i class="bi bi-megaphone-fill"></i> 광고
+  </button>
+</div>
+
+<script>
+// ─── State ─────────────────────────────────────────────────────────────
+const state = {
+  user: null,
+  currentPlatform: 'YouTube',
+  currentAdType: '클릭',
+  currentAiType: 'review_video',
+  currentMissionFilter: 'all',
+  currentRankPeriod: 'daily',
+};
+
+const MISSIONS_SAMPLE = [
+  { id:'1', type:'cf_video', title:'AI 브랜드 CF 영상 제작', reward:50000, budget:5000000, remaining:2500000, advertiser:'BrandX', tags:['#AIM','#AIcf'], days:16 },
+  { id:'2', type:'sns_post', title:'SNS 게시물 작성 미션', reward:5000, budget:1000000, remaining:800000, advertiser:'TechCo', tags:['#AIM','#AI리뷰'], days:8 },
+  { id:'3', type:'cm_song', title:'AI CM송 제작 및 업로드', reward:30000, budget:3000000, remaining:1200000, advertiser:'MusicBrand', tags:['#AIM','#AICMsong'], days:22 },
+  { id:'4', type:'blog_post', title:'AI 도구 활용 블로그 리뷰', reward:10000, budget:2000000, remaining:1800000, advertiser:'AITools', tags:['#AIM','#AI리뷰'], days:30 },
+  { id:'5', type:'review', title:'앱 리뷰 게시물 작성', reward:3000, budget:500000, remaining:350000, advertiser:'AppCo', tags:['#AIM'], days:5 },
+  { id:'6', type:'signup', title:'뉴스레터 구독 미션', reward:500, budget:200000, remaining:150000, advertiser:'NewsLetter', tags:['#AIM'], days:14 },
+];
+
+const RANK_SAMPLE = [
+  { rank:1, name:'김민준', username:'aimaster_kim', points:2450000, emoji:'🥇' },
+  { rank:2, name:'이서연', username:'creative_lee', points:1980000, emoji:'🥈' },
+  { rank:3, name:'박도현', username:'tonhunter', points:1750000, emoji:'🥉' },
+  { rank:4, name:'최지우', username:'aiguru_choi', points:1540000, emoji:'4' },
+  { rank:5, name:'한예준', username:'creator_han', points:1320000, emoji:'5' },
+  { rank:6, name:'정수빈', username:'aiartist_jung', points:1180000, emoji:'6' },
+  { rank:7, name:'강하은', username:'mission_pro', points:960000, emoji:'7' },
+  { rank:8, name:'윤지호', username:'tonearner', points:840000, emoji:'8' },
+];
+
+// ─── Telegram WebApp init ───────────────────────────────────────────────
+const tg = window.Telegram?.WebApp;
+if (tg) {
+  tg.ready();
+  tg.expand();
+  if (tg.themeParams) {
+    document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#fff');
+    document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000');
+    document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
+  }
+  if (tg.initDataUnsafe?.user) {
+    state.user = tg.initDataUnsafe.user;
+    initUser();
+  }
+}
+
+function initUser() {
+  const u = state.user;
+  const pts = u.points || 0;
+  document.getElementById('homePts').textContent = pts.toLocaleString() + ' AP';
+  document.getElementById('homeUsd').textContent = '≈ ' + (pts / 10000).toFixed(2) + ' USD';
+  document.getElementById('headerPoints').textContent = pts.toLocaleString() + ' AP';
+  const ref = 'https://t.me/AIMBot?start=ref_' + (u.id || 'demo');
+  document.getElementById('referralLink').textContent = ref;
+
+  // Populate mission select
+  const sel = document.getElementById('missionSelect');
+  MISSIONS_SAMPLE.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.title;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── Tab switching ──────────────────────────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + tab).classList.add('active');
+  document.getElementById('nav-' + tab).classList.add('active');
+
+  if (tab === 'missions') renderMissions();
+  if (tab === 'rank') renderRank();
+}
+
+// ─── Missions ──────────────────────────────────────────────────────────
+function filterMissions(type, btn) {
+  document.querySelectorAll('#sec-missions .platform-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.currentMissionFilter = type;
+  renderMissions();
+}
+
+function renderMissions() {
+  const list = document.getElementById('missionList');
+  const filter = state.currentMissionFilter;
+  const missions = filter === 'all' ? MISSIONS_SAMPLE : MISSIONS_SAMPLE.filter(m => m.type === filter);
+
+  list.innerHTML = missions.map(m => {
+    const pct = Math.round(((m.budget - m.remaining) / m.budget) * 100);
+    const typeLabels = { cf_video:'CF 영상', sns_post:'SNS 게시물', blog_post:'블로그', cm_song:'CM송', review:'리뷰', signup:'가입' };
+    return `
+      <div class="mission-card" onclick="joinMission('${m.id}')">
+        <div class="badge-type">${typeLabels[m.type] || m.type}</div>
+        <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px">${m.title}</div>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+          <span class="reward-tag">+${m.reward.toLocaleString()} AP</span>
+          <span style="font-size:0.75rem; color:#888">${m.days}일 남음</span>
+        </div>
+        <div class="progress-aim">
+          <div class="progress-fill" style="width:${pct}%"></div>
+        </div>
+        <div style="font-size:0.72rem; color:#888; margin-top:4px; display:flex; justify-content:space-between">
+          <span>${m.advertiser}</span>
+          <span>예산 ${pct}% 소진</span>
+        </div>
+        <div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap">
+          ${m.tags.map(t => `<span style="font-size:0.7rem; background:rgba(124,58,237,0.1); color:#7c3aed; border-radius:12px; padding:2px 8px">${t}</span>`).join('')}
+        </div>
+      </div>
+    `;
+  }).join('') || '<div style="text-align:center; padding:30px; color:#888">해당 미션이 없습니다</div>';
+}
+
+function joinMission(id) {
+  const m = MISSIONS_SAMPLE.find(x => x.id === id);
+  if (!m) return;
+  switchTab('register');
+  document.getElementById('missionSelect').value = id;
+  showToast(`"${m.title}" 미션을 선택했습니다`);
+}
+
+// ─── Content Register ──────────────────────────────────────────────────
+function selectPlatform(platform, btn) {
+  document.querySelectorAll('#sec-register .platform-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.currentPlatform = platform;
+  const placeholders = {
+    YouTube: 'https://www.youtube.com/watch?v=...',
+    Instagram: 'https://www.instagram.com/p/...',
+    TikTok: 'https://www.tiktok.com/@.../video/...',
+    Facebook: 'https://www.facebook.com/...',
+    X: 'https://x.com/.../status/...',
+    Telegram: 'https://t.me/...',
+    Reddit: 'https://www.reddit.com/r/.../...',
+    Blog: 'https://your-blog.com/...',
+  };
+  document.getElementById('postUrl').placeholder = placeholders[platform] || 'https://...';
+}
+
+function submitContent() {
+  const url = document.getElementById('postUrl').value.trim();
+  const tagsRaw = document.getElementById('postTags').value.trim();
+  if (!url) { showToast('게시물 URL을 입력해주세요'); return; }
+  if (!tagsRaw.includes('#AIM')) { showToast('#AIM 태그가 필요합니다'); return; }
+
+  showToast('✅ 콘텐츠 등록 완료! 포인트 지급 중...');
+  setTimeout(() => {
+    showToast('+1,000 AP 지급 완료!');
+    document.getElementById('postUrl').value = '';
+    document.getElementById('postTags').value = '';
+    document.getElementById('postNote').value = '';
+  }, 1500);
+}
+
+// ─── Rank ──────────────────────────────────────────────────────────────
+function switchRankPeriod(period, btn) {
+  document.querySelectorAll('#sec-rank .platform-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.currentRankPeriod = period;
+  renderRank();
+}
+
+function renderRank() {
+  const list = document.getElementById('rankList');
+  const medals = ['🥇', '🥈', '🥉'];
+  list.innerHTML = RANK_SAMPLE.map((u, i) => `
+    <div class="rank-item">
+      <div class="rank-num">${medals[i] || i + 1}</div>
+      <div class="rank-avatar">${u.name[0]}</div>
+      <div class="rank-info">
+        <div class="rank-name">${u.name}</div>
+        <div style="font-size:0.72rem; color:#888">@${u.username}</div>
+      </div>
+      <div class="rank-points">${u.points.toLocaleString()} AP</div>
+    </div>
+  `).join('');
+}
+
+// ─── Ad Register ───────────────────────────────────────────────────────
+function selectAdType(btn, type) {
+  document.querySelectorAll('#adTypeRow .ad-type-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  state.currentAdType = type;
+}
+
+function selectAiType(card, type) {
+  document.querySelectorAll('#aiTypeGrid .content-type-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  state.currentAiType = type;
+}
+
+function toggleAiContent() {
+  const checked = document.getElementById('aiContentToggle').checked;
+  document.getElementById('aiContentSection').style.display = checked ? 'block' : 'none';
+  const track = document.getElementById('toggleTrack');
+  const thumb = document.getElementById('toggleThumb');
+  track.style.background = checked ? '#7c3aed' : '#ddd';
+  thumb.style.left = checked ? '21px' : '3px';
+}
+
+function updateAdSplit() {
+  const budget = parseInt(document.getElementById('adBudget').value) || 0;
+  if (!budget) {
+    document.getElementById('splitPreview').textContent = '예산 입력 시 분배 금액이 표시됩니다';
+    return;
+  }
+  const platform = Math.floor(budget * 0.2);
+  const mentor = Math.floor(budget * 0.1);
+  const users = budget - platform - mentor;
+  document.getElementById('splitPreview').innerHTML =
+    `플랫폼: <b>${platform.toLocaleString()} AP</b> · 멘토: <b>${mentor.toLocaleString()} AP</b> · 참여자: <b>${users.toLocaleString()} AP</b>`;
+}
+
+function submitAd() {
+  const title = document.getElementById('adTitle').value.trim();
+  const url = document.getElementById('adTargetUrl').value.trim();
+  const budget = document.getElementById('adBudget').value.trim();
+  if (!title || !url || !budget) { showToast('필수 항목을 입력해주세요'); return; }
+  showToast('✅ 광고 등록 완료! 검토 후 활성화됩니다.');
+  document.getElementById('adTitle').value = '';
+  document.getElementById('adTargetUrl').value = '';
+  document.getElementById('adBudget').value = '';
+  updateAdSplit();
+}
+
+// ─── Referral ──────────────────────────────────────────────────────────
+function copyReferral() {
+  const link = document.getElementById('referralLink').textContent;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(link).then(() => showToast('링크 복사 완료!'));
+  } else {
+    showToast('링크를 직접 복사해주세요');
+  }
+}
+
+// ─── Toast ─────────────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.remove('show');
+  void t.offsetWidth;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── Set today's date as default for ad form ───────────────────────────
+(function setDefaultDates() {
+  const today = new Date().toISOString().split('T')[0];
+  const next30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+  document.getElementById('adStart').value = today;
+  document.getElementById('adEnd').value = next30;
+})();
+
+// Initial render
+renderMissions();
+renderRank();
+</script>
+</body>
+</html>
