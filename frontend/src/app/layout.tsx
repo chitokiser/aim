@@ -16,14 +16,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AIM - AI Money Makers Hub",
+  title: "AI119",
   description: "AI 창작물을 공유하고 보상을 받으세요. Create. Share. Earn.",
   icons: {
     icon: "/images/favicon.png",
     apple: "/images/favicon.png",
   },
   openGraph: {
-    title: "AIM - AI Money Makers Hub",
+    title: "AI119",
     description: "AI 창작물을 공유하고 포인트와 TON코인으로 보상을 받으세요.",
     type: "website",
     images: ["/images/favicon.png"],

@@ -36,7 +36,7 @@ export class BotService implements OnModuleInit {
       const authUrl = `${this.config.get('FRONTEND_URL') ?? 'https://aim.example.com'}/auth${refCode ? `?ref=${refCode}` : ''}`;
 
       await ctx.reply(
-        `🎯 *AIM - AI Money Makers Hub*\n\n` +
+        `🎯 *AI119*\n\n` +
           `AI 콘텐츠를 만들고 AIM Point(AP)를 받아 TON코인으로 환전하세요!\n\n` +
           `📱 미니앱에서 시작하거나 아래 링크로 가입하세요.`,
         {

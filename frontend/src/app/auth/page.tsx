@@ -105,7 +105,7 @@ export default function AuthPage() {
               <span className="text-2xl font-black">AIM</span>
             </div>
           </div>
-          <h1 className="text-3xl font-black mb-2">AI Money Makers Hub</h1>
+          <h1 className="text-3xl font-black mb-2">AI119</h1>
           <p className="text-slate-400">{t.auth.subtitle}</p>
         </div>
 

@@ -48,7 +48,7 @@ export function Navbar() {
             height={36}
             className="rounded-lg"
           />
-          <span className="hidden font-bold text-lg sm:block">AI Money Makers</span>
+          <span className="hidden font-bold text-lg sm:block">AI119</span>
         </Link>
 
         {/* Desktop Nav */}

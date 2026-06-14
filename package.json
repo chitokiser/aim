@@ -1,7 +1,7 @@
 {
   "name": "aim-monorepo",
   "version": "1.0.0",
-  "description": "AIM - AI Money Makers Hub",
+  "description": "AI119",
   "private": true,
   "scripts": {
     "dev:frontend": "cd frontend && npm run dev",

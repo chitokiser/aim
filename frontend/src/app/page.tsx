@@ -234,7 +234,7 @@ export default function HomePage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-cyan-500">
                 <span className="text-xs font-black text-white">AIM</span>
               </div>
-              <span className="font-bold text-sm">AI Money Makers Hub</span>
+              <span className="font-bold text-sm">AI119</span>
             </div>
             <p className="text-sm text-muted-foreground">© 2026 AIM. 10,000 AP = 1 USD · TON Network</p>
             <div className="flex gap-4 text-sm text-muted-foreground">
