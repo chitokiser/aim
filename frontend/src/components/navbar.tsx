@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
+import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -90,12 +90,18 @@ export function Navbar() {
 
           {user ? (
             <>
-              {/* Points Badge */}
-              <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-200 dark:border-violet-800 px-3 py-1">
-                <Coins className="h-4 w-4 text-violet-600" />
-                <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">
-                  {user.points.toLocaleString()} AP
-                </span>
+              {/* Telegram ID + Points Badge */}
+              <div className="hidden sm:flex items-center gap-2">
+                <div className="flex items-center gap-1 rounded-full bg-muted border px-2.5 py-1">
+                  <Send className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-xs font-mono text-muted-foreground">{user.telegramId}</span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-200 dark:border-violet-800 px-3 py-1">
+                  <Coins className="h-4 w-4 text-violet-600" />
+                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">
+                    {user.points.toLocaleString()} AP
+                  </span>
+                </div>
               </div>
 
               {/* User Menu */}
@@ -121,6 +127,10 @@ export function Navbar() {
                     <div className="flex flex-col">
                       <span className="text-sm font-medium">{user.firstName}</span>
                       <span className="text-xs text-muted-foreground">@{user.username}</span>
+                      <span className="flex items-center gap-1 text-xs text-muted-foreground/70 mt-0.5">
+                        <Send className="h-2.5 w-2.5" />
+                        ID: {user.telegramId}
+                      </span>
                     </div>
                   </div>
                   <DropdownMenuSeparator />
