@@ -9,21 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
-} from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
-  Search, Megaphone, Tag, Bell, BarChart3, Loader2
+  Search, Bell
 } from "lucide-react";
-
-const STATS = [
-  { label: "총 회원", value: "12,450", icon: Users, color: "text-violet-500" },
-  { label: "활성 미션", value: "24", icon: Target, color: "text-cyan-500" },
-  { label: "총 AP 발행", value: "4.2B", icon: Coins, color: "text-amber-500" },
-  { label: "신고 처리 대기", value: "7", icon: ShieldAlert, color: "text-red-500" },
-];
+import { useLanguage } from "@/lib/i18n";
 
 const PENDING_POSTS = [
   { id: "1", user: "aimaster_kim", platform: "Instagram", url: "https://instagram.com/p/ABC", tags: ["#AIM", "#AIcf"], mission: "AI CF 영상", date: "2026-06-14 09:23" },
@@ -42,9 +33,19 @@ const MISSIONS_PENDING = [
   { id: "2", advertiser: "TechCo", title: "앱 리뷰 미션", budget: 2000000, type: "review", date: "2026-06-14" },
 ];
 
+const AP_STATUS = [
+  { labelKey: "총 발행량", value: "4,200,000,000 AP" },
+  { labelKey: "총 지급량", value: "3,150,000,000 AP" },
+  { labelKey: "총 소각량", value: "840,000,000 AP" },
+  { labelKey: "플랫폼 수익", value: "210,000,000 AP" },
+  { labelKey: "멘토 수당", value: "105,000,000 AP" },
+  { labelKey: "출금 대기", value: "42,500 AP" },
+];
+
 export default function AdminPage() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -52,26 +53,32 @@ export default function AdminPage() {
     if (user && !user.isAdmin) router.push("/");
   }, [user, router]);
 
-  const approvePost = (id: string) => toast.success(`게시물 #${id} 승인 완료. 포인트 지급 처리됨.`);
-  const rejectPost = (id: string) => toast.error(`게시물 #${id} 거절 처리됨.`);
-  const approveMission = (id: string) => toast.success(`미션 #${id} 승인 완료. 활성화됨.`);
-  const suspendUser = (id: string) => toast.warning(`유저 #${id} 정지 처리됨.`);
+  const approvePost = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
+  const rejectPost = (id: string) => toast.error(`#${id} ${t.admin.reject}`);
+  const approveMission = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
+  const suspendUser = (id: string) => toast.warning(`#${id} ${t.admin.suspend}`);
   const sendNotice = () => {
     if (!notice.trim()) return;
-    toast.success("텔레그램 그룹에 공지사항이 발송되었습니다.");
+    toast.success(t.admin.sendNotice);
     setNotice("");
   };
+
+  const stats = [
+    { label: t.admin.statMembers, value: "12,450", icon: Users, color: "text-violet-500" },
+    { label: t.admin.statMissions, value: "24", icon: Target, color: "text-cyan-500" },
+    { label: t.admin.statAP, value: "4.2B", icon: Coins, color: "text-amber-500" },
+    { label: t.admin.statReports, value: "7", icon: ShieldAlert, color: "text-red-500" },
+  ];
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-6xl">
       <div className="mb-8">
-        <h1 className="text-3xl font-black mb-1">관리자 대시보드</h1>
-        <p className="text-muted-foreground">AIM 플랫폼 전체 현황을 관리합니다</p>
+        <h1 className="text-3xl font-black mb-1">{t.admin.title}</h1>
+        <p className="text-muted-foreground">{t.admin.subtitle}</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        {STATS.map(({ label, value, icon: Icon, color }) => (
+        {stats.map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardContent className="p-5">
               <Icon className={`h-6 w-6 ${color} mb-3`} />
@@ -84,19 +91,19 @@ export default function AdminPage() {
 
       <Tabs defaultValue="posts">
         <TabsList className="mb-6 flex-wrap h-auto gap-1">
-          <TabsTrigger value="posts">게시물 검수</TabsTrigger>
-          <TabsTrigger value="missions">미션 승인</TabsTrigger>
-          <TabsTrigger value="members">회원 관리</TabsTrigger>
-          <TabsTrigger value="points">포인트 관리</TabsTrigger>
-          <TabsTrigger value="notice">공지사항</TabsTrigger>
-          <TabsTrigger value="tags">태그 관리</TabsTrigger>
+          <TabsTrigger value="posts">{t.admin.tabPosts}</TabsTrigger>
+          <TabsTrigger value="missions">{t.admin.tabMissions}</TabsTrigger>
+          <TabsTrigger value="members">{t.admin.tabMembers}</TabsTrigger>
+          <TabsTrigger value="points">{t.admin.tabPoints}</TabsTrigger>
+          <TabsTrigger value="notice">{t.admin.tabNotice}</TabsTrigger>
+          <TabsTrigger value="tags">{t.admin.tabTags}</TabsTrigger>
         </TabsList>
 
         {/* Posts Review */}
         <TabsContent value="posts">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">게시물 검수 대기 ({PENDING_POSTS.length})</CardTitle>
+              <CardTitle className="text-base">{t.admin.postsPending} ({PENDING_POSTS.length})</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
@@ -122,11 +129,11 @@ export default function AdminPage() {
                     <div className="flex sm:flex-col gap-2 sm:justify-center">
                       <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white flex-1 sm:flex-none"
                         onClick={() => approvePost(post.id)}>
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> 승인
+                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> {t.admin.approve}
                       </Button>
                       <Button size="sm" variant="destructive" className="flex-1 sm:flex-none"
                         onClick={() => rejectPost(post.id)}>
-                        <XCircle className="h-3.5 w-3.5 mr-1" /> 거절
+                        <XCircle className="h-3.5 w-3.5 mr-1" /> {t.admin.reject}
                       </Button>
                     </div>
                   </div>
@@ -140,7 +147,7 @@ export default function AdminPage() {
         <TabsContent value="missions">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">미션 승인 대기 ({MISSIONS_PENDING.length})</CardTitle>
+              <CardTitle className="text-base">{t.admin.missionsPending} ({MISSIONS_PENDING.length})</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
@@ -151,14 +158,14 @@ export default function AdminPage() {
                       <div className="flex items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-xs">{m.advertiser}</Badge>
                         <span className="text-xs text-muted-foreground">
-                          예산: {m.budget.toLocaleString()} AP · {m.date}
+                          {t.admin.budget}: {m.budget.toLocaleString()} AP · {m.date}
                         </span>
                       </div>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white"
-                        onClick={() => approveMission(m.id)}>승인</Button>
-                      <Button size="sm" variant="outline">거절</Button>
+                        onClick={() => approveMission(m.id)}>{t.admin.approve}</Button>
+                      <Button size="sm" variant="outline">{t.admin.reject}</Button>
                     </div>
                   </div>
                 ))}
@@ -172,10 +179,10 @@ export default function AdminPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between gap-4">
-                <CardTitle className="text-base">회원 관리</CardTitle>
+                <CardTitle className="text-base">{t.admin.memberMgmt}</CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="검색..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-8" />
+                  <Input placeholder={t.admin.search} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-8" />
                 </div>
               </div>
             </CardHeader>
@@ -190,22 +197,22 @@ export default function AdminPage() {
                         <span className="font-semibold text-sm">{member.firstName}</span>
                         <span className="text-xs text-muted-foreground">@{member.username}</span>
                         <Badge variant={member.status === "active" ? "default" : "destructive"} className="text-xs">
-                          {member.status === "active" ? "정상" : "정지"}
+                          {member.status === "active" ? t.admin.active : t.admin.suspended}
                         </Badge>
                       </div>
                       <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                         <span>TG: {member.telegramId}</span>
                         <span>{member.points.toLocaleString()} AP</span>
-                        <span>게시물 {member.posts}개</span>
-                        <span>가입: {member.joined}</span>
+                        <span>{member.posts} posts</span>
+                        <span>{member.joined}</span>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline">포인트 조정</Button>
+                      <Button size="sm" variant="outline">{t.admin.adjustPoints}</Button>
                       {member.status === "active" ? (
-                        <Button size="sm" variant="destructive" onClick={() => suspendUser(member.id)}>정지</Button>
+                        <Button size="sm" variant="destructive" onClick={() => suspendUser(member.id)}>{t.admin.suspend}</Button>
                       ) : (
-                        <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white">복구</Button>
+                        <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white">{t.admin.restore}</Button>
                       )}
                     </div>
                   </div>
@@ -219,39 +226,32 @@ export default function AdminPage() {
         <TabsContent value="points">
           <div className="grid md:grid-cols-2 gap-6">
             <Card>
-              <CardHeader><CardTitle className="text-base">포인트 수동 지급</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">{t.admin.pointManual}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">대상 유저 (텔레그램 ID)</label>
+                  <label className="text-sm font-medium">{t.admin.targetUser}</label>
                   <Input placeholder="123456" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">지급/차감 금액 (AP)</label>
-                  <Input type="number" placeholder="+1000 또는 -1000" />
+                  <label className="text-sm font-medium">{t.admin.amount}</label>
+                  <Input type="number" placeholder="+1000 / -1000" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">사유</label>
-                  <Input placeholder="이벤트 보상, 오류 수정 등" />
+                  <label className="text-sm font-medium">{t.admin.reason}</label>
+                  <Input placeholder="event bonus, correction..." />
                 </div>
                 <Button className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90">
-                  포인트 처리
+                  {t.admin.processPoints}
                 </Button>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">AP 발행 현황</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">{t.admin.apStatus}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { label: "총 발행량", value: "4,200,000,000 AP" },
-                  { label: "총 지급량", value: "3,150,000,000 AP" },
-                  { label: "총 소각량", value: "840,000,000 AP" },
-                  { label: "플랫폼 수익", value: "210,000,000 AP" },
-                  { label: "멘토 수당", value: "105,000,000 AP" },
-                  { label: "출금 대기", value: "42,500 AP" },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex justify-between py-2 border-b last:border-0 text-sm">
-                    <span className="text-muted-foreground">{label}</span>
+                {AP_STATUS.map(({ labelKey, value }) => (
+                  <div key={labelKey} className="flex justify-between py-2 border-b last:border-0 text-sm">
+                    <span className="text-muted-foreground">{labelKey}</span>
                     <span className="font-semibold">{value}</span>
                   </div>
                 ))}
@@ -266,15 +266,15 @@ export default function AdminPage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Bell className="h-4 w-4" />
-                텔레그램 공지사항 발송
+                {t.admin.noticeTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">공지 내용</label>
+                <label className="text-sm font-medium">{t.admin.noticeContent}</label>
                 <textarea
                   className="w-full min-h-32 rounded-md border bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-                  placeholder="텔레그램 그룹방에 발송할 공지 내용을 입력하세요..."
+                  placeholder={t.admin.noticePlaceholder}
                   value={notice}
                   onChange={(e) => setNotice(e.target.value)}
                 />
@@ -282,9 +282,9 @@ export default function AdminPage() {
               <div className="flex gap-3">
                 <Button className="flex-1 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90" onClick={sendNotice}>
                   <Bell className="h-4 w-4 mr-2" />
-                  전체 공지 발송
+                  {t.admin.sendNotice}
                 </Button>
-                <Button variant="outline">미리보기</Button>
+                <Button variant="outline">{t.admin.preview}</Button>
               </div>
             </CardContent>
           </Card>
@@ -293,19 +293,23 @@ export default function AdminPage() {
         {/* Tags */}
         <TabsContent value="tags">
           <Card>
-            <CardHeader><CardTitle className="text-base">태그 관리</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base">{t.admin.tagMgmt}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input placeholder="새 필수 태그 추가 (예: #AIM2026)" className="flex-1" />
-                <Button variant="outline">추가</Button>
+                <Input placeholder={t.admin.addTag} className="flex-1" />
+                <Button variant="outline">{t.admin.add}</Button>
               </div>
               <div className="space-y-2">
                 {["#AIM", "#AIcreator", "#AIcf", "#AICMsong", "#AI리뷰", "#창작"].map((tag) => (
                   <div key={tag} className="flex items-center justify-between p-3 rounded-lg bg-muted">
                     <span className="font-mono text-sm">{tag}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">사용 {Math.floor(Math.random() * 2000 + 100)}회</span>
-                      <Button variant="ghost" size="sm" className="h-7 text-red-500 hover:text-red-600">삭제</Button>
+                      <span className="text-xs text-muted-foreground">
+                        {t.admin.used} {Math.floor(Math.random() * 2000 + 100)}{t.admin.times}
+                      </span>
+                      <Button variant="ghost" size="sm" className="h-7 text-red-500 hover:text-red-600">
+                        {t.admin.delete}
+                      </Button>
                     </div>
                   </div>
                 ))}

@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Coins, Trophy, Medal } from "lucide-react";
+import { useLanguage } from "@/lib/i18n";
 
 const LEADERBOARD_DATA = [
   { rank: 1, username: "aimaster_kim", firstName: "김민준", points: 2450000, postCount: 89 },
@@ -28,24 +28,23 @@ const RANK_CONFIG: Record<number, { color: string; icon?: React.ReactNode }> = {
 
 export default function LeaderboardPage() {
   const [period, setPeriod] = useState("weekly");
+  const { t } = useLanguage();
 
   const top3 = LEADERBOARD_DATA.slice(0, 3);
-  const rest = LEADERBOARD_DATA.slice(3);
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-3xl">
       <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-black mb-3">리더보드</h1>
-        <p className="text-muted-foreground">최고의 AI 창작자들을 확인하세요</p>
+        <h1 className="text-3xl md:text-4xl font-black mb-3">{t.leaderboard.title}</h1>
+        <p className="text-muted-foreground">{t.leaderboard.subtitle}</p>
       </div>
 
-      {/* Period Tabs */}
       <Tabs value={period} onValueChange={setPeriod} className="mb-8">
         <TabsList className="w-full">
-          <TabsTrigger value="daily" className="flex-1">일간</TabsTrigger>
-          <TabsTrigger value="weekly" className="flex-1">주간</TabsTrigger>
-          <TabsTrigger value="monthly" className="flex-1">월간</TabsTrigger>
-          <TabsTrigger value="all" className="flex-1">전체</TabsTrigger>
+          <TabsTrigger value="daily" className="flex-1">{t.leaderboard.daily}</TabsTrigger>
+          <TabsTrigger value="weekly" className="flex-1">{t.leaderboard.weekly}</TabsTrigger>
+          <TabsTrigger value="monthly" className="flex-1">{t.leaderboard.monthly}</TabsTrigger>
+          <TabsTrigger value="all" className="flex-1">{t.leaderboard.all}</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -122,7 +121,7 @@ export default function LeaderboardPage() {
       {/* Rest of Rankings */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">전체 순위</CardTitle>
+          <CardTitle className="text-base">{t.leaderboard.allRankings}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
@@ -154,7 +153,7 @@ export default function LeaderboardPage() {
                         {entry.points.toLocaleString()}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{entry.postCount}개 게시물</p>
+                    <p className="text-xs text-muted-foreground">{entry.postCount}{t.leaderboard.posts}</p>
                   </div>
                 </div>
               );

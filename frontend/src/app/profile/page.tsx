@@ -11,9 +11,10 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Coins, Copy, Trophy, Target, TrendingUp, Users,
-  ExternalLink, Clock, CheckCircle, XCircle, Loader2
+  ExternalLink, CheckCircle, XCircle, Loader2
 } from "lucide-react";
 import { toast } from "sonner";
+import { useLanguage } from "@/lib/i18n";
 
 const POINT_HISTORY = [
   { id: "1", type: "mission_reward", desc: "AI CF 영상 미션 완료", amount: 50000, date: "2026-06-14", status: "completed" },
@@ -30,15 +31,10 @@ const MY_POSTS = [
   { id: "3", platform: "Blog", url: "https://blog.example.com/post", tags: ["#AIM", "#AICMsong"], status: "rejected", points: 0, date: "2026-06-11" },
 ];
 
-const STATUS_CONFIG = {
-  approved: { label: "승인", icon: CheckCircle, color: "text-green-500" },
-  pending: { label: "검수 중", icon: Loader2, color: "text-amber-500" },
-  rejected: { label: "거절", icon: XCircle, color: "text-red-500" },
-};
-
 export default function ProfilePage() {
   const { user } = useAuthStore();
   const router = useRouter();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!user) router.push("/auth");
@@ -50,7 +46,7 @@ export default function ProfilePage() {
 
   const copyReferral = () => {
     navigator.clipboard.writeText(referralUrl);
-    toast.success("추천 링크가 복사되었습니다!");
+    toast.success(t.profile.referralLink);
   };
 
   const levelInfo = (() => {
@@ -61,6 +57,20 @@ export default function ProfilePage() {
     if (p >= 10000) return { level: "Silver", next: 100000, progress: (p - 10000) / 900, color: "from-slate-400 to-slate-600" };
     return { level: "Bronze", next: 10000, progress: p / 100, color: "from-amber-700 to-amber-900" };
   })();
+
+  const statusConfig = {
+    approved: { label: t.admin.approve, icon: CheckCircle, color: "text-green-500" },
+    pending: { label: "...", icon: Loader2, color: "text-amber-500" },
+    rejected: { label: t.admin.reject, icon: XCircle, color: "text-red-500" },
+  };
+
+  const withdrawalDetails = [
+    [t.profile.exchangeRate, "10,000 AP = 1 USD"],
+    [t.profile.minWithdrawal, "50,000 AP (5 USD)"],
+    [t.profile.withdrawalMethod, "TON"],
+    [t.profile.processingTime, "instant"],
+    [t.profile.nonCustodial, "non-custodial"],
+  ];
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
@@ -85,7 +95,7 @@ export default function ProfilePage() {
               <p className="text-muted-foreground text-sm">@{user.username}</p>
               {user.mentorUsername && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  멘토: @{user.mentorUsername}
+                  {t.profile.mentor}: @{user.mentorUsername}
                 </p>
               )}
             </div>
@@ -100,12 +110,11 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Level Progress */}
           {levelInfo.next && (
             <div className="mt-4 space-y-1.5">
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{levelInfo.level} 레벨</span>
-                <span>다음 레벨까지 {(levelInfo.next - user.points).toLocaleString()} AP</span>
+                <span>{levelInfo.level}</span>
+                <span>{t.profile.levelProgress.replace("{n}", (levelInfo.next - user.points).toLocaleString())}</span>
               </div>
               <Progress value={levelInfo.progress} className="h-2" />
             </div>
@@ -116,10 +125,10 @@ export default function ProfilePage() {
       {/* Quick Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[
-          { label: "총 포인트", value: `${user.points.toLocaleString()} AP`, icon: Coins, color: "text-violet-500" },
-          { label: "게시물 수", value: "3", icon: Target, color: "text-cyan-500" },
-          { label: "랭킹", value: "#142", icon: Trophy, color: "text-amber-500" },
-          { label: "추천인 수", value: "7명", icon: Users, color: "text-green-500" },
+          { label: t.profile.totalPoints, value: `${user.points.toLocaleString()} AP`, icon: Coins, color: "text-violet-500" },
+          { label: t.profile.postCount, value: "3", icon: Target, color: "text-cyan-500" },
+          { label: t.profile.ranking, value: "#142", icon: Trophy, color: "text-amber-500" },
+          { label: t.profile.referrals, value: "7", icon: Users, color: "text-green-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardContent className="p-4">
@@ -136,7 +145,7 @@ export default function ProfilePage() {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Users className="h-4 w-4 text-violet-500" />
-            내 추천 링크
+            {t.profile.referralLink}
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -148,25 +157,23 @@ export default function ProfilePage() {
               <Copy className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">
-            추천 링크로 가입 시 신규 회원은 자동으로 당신의 멘티가 됩니다. 멘티 수당 10% 적용.
-          </p>
+          <p className="text-xs text-muted-foreground mt-2">{t.profile.referralHint}</p>
         </CardContent>
       </Card>
 
       {/* Tabs */}
       <Tabs defaultValue="points">
         <TabsList className="w-full mb-6">
-          <TabsTrigger value="points" className="flex-1">포인트 내역</TabsTrigger>
-          <TabsTrigger value="posts" className="flex-1">내 게시물</TabsTrigger>
-          <TabsTrigger value="withdrawal" className="flex-1">출금</TabsTrigger>
+          <TabsTrigger value="points" className="flex-1">{t.profile.pointHistoryTab}</TabsTrigger>
+          <TabsTrigger value="posts" className="flex-1">{t.profile.myPostsTab}</TabsTrigger>
+          <TabsTrigger value="withdrawal" className="flex-1">{t.profile.withdrawalTab}</TabsTrigger>
         </TabsList>
 
         {/* Point History */}
         <TabsContent value="points">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">포인트 내역</CardTitle>
+              <CardTitle className="text-base">{t.profile.pointHistoryTab}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
@@ -193,12 +200,12 @@ export default function ProfilePage() {
         <TabsContent value="posts">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">내 게시물</CardTitle>
+              <CardTitle className="text-base">{t.profile.myPostsTab}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               <div className="divide-y">
                 {MY_POSTS.map((post) => {
-                  const statusConf = STATUS_CONFIG[post.status as keyof typeof STATUS_CONFIG];
+                  const statusConf = statusConfig[post.status as keyof typeof statusConfig];
                   const StatusIcon = statusConf.icon;
                   return (
                     <div key={post.id} className="flex items-center gap-3 px-4 py-3">
@@ -237,7 +244,7 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-4 w-4 text-violet-500" />
-                TON코인 출금
+                {t.profile.withdrawalTitle}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -247,25 +254,19 @@ export default function ProfilePage() {
                     <div className="text-2xl font-black text-violet-700 dark:text-violet-400">
                       {user.points.toLocaleString()}
                     </div>
-                    <div className="text-xs text-muted-foreground">보유 AP</div>
+                    <div className="text-xs text-muted-foreground">{t.profile.holdingAP}</div>
                   </div>
                   <div>
                     <div className="text-2xl font-black text-cyan-700 dark:text-cyan-400">
                       {(user.points / 10000).toFixed(2)}
                     </div>
-                    <div className="text-xs text-muted-foreground">출금 가능 USD</div>
+                    <div className="text-xs text-muted-foreground">{t.profile.withdrawableUSD}</div>
                   </div>
                 </div>
               </div>
 
               <div className="space-y-3 text-sm">
-                {[
-                  ["교환 비율", "10,000 AP = 1 USD"],
-                  ["최소 출금", "50,000 AP (5 USD)"],
-                  ["출금 방식", "TON코인 개인 지갑"],
-                  ["처리 시간", "즉시 (자동 처리)"],
-                  ["수탁지갑", "사용 안함 (비수탁)"],
-                ].map(([label, value]) => (
+                {withdrawalDetails.map(([label, value]) => (
                   <div key={label} className="flex justify-between py-2 border-b last:border-0">
                     <span className="text-muted-foreground">{label}</span>
                     <span className="font-medium">{value}</span>
@@ -277,14 +278,10 @@ export default function ProfilePage() {
                 className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
                 disabled={user.points < 50000}
               >
-                {user.points < 50000
-                  ? `출금 불가 (최소 50,000 AP 필요)`
-                  : "TON코인으로 출금하기"}
+                {user.points < 50000 ? t.profile.insufficientAP : t.profile.withdrawBtn}
               </Button>
 
-              <p className="text-xs text-center text-muted-foreground">
-                출금은 텔레그램 봇 /reward 명령어로도 가능합니다
-              </p>
+              <p className="text-xs text-center text-muted-foreground">{t.profile.botHint}</p>
             </CardContent>
           </Card>
         </TabsContent>
