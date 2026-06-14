@@ -93,7 +93,7 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
           <div className="flex items-center gap-1.5">
             <Coins className="h-4 w-4 text-violet-600" />
             <span className="font-black text-violet-700 dark:text-violet-400">
-              {mission.reward.toLocaleString()} AP
+              {mission.reward.toLocaleString("en-US")} AP
             </span>
           </div>
         </div>
@@ -106,8 +106,8 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
           </div>
           <Progress value={budgetUsed} className="h-1.5" />
           <div className="flex justify-between text-xs">
-            <span className="text-muted-foreground">{mission.remainingBudget.toLocaleString()} AP</span>
-            <span className="text-muted-foreground">{mission.totalBudget.toLocaleString()} AP</span>
+            <span className="text-muted-foreground">{mission.remainingBudget.toLocaleString("en-US")} AP</span>
+            <span className="text-muted-foreground">{mission.totalBudget.toLocaleString("en-US")} AP</span>
           </div>
         </div>
 
@@ -125,11 +125,11 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
-            <span>{mission.participantCount.toLocaleString()} {mc.participants}</span>
+            <span>{mission.participantCount.toLocaleString("en-US")} {mc.participants}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Clock className="h-3.5 w-3.5" />
-            <span>{daysLeft}</span>
+            <span suppressHydrationWarning>{daysLeft}</span>
           </div>
         </div>
       </CardContent>
