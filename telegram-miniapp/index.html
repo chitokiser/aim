@@ -1,831 +1,963 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>AIM - AI Money Makers Hub</title>
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-  <style>
-    :root {
-      --aim-violet: #7c3aed;
-      --aim-cyan: #06b6d4;
-      --aim-gradient: linear-gradient(135deg, #7c3aed, #06b6d4);
-      --tg-color-scheme: light;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>AIM - AI Money Makers Hub</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet" />
+<style>
+  :root {
+    --tg-bg: #ffffff;
+    --tg-text: #000000;
+    --tg-hint: #999999;
+    --accent: #6366f1;
+    --accent2: #8b5cf6;
+    --gold: #f59e0b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--tg-bg);
+    color: var(--tg-text);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    margin: 0; padding: 0;
+    padding-bottom: 70px;
+    min-height: 100vh;
+  }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* ── Top Bar ── */
+  .top-bar {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--tg-bg);
+    border-bottom: 1px solid rgba(0,0,0,0.08);
+    padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    font-weight: 900; font-size: 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .lang-btns { display: flex; gap: 4px; }
+  .lang-btn {
+    border: 1px solid var(--accent); background: transparent; color: var(--accent);
+    border-radius: 20px; padding: 2px 10px; font-size: 11px; cursor: pointer; transition: all .2s;
+  }
+  .lang-btn.active { background: var(--accent); color: #fff; }
 
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: var(--tg-theme-bg-color, #ffffff);
-      color: var(--tg-theme-text-color, #000000);
-      min-height: 100vh;
-      padding-bottom: 70px;
-    }
+  /* ── Bottom Nav ── */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 100;
+    background: var(--tg-bg);
+    border-top: 1px solid rgba(0,0,0,0.08);
+    display: flex;
+  }
+  .nav-item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 8px 4px; cursor: pointer; color: var(--tg-hint); transition: color .2s;
+    border: none; background: none; font-size: 10px;
+  }
+  .nav-item.active { color: var(--accent); }
+  .nav-item i { font-size: 20px; margin-bottom: 2px; }
 
-    /* Header */
-    .aim-header {
-      background: var(--aim-gradient);
-      color: white;
-      padding: 16px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-    .aim-logo { font-weight: 900; font-size: 1.3rem; letter-spacing: -0.5px; }
-    .aim-logo span { opacity: 0.85; font-size: 0.8rem; font-weight: 400; display: block; }
+  /* ── Tabs ── */
+  .tab-pane { display: none; padding: 16px; }
+  .tab-pane.active { display: block; }
 
-    /* Bottom nav */
-    .bottom-nav {
-      position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      background: var(--tg-theme-bg-color, #fff);
-      border-top: 1px solid rgba(0,0,0,0.1);
-      display: flex;
-      z-index: 200;
-    }
-    .nav-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 8px 4px;
-      cursor: pointer;
-      font-size: 0.65rem;
-      color: #888;
-      transition: color 0.15s;
-      border: none;
-      background: none;
-    }
-    .nav-item.active { color: var(--aim-violet); }
-    .nav-item i { font-size: 1.3rem; margin-bottom: 2px; }
+  /* ── AP Balance Banner ── */
+  .ap-banner {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; border-radius: 16px; padding: 16px 20px;
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+  }
+  .ap-amount { font-size: 28px; font-weight: 900; }
+  .ap-usd { font-size: 12px; opacity: .8; margin-top: 2px; }
 
-    /* Sections */
-    .section { display: none; padding: 16px; }
-    .section.active { display: block; }
+  /* ── Section Cards (Missions tab) ── */
+  .section-card {
+    border-radius: 16px; margin-bottom: 12px;
+    border: 1px solid rgba(0,0,0,0.07); cursor: pointer;
+    transition: box-shadow .15s;
+    overflow: hidden;
+  }
+  .section-card:hover { box-shadow: 0 2px 12px rgba(99,102,241,.12); }
+  .section-header {
+    padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .section-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; flex-shrink: 0;
+  }
+  .section-num { font-size: 10px; font-weight: 700; opacity: .5; }
+  .section-title { font-weight: 700; font-size: 15px; }
+  .section-desc { font-size: 12px; color: var(--tg-hint); margin-top: 2px; line-height: 1.4; }
+  .section-tag {
+    font-size: 10px; font-weight: 600; padding: 2px 8px;
+    border-radius: 20px; display: inline-block; margin-top: 4px;
+  }
+  .section-arrow { color: var(--tg-hint); transition: transform .2s; font-size: 14px; }
+  .section-arrow.open { transform: rotate(180deg); color: var(--accent); }
 
-    /* Stat cards */
-    .stat-card {
-      background: var(--aim-gradient);
-      color: white;
-      border-radius: 16px;
-      padding: 16px;
-      text-align: center;
-    }
-    .stat-card .value { font-size: 1.8rem; font-weight: 900; }
-    .stat-card .label { font-size: 0.75rem; opacity: 0.85; }
+  /* ── Detail Panel ── */
+  .detail-panel {
+    display: none; border-top: 1px solid rgba(0,0,0,0.06);
+    padding: 12px 16px; background: rgba(0,0,0,0.015);
+  }
+  .detail-panel.open { display: block; }
+  .detail-panel ul { margin: 0; padding-left: 18px; }
+  .detail-panel li { font-size: 13px; color: var(--tg-hint); margin-bottom: 5px; line-height: 1.45; }
+  .earn-badge {
+    background: rgba(99,102,241,.08); border-radius: 10px;
+    padding: 9px 12px; margin-top: 10px; font-size: 13px;
+  }
+  .earn-badge strong { color: var(--accent); }
 
-    .card-aim {
-      background: var(--tg-theme-secondary-bg-color, #f4f4f5);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 12px;
-    }
+  /* ── Step List (Home) ── */
+  .step-item { display: flex; gap: 12px; margin-bottom: 14px; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: white;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; flex-shrink: 0; margin-top: 2px;
+  }
+  .step-content h6 { margin: 0 0 3px; font-weight: 700; font-size: 14px; }
+  .step-content p { margin: 0; font-size: 12px; color: var(--tg-hint); line-height: 1.5; }
 
-    /* Mission card */
-    .mission-card {
-      background: var(--tg-theme-secondary-bg-color, #f4f4f5);
-      border-radius: 14px;
-      padding: 14px;
-      margin-bottom: 10px;
-      cursor: pointer;
-    }
-    .mission-card:active { opacity: 0.8; }
-    .badge-type {
-      display: inline-block;
-      font-size: 0.7rem;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 20px;
-      background: rgba(124, 58, 237, 0.15);
-      color: var(--aim-violet);
-      margin-bottom: 6px;
-    }
-    .reward-tag {
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--aim-violet);
-    }
+  /* ── AP Split bar ── */
+  .split-bar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; margin: 8px 0; }
 
-    /* Progress bar */
-    .progress-aim { height: 6px; border-radius: 99px; background: rgba(0,0,0,0.1); overflow: hidden; }
-    .progress-fill { height: 100%; border-radius: 99px; background: var(--aim-gradient); transition: width 0.3s; }
+  /* ── Forms ── */
+  .form-control-aim, .form-select-aim {
+    background: rgba(0,0,0,0.04); border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 10px; padding: 10px 14px; font-size: 14px;
+    color: var(--tg-text); width: 100%; outline: none;
+  }
+  .form-control-aim:focus, .form-select-aim:focus { border-color: var(--accent); background: rgba(99,102,241,.04); }
+  .form-label-aim { font-size: 13px; font-weight: 600; margin-bottom: 6px; display: block; }
+  .form-group-aim { margin-bottom: 14px; }
 
-    /* Platform tabs */
-    .platform-tab-scroll { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
-    .platform-tab-scroll::-webkit-scrollbar { display: none; }
-    .platform-tab {
-      white-space: nowrap;
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
-      cursor: pointer;
-      border: 1.5px solid rgba(124, 58, 237, 0.3);
-      background: none;
-      color: var(--tg-theme-text-color, #333);
-    }
-    .platform-tab.active {
-      background: var(--aim-gradient);
-      color: white;
-      border-color: transparent;
-    }
+  /* ── Buttons ── */
+  .btn-primary-aim {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; border: none; border-radius: 12px;
+    padding: 13px; font-size: 15px; font-weight: 700;
+    width: 100%; cursor: pointer; transition: opacity .2s; margin-top: 8px;
+  }
+  .btn-primary-aim:active { opacity: .85; }
+  .btn-outline-aim {
+    background: transparent; color: var(--accent);
+    border: 1.5px solid var(--accent); border-radius: 12px;
+    padding: 10px; font-size: 14px; font-weight: 600;
+    width: 100%; cursor: pointer; transition: all .2s; margin-top: 6px;
+  }
+  .btn-outline-aim:active { background: var(--accent); color: white; }
 
-    /* Form styles */
-    .form-control-aim {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1.5px solid rgba(0,0,0,0.12);
-      background: var(--tg-theme-bg-color, #fff);
-      color: var(--tg-theme-text-color, #000);
-      font-size: 0.9rem;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-    .form-control-aim:focus { border-color: var(--aim-violet); }
-    .form-label-aim { font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; display: block; }
-    .form-group-aim { margin-bottom: 14px; }
+  /* ── Platform Chips ── */
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip {
+    padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    border: 1.5px solid rgba(0,0,0,0.1); cursor: pointer; transition: all .2s;
+    background: transparent; color: var(--tg-text);
+  }
+  .chip.selected { background: var(--accent); color: white; border-color: var(--accent); }
 
-    /* Button */
-    .btn-aim {
-      width: 100%;
-      padding: 13px;
-      border-radius: 12px;
-      border: none;
-      background: var(--aim-gradient);
-      color: white;
-      font-size: 0.95rem;
-      font-weight: 700;
-      cursor: pointer;
-      transition: opacity 0.15s;
-    }
-    .btn-aim:active { opacity: 0.8; }
-    .btn-aim-outline {
-      background: none;
-      border: 1.5px solid var(--aim-violet);
-      color: var(--aim-violet);
-    }
+  /* ── Rank ── */
+  .rank-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border-radius: 12px; margin-bottom: 8px;
+    background: rgba(0,0,0,0.03);
+  }
+  .rank-avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-weight: 700; font-size: 14px;
+  }
+  .rank-ap { font-size: 13px; font-weight: 700; color: var(--accent); margin-left: auto; }
 
-    /* Leaderboard */
-    .rank-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 14px;
-      border-bottom: 1px solid rgba(0,0,0,0.06);
-    }
-    .rank-num { width: 28px; font-weight: 900; font-size: 1rem; text-align: center; }
-    .rank-avatar {
-      width: 36px; height: 36px; border-radius: 50%;
-      background: var(--aim-gradient);
-      display: flex; align-items: center; justify-content: center;
-      color: white; font-weight: 700; font-size: 0.9rem; flex-shrink: 0;
-    }
-    .rank-info { flex: 1; min-width: 0; }
-    .rank-name { font-weight: 600; font-size: 0.9rem; truncate: clip; }
-    .rank-points { font-size: 0.75rem; color: var(--aim-violet); font-weight: 700; }
+  /* ── Info Box ── */
+  .info-box { background: rgba(0,0,0,0.03); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .info-box-title { font-weight: 700; font-size: 13px; margin-bottom: 8px; }
 
-    /* AI content type */
-    .content-type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
-    .content-type-card {
-      padding: 14px 10px;
-      border-radius: 12px;
-      background: var(--tg-theme-secondary-bg-color, #f4f4f5);
-      text-align: center;
-      cursor: pointer;
-      border: 2px solid transparent;
-      transition: border-color 0.15s;
-    }
-    .content-type-card.selected { border-color: var(--aim-violet); }
-    .content-type-card i { font-size: 1.6rem; color: var(--aim-violet); margin-bottom: 6px; display: block; }
-    .content-type-card span { font-size: 0.75rem; font-weight: 600; }
-
-    /* Toast */
-    .toast-aim {
-      position: fixed;
-      bottom: 80px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1a1a2e;
-      color: white;
-      padding: 10px 20px;
-      border-radius: 24px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      z-index: 999;
-      display: none;
-      white-space: nowrap;
-    }
-    .toast-aim.show { display: block; animation: fadeInOut 2.5s ease forwards; }
-    @keyframes fadeInOut {
-      0% { opacity: 0; transform: translateX(-50%) translateY(10px); }
-      15% { opacity: 1; transform: translateX(-50%) translateY(0); }
-      80% { opacity: 1; }
-      100% { opacity: 0; }
-    }
-
-    /* Points popup */
-    .points-banner {
-      background: var(--aim-gradient);
-      color: white;
-      border-radius: 14px;
-      padding: 14px;
-      text-align: center;
-      margin-bottom: 16px;
-    }
-    .points-banner .big { font-size: 2rem; font-weight: 900; }
-    .points-banner .sub { font-size: 0.75rem; opacity: 0.85; }
-
-    /* Section title */
-    .section-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 14px; }
-
-    /* Ad type select */
-    .ad-type-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .ad-type-btn {
-      padding: 6px 12px;
-      border-radius: 20px;
-      border: 1.5px solid rgba(0,0,0,0.15);
-      background: none;
-      font-size: 0.78rem;
-      font-weight: 600;
-      cursor: pointer;
-      color: var(--tg-theme-text-color, #333);
-    }
-    .ad-type-btn.selected {
-      background: var(--aim-gradient);
-      color: white;
-      border-color: transparent;
-    }
-  </style>
+  /* ── Toast ── */
+  .toast-msg {
+    position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+    background: #1a1a2e; color: white; padding: 10px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 600; z-index: 999; display: none; white-space: nowrap;
+  }
+  .toast-msg.show { display: block; animation: fadeInOut 2.5s forwards; }
+  @keyframes fadeInOut {
+    0%  { opacity:0; transform:translateX(-50%) translateY(10px); }
+    15% { opacity:1; transform:translateX(-50%) translateY(0); }
+    80% { opacity:1; }
+    100%{ opacity:0; }
+  }
+</style>
 </head>
 <body>
 
-<!-- Header -->
-<div class="aim-header d-flex align-items-center justify-content-between">
-  <div class="aim-logo">AIM <span>AI Money Makers Hub</span></div>
-  <div id="headerPoints" style="font-size:0.85rem; font-weight:700; background:rgba(255,255,255,0.2); border-radius:20px; padding:4px 12px;">
-    0 AP
+<!-- ── Top Bar ── -->
+<div class="top-bar">
+  <div class="logo">⚡ AIM</div>
+  <div class="lang-btns">
+    <button class="lang-btn active" onclick="setLang('en')">EN</button>
+    <button class="lang-btn" onclick="setLang('ko')">한</button>
+    <button class="lang-btn" onclick="setLang('vi')">VI</button>
   </div>
 </div>
 
-<!-- HOME SECTION -->
-<div id="sec-home" class="section active">
-  <div class="points-banner mt-2">
-    <div class="sub">내 AIM Point</div>
-    <div class="big" id="homePts">0 AP</div>
-    <div class="sub" id="homeUsd">≈ 0.00 USD</div>
+<!-- ══════════════════════════════════════
+     TAB: HOME
+     ══════════════════════════════════════ -->
+<div id="tab-home" class="tab-pane active">
+
+  <!-- Balance -->
+  <div class="ap-banner">
+    <div>
+      <div style="font-size:12px;opacity:.8" data-i18n="myBalance">My Balance</div>
+      <div class="ap-amount"><span id="apBalance">0</span> AP</div>
+      <div class="ap-usd">≈ $<span id="apUsd">0.00</span> USD</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;opacity:.7;margin-bottom:4px" data-i18n="referralCode">Referral Code</div>
+      <div style="font-size:16px;font-weight:900;letter-spacing:2px" id="myRefCode">------</div>
+      <button onclick="copyRef()" style="background:rgba(255,255,255,.2);border:none;color:white;border-radius:8px;padding:4px 10px;font-size:11px;margin-top:4px;cursor:pointer" data-i18n="copy">Copy</button>
+    </div>
   </div>
 
-  <div class="row g-2 mb-3">
-    <div class="col-6">
-      <div class="card-aim text-center">
-        <div style="font-size:1.4rem; font-weight:900; color:var(--aim-violet)" id="statMissions">24</div>
-        <div style="font-size:0.75rem; color:#888">활성 미션</div>
+  <!-- How it works -->
+  <div style="font-weight:700;font-size:16px;margin-bottom:12px" data-i18n="howItWorks">How It Works</div>
+
+  <div class="step-item">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <h6 data-i18n="step1Title">Join Telegram Group</h6>
+      <p data-i18n="step1Desc">Join via referral link → Click Mini App → Auto-registered with mentor code recorded</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <h6 data-i18n="step2Title">Choose a Mission</h6>
+      <p data-i18n="step2Desc">Pick from 6 earning sections. Complete tasks using your SNS or AI skills</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <h6 data-i18n="step3Title">Bot Verifies & Rewards</h6>
+      <p data-i18n="step3Desc">Telegram bot auto-verifies your work and deposits AP to your wallet</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">4</div>
+    <div class="step-content">
+      <h6 data-i18n="step4Title">Withdraw Anytime</h6>
+      <p data-i18n="step4Desc">10,000 AP = $1 USD. Withdraw via TON, USDT, or Telegram STARS</p>
+    </div>
+  </div>
+
+  <!-- Revenue split -->
+  <div class="info-box">
+    <div class="info-box-title" data-i18n="revenueShare">Revenue Share</div>
+    <div class="split-bar">
+      <div style="flex:20;background:#ef4444"></div>
+      <div style="flex:10;background:var(--gold)"></div>
+      <div style="flex:70;background:#22c55e"></div>
+    </div>
+    <div style="display:flex;gap:12px;font-size:11px;font-weight:600">
+      <span style="color:#ef4444">■ <span data-i18n="platform">Platform</span> 20%</span>
+      <span style="color:var(--gold)">■ <span data-i18n="mentor">Mentor</span> 10%</span>
+      <span style="color:#22c55e">■ <span data-i18n="marketer">Marketer</span> 70%</span>
+    </div>
+  </div>
+
+  <!-- Referral link -->
+  <div class="info-box">
+    <div class="info-box-title" data-i18n="myReferralLink">My Referral Link</div>
+    <div style="font-size:12px;color:var(--tg-hint);word-break:break-all;margin-bottom:8px" id="myRefLink">-</div>
+    <button class="btn-outline-aim" style="margin-top:0" onclick="copyRef()" data-i18n="copyLink">Copy Link</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: MISSIONS (6 Sections)
+     ══════════════════════════════════════ -->
+<div id="tab-missions" class="tab-pane">
+  <div style="font-weight:700;font-size:16px;margin-bottom:4px" data-i18n="earningSections">6 Earning Sections</div>
+  <div style="font-size:12px;color:var(--tg-hint);margin-bottom:14px" data-i18n="tapToExpand">Tap a section to see details</div>
+
+  <!-- ─ Section 1: SNS Content Marketing ─ -->
+  <div class="section-card" onclick="toggleSection('s1')">
+    <div class="section-header">
+      <div class="section-icon" style="background:rgba(59,130,246,.1)">📣</div>
+      <div style="flex:1">
+        <div class="section-num">SECTION 1</div>
+        <div class="section-title" data-i18n="s1Title">SNS Content Marketing</div>
+        <div class="section-desc" data-i18n="s1Desc">Post ads on your SNS · Bot verifies engagement · Earn AP per click / like / comment</div>
+        <span class="section-tag" style="background:rgba(59,130,246,.1);color:#3b82f6" data-i18n="s1Tag">Click · Impression · Comment · Like</span>
       </div>
+      <i class="bi bi-chevron-down section-arrow" id="arr-s1"></i>
     </div>
-    <div class="col-6">
-      <div class="card-aim text-center">
-        <div style="font-size:1.4rem; font-weight:900; color:#06b6d4">12,450</div>
-        <div style="font-size:0.75rem; color:#888">총 크리에이터</div>
+    <div class="detail-panel" id="s1">
+      <ul>
+        <li data-i18n="s1li1">Register your Facebook / YouTube / TikTok / Instagram / X account</li>
+        <li data-i18n="s1li2">Advertiser selects ad format and assigns AP budget</li>
+        <li data-i18n="s1li3">Bot tracks clicks, impressions, comments, likes in real-time</li>
+        <li data-i18n="s1li4">AP auto-credited to your wallet after verification</li>
+      </ul>
+      <div class="earn-badge"><strong data-i18n="earning">Earning: </strong><span data-i18n="s1earn">Up to 70% of advertiser's AP budget per engagement</span></div>
+      <button class="btn-primary-aim" onclick="goSubmit('sns')" data-i18n="registerSNS">Register My SNS</button>
+    </div>
+  </div>
+
+  <!-- ─ Section 2: AI Review / CF Creation ─ -->
+  <div class="section-card" onclick="toggleSection('s2')">
+    <div class="section-header">
+      <div class="section-icon" style="background:rgba(139,92,246,.1)">🎬</div>
+      <div style="flex:1">
+        <div class="section-num">SECTION 2</div>
+        <div class="section-title" data-i18n="s2Title">AI Review / CF Creation</div>
+        <div class="section-desc" data-i18n="s2Desc">Create AI video reviews & CF ads · Post to your SNS · Get paid from escrow</div>
+        <span class="section-tag" style="background:rgba(139,92,246,.1);color:#8b5cf6" data-i18n="s2Tag">AI Video · Product Review · CF Ad</span>
       </div>
+      <i class="bi bi-chevron-down section-arrow" id="arr-s2"></i>
+    </div>
+    <div class="detail-panel" id="s2">
+      <ul>
+        <li data-i18n="s2li1">Advertiser deposits AP escrow + provides product link/images/video</li>
+        <li data-i18n="s2li2">You create AI-powered CF or review video using AI tools</li>
+        <li data-i18n="s2li3">Upload to your SNS (YouTube, TikTok, Instagram, etc.)</li>
+        <li data-i18n="s2li4">Bot measures performance → releases AP reward from escrow</li>
+      </ul>
+      <div class="earn-badge"><strong data-i18n="earning">Earning: </strong><span data-i18n="s2earn">70% of escrow based on engagement metrics</span></div>
+      <button class="btn-primary-aim" onclick="goSubmit('cf')" data-i18n="submitCF">Submit CF / Review Video</button>
     </div>
   </div>
 
-  <p class="section-title">빠른 메뉴</p>
-  <div class="row g-2 mb-3">
-    <div class="col-4">
-      <button class="card-aim text-center w-100 border-0 cursor-pointer" onclick="switchTab('missions')">
-        <i class="bi bi-bullseye" style="font-size:1.5rem; color:var(--aim-violet)"></i>
-        <div style="font-size:0.75rem; margin-top:4px">미션</div>
-      </button>
-    </div>
-    <div class="col-4">
-      <button class="card-aim text-center w-100 border-0 cursor-pointer" onclick="switchTab('register')">
-        <i class="bi bi-plus-circle-fill" style="font-size:1.5rem; color:#06b6d4"></i>
-        <div style="font-size:0.75rem; margin-top:4px">콘텐츠 등록</div>
-      </button>
-    </div>
-    <div class="col-4">
-      <button class="card-aim text-center w-100 border-0 cursor-pointer" onclick="switchTab('rank')">
-        <i class="bi bi-trophy-fill" style="font-size:1.5rem; color:#f59e0b"></i>
-        <div style="font-size:0.75rem; margin-top:4px">랭킹</div>
-      </button>
-    </div>
-  </div>
-
-  <p class="section-title">포인트 획득 방법</p>
-  <div class="card-aim">
-    <table style="width:100%; font-size:0.82rem;">
-      <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
-        <td style="padding:7px 0; color:#888">게시물 등록</td>
-        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+1,000 AP</td>
-      </tr>
-      <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
-        <td style="padding:7px 0; color:#888">좋아요 획득</td>
-        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+500 AP</td>
-      </tr>
-      <tr style="border-bottom:1px solid rgba(0,0,0,0.08)">
-        <td style="padding:7px 0; color:#888">댓글 획득</td>
-        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+500 AP</td>
-      </tr>
-      <tr>
-        <td style="padding:7px 0; color:#888">미션 완료</td>
-        <td style="text-align:right; font-weight:700; color:var(--aim-violet)">+50,000 AP~</td>
-      </tr>
-    </table>
-  </div>
-
-  <p class="section-title mt-3">추천 링크 공유</p>
-  <div class="card-aim">
-    <div style="font-size:0.82rem; color:#888; margin-bottom:8px">멘티 수당 10% 적용</div>
-    <div style="display:flex; gap:8px">
-      <div id="referralLink" style="flex:1; font-size:0.78rem; font-family:monospace; background:rgba(0,0,0,0.05); padding:8px 10px; border-radius:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">
-        로딩 중...
+  <!-- ─ Section 3: AI Music / MV ─ -->
+  <div class="section-card" onclick="toggleSection('s3')">
+    <div class="section-header">
+      <div class="section-icon" style="background:rgba(236,72,153,.1)">🎵</div>
+      <div style="flex:1">
+        <div class="section-num">SECTION 3</div>
+        <div class="section-title" data-i18n="s3Title">AI Music / Music Video</div>
+        <div class="section-desc" data-i18n="s3Desc">Create AI MP3 & music videos matching advertiser's lyrics & theme</div>
+        <span class="section-tag" style="background:rgba(236,72,153,.1);color:#ec4899" data-i18n="s3Tag">AI Music · MP3 · MV Production</span>
       </div>
-      <button onclick="copyReferral()" style="border:none; background:var(--aim-violet); color:white; border-radius:8px; padding:8px 12px; font-size:0.8rem; font-weight:600">복사</button>
+      <i class="bi bi-chevron-down section-arrow" id="arr-s3"></i>
+    </div>
+    <div class="detail-panel" id="s3">
+      <ul>
+        <li data-i18n="s3li1">Advertiser provides lyrics, theme, mood references</li>
+        <li data-i18n="s3li2">You generate AI music (Suno, Udio, etc.) matching the brief</li>
+        <li data-i18n="s3li3">Optionally create music video using AI video tools</li>
+        <li data-i18n="s3li4">Submit link → Admin approves → AP rewarded</li>
+      </ul>
+      <div class="earn-badge"><strong data-i18n="earning">Earning: </strong><span data-i18n="s3earn">Fixed AP reward per approved music piece</span></div>
+      <button class="btn-primary-aim" onclick="goSubmit('music')" data-i18n="submitMusic">Submit Music / MV</button>
+    </div>
+  </div>
+
+  <!-- ─ Section 4: Business Content Contest ─ -->
+  <div class="section-card" onclick="toggleSection('s4')">
+    <div class="section-header">
+      <div class="section-icon" style="background:rgba(245,158,11,.1)">🏆</div>
+      <div style="flex:1">
+        <div class="section-num">SECTION 4</div>
+        <div class="section-title" data-i18n="s4Title">Business Content Contest</div>
+        <div class="section-desc" data-i18n="s4Desc">Submit biz intro / promo video / poster · Community votes · Top 10 rewarded</div>
+        <span class="section-tag" style="background:rgba(245,158,11,.1);color:#f59e0b" data-i18n="s4Tag">Contest · Voting · Top 10 Reward</span>
+      </div>
+      <i class="bi bi-chevron-down section-arrow" id="arr-s4"></i>
+    </div>
+    <div class="detail-panel" id="s4">
+      <ul>
+        <li data-i18n="s4li1">Client requests: business intro, promo video, poster, landing page</li>
+        <li data-i18n="s4li2">Multiple members submit their creative content</li>
+        <li data-i18n="s4li3">Community evaluates and votes for best submissions</li>
+        <li data-i18n="s4li4">Top 1–10 ranked creators auto-rewarded from client's AP budget</li>
+      </ul>
+      <div class="earn-badge"><strong data-i18n="earning">Earning: </strong><span data-i18n="s4earn">Rank 1 gets largest share · Rank 10 gets base reward</span></div>
+      <button class="btn-primary-aim" onclick="goSubmit('contest')" data-i18n="submitContest">Submit to Contest</button>
+    </div>
+  </div>
+
+  <!-- ─ Section 5: SNS Sponsorship Marketplace ─ -->
+  <div class="section-card" onclick="toggleSection('s5')">
+    <div class="section-header">
+      <div class="section-icon" style="background:rgba(16,185,129,.1)">🤝</div>
+      <div style="flex:1">
+        <div class="section-num">SECTION 5</div>
+        <div class="section-title" data-i18n="s5Title">SNS Sponsorship Marketplace</div>
+        <div class="section-desc" data-i18n="s5Desc">List your SNS as a sponsor slot · Set monthly price · Advertisers hire you directly</div>
+        <span class="section-tag" style="background:rgba(16,185,129,.1);color:#10b981" data-i18n="s5Tag">Monthly Sponsor · Banner · Fixed Income</span>
+      </div>
+      <i class="bi bi-chevron-down section-arrow" id="arr-s5"></i>
+    </div>
+    <div class="detail-panel" id="s5">
+      <ul>
+        <li data-i18n="s5li1">Register your SNS accounts (follower count, niche, engagement rate)</li>
+        <li data-i18n="s5li2">Specify services: banner placement, dedicated posts, story mentions</li>
+        <li data-i18n="s5li3">Set your 1-month package price in AP</li>
+        <li data-i18n="s5li4">Advertisers browse and purchase directly — AP transferred instantly</li>
+      </ul>
+      <div class="earn-badge"><strong data-i18n="earning">Earning: </strong><span data-i18n="s5earn">Fixed monthly AP from sponsor contracts</span></div>
+      <button class="btn-primary-aim" onclick="goSubmit('sponsor')" data-i18n="listSNS">List My SNS as Sponsor</button>
+    </div>
+  </div>
+
+  <!-- ─ Section 6: Follow / Join Rewards ─ -->
+  <div class="section-card" onclick="toggleSection('s6')">
+    <div class="section-header">
+      <div class="section-icon" style="background:rgba(239,68,68,.1)">👥</div>
+      <div style="flex:1">
+        <div class="section-num">SECTION 6</div>
+        <div class="section-title" data-i18n="s6Title">Follow / Join Rewards</div>
+        <div class="section-desc" data-i18n="s6Desc">Follow Instagram · Join Telegram · Subscribe YouTube · Instant AP reward</div>
+        <span class="section-tag" style="background:rgba(239,68,68,.1);color:#ef4444" data-i18n="s6Tag">Instant Reward · Follow · Subscribe</span>
+      </div>
+      <i class="bi bi-chevron-down section-arrow" id="arr-s6"></i>
+    </div>
+    <div class="detail-panel" id="s6">
+      <ul>
+        <li data-i18n="s6li1">Advertisers set AP reward per action (follow, join, subscribe)</li>
+        <li data-i18n="s6li2">Complete the action on the target platform</li>
+        <li data-i18n="s6li3">Submit proof (screenshot or bot auto-verify)</li>
+        <li data-i18n="s6li4">AP instantly credited to your wallet</li>
+      </ul>
+      <div class="earn-badge"><strong data-i18n="earning">Earning: </strong><span data-i18n="s6earn">Per-action AP reward · Stacks with multiple tasks</span></div>
+      <button class="btn-primary-aim" onclick="goSubmit('follow')" data-i18n="browseFollowTasks">Browse Follow Tasks</button>
     </div>
   </div>
 </div>
 
-<!-- MISSIONS SECTION -->
-<div id="sec-missions" class="section">
-  <p class="section-title">미션 목록</p>
-
-  <div class="platform-tab-scroll mb-3">
-    <button class="platform-tab active" onclick="filterMissions('all', this)">전체</button>
-    <button class="platform-tab" onclick="filterMissions('cf_video', this)">CF 영상</button>
-    <button class="platform-tab" onclick="filterMissions('sns_post', this)">SNS 게시물</button>
-    <button class="platform-tab" onclick="filterMissions('blog_post', this)">블로그</button>
-    <button class="platform-tab" onclick="filterMissions('cm_song', this)">CM송</button>
-    <button class="platform-tab" onclick="filterMissions('review', this)">리뷰</button>
-    <button class="platform-tab" onclick="filterMissions('signup', this)">가입</button>
-  </div>
-
-  <div id="missionList">
-    <!-- Populated by JS -->
-  </div>
-</div>
-
-<!-- CONTENT REGISTER SECTION -->
-<div id="sec-register" class="section">
-  <p class="section-title">콘텐츠 등록</p>
-
-  <div class="platform-tab-scroll mb-3">
-    <button class="platform-tab active" onclick="selectPlatform('YouTube', this)">YouTube</button>
-    <button class="platform-tab" onclick="selectPlatform('Instagram', this)">Instagram</button>
-    <button class="platform-tab" onclick="selectPlatform('TikTok', this)">TikTok</button>
-    <button class="platform-tab" onclick="selectPlatform('Facebook', this)">Facebook</button>
-    <button class="platform-tab" onclick="selectPlatform('X', this)">X (Twitter)</button>
-    <button class="platform-tab" onclick="selectPlatform('Telegram', this)">Telegram</button>
-    <button class="platform-tab" onclick="selectPlatform('Reddit', this)">Reddit</button>
-    <button class="platform-tab" onclick="selectPlatform('Blog', this)">Blog</button>
-  </div>
+<!-- ══════════════════════════════════════
+     TAB: SUBMIT
+     ══════════════════════════════════════ -->
+<div id="tab-submit" class="tab-pane">
+  <div style="font-weight:700;font-size:16px;margin-bottom:16px" data-i18n="submitContent">Submit Content</div>
 
   <div class="form-group-aim">
-    <label class="form-label-aim">게시물 URL *</label>
-    <input type="url" id="postUrl" class="form-control-aim" placeholder="https://www.youtube.com/watch?v=..." />
-  </div>
-
-  <div class="form-group-aim">
-    <label class="form-label-aim">사용된 태그 (공백 구분)</label>
-    <input type="text" id="postTags" class="form-control-aim" placeholder="#AIM #AIcf #창작" />
-  </div>
-
-  <div class="form-group-aim">
-    <label class="form-label-aim">관련 미션 (선택)</label>
-    <select id="missionSelect" class="form-control-aim">
-      <option value="">미션 없이 등록</option>
+    <label class="form-label-aim" data-i18n="selectSection">Select Section</label>
+    <select class="form-select-aim" id="submitSection">
+      <option value="sns">Section 1 — SNS Content Marketing</option>
+      <option value="cf">Section 2 — AI Review / CF Creation</option>
+      <option value="music">Section 3 — AI Music / MV</option>
+      <option value="contest">Section 4 — Business Content Contest</option>
+      <option value="sponsor">Section 5 — SNS Sponsorship</option>
+      <option value="follow">Section 6 — Follow / Join Rewards</option>
     </select>
   </div>
 
   <div class="form-group-aim">
-    <label class="form-label-aim">추가 메모</label>
-    <textarea id="postNote" class="form-control-aim" rows="3" placeholder="콘텐츠 설명을 입력하세요..."></textarea>
+    <label class="form-label-aim" data-i18n="selectPlatform">Platform</label>
+    <div class="chip-row">
+      <button class="chip" onclick="toggleChip(this)">YouTube</button>
+      <button class="chip" onclick="toggleChip(this)">TikTok</button>
+      <button class="chip" onclick="toggleChip(this)">Instagram</button>
+      <button class="chip" onclick="toggleChip(this)">Facebook</button>
+      <button class="chip" onclick="toggleChip(this)">X (Twitter)</button>
+      <button class="chip" onclick="toggleChip(this)">Telegram</button>
+      <button class="chip" onclick="toggleChip(this)">Blog</button>
+      <button class="chip" onclick="toggleChip(this)">Other</button>
+    </div>
   </div>
 
-  <div class="card-aim mb-3" style="border-left: 3px solid var(--aim-violet)">
-    <div style="font-size:0.8rem; color:#888; margin-bottom:6px">필수 태그 포함 시 자동 보상</div>
-    <div style="font-size:0.85rem; font-weight:700">#AIM 포함 → +1,000 AP 즉시 지급</div>
+  <div class="form-group-aim">
+    <label class="form-label-aim" data-i18n="contentUrl">Content URL</label>
+    <input type="url" class="form-control-aim" id="contentUrl" placeholder="https://" />
   </div>
 
-  <button class="btn-aim" onclick="submitContent()">콘텐츠 등록하기</button>
+  <div class="form-group-aim">
+    <label class="form-label-aim" data-i18n="description">Description</label>
+    <textarea class="form-control-aim" id="contentDesc" rows="3" style="resize:none" placeholder="#AIM"></textarea>
+    <div style="font-size:11px;color:var(--tg-hint);margin-top:4px" data-i18n="hashtagNote">#AIM hashtag required in your post</div>
+  </div>
+
+  <div class="form-group-aim">
+    <label class="form-label-aim" data-i18n="missionId">Mission ID (optional)</label>
+    <input type="text" class="form-control-aim" id="missionId" placeholder="e.g. M-2024-001" />
+  </div>
+
+  <button class="btn-primary-aim" onclick="submitContent()" data-i18n="submitBtn">Submit for Review</button>
 </div>
 
-<!-- RANK SECTION -->
-<div id="sec-rank" class="section">
-  <p class="section-title">리더보드</p>
+<!-- ══════════════════════════════════════
+     TAB: RANK
+     ══════════════════════════════════════ -->
+<div id="tab-rank" class="tab-pane">
+  <div style="font-weight:700;font-size:16px;margin-bottom:4px" data-i18n="leaderboard">Leaderboard</div>
+  <div style="font-size:12px;color:var(--tg-hint);margin-bottom:14px" data-i18n="topEarners">Top AP earners this week</div>
+  <div id="rankList"></div>
+</div>
 
-  <div class="platform-tab-scroll mb-3">
-    <button class="platform-tab active" onclick="switchRankPeriod('daily', this)">일간</button>
-    <button class="platform-tab" onclick="switchRankPeriod('weekly', this)">주간</button>
-    <button class="platform-tab" onclick="switchRankPeriod('monthly', this)">월간</button>
-    <button class="platform-tab" onclick="switchRankPeriod('all', this)">전체</button>
+<!-- ══════════════════════════════════════
+     TAB: PROFILE
+     ══════════════════════════════════════ -->
+<div id="tab-profile" class="tab-pane">
+  <div style="text-align:center;padding:20px 0">
+    <div id="profileAvatar" style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:white;font-weight:700;font-size:28px;margin:0 auto 10px">?</div>
+    <div style="font-weight:700;font-size:18px" id="profileName">-</div>
+    <div style="font-size:13px;color:var(--tg-hint)" id="profileUsername">-</div>
   </div>
 
-  <div id="rankList" class="card-aim" style="padding:0; overflow:hidden">
-    <!-- Populated by JS -->
+  <div class="info-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:13px;color:var(--tg-hint)" data-i18n="totalAP">Total AP</span>
+      <span style="font-weight:700;color:var(--accent)" id="profileAP">0 AP</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:13px;color:var(--tg-hint)" data-i18n="usdValue">USD Value</span>
+      <span style="font-weight:600" id="profileUSD">$0.00</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;color:var(--tg-hint)" data-i18n="myMentor">My Mentor</span>
+      <span style="font-weight:600" id="profileMentor">-</span>
+    </div>
+  </div>
+
+  <div class="info-box">
+    <div class="info-box-title" data-i18n="withdrawAP">Withdraw AP</div>
+    <div style="font-size:12px;color:var(--tg-hint);margin-bottom:10px" data-i18n="withdrawNote">Min 10,000 AP · TON / USDT / Telegram STARS</div>
+    <button class="btn-outline-aim" style="margin-top:0" onclick="showToast(t('comingSoon'))" data-i18n="requestWithdraw">Request Withdrawal</button>
   </div>
 </div>
 
-<!-- AD REGISTER SECTION -->
-<div id="sec-ad" class="section">
-  <p class="section-title">광고 등록</p>
-
-  <!-- Ad Type -->
-  <div class="form-group-aim">
-    <label class="form-label-aim">광고 유형</label>
-    <div class="ad-type-row" id="adTypeRow">
-      <button class="ad-type-btn selected" onclick="selectAdType(this, '클릭')">클릭 (50 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '노출')">노출 (10 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '좋아요')">좋아요 (100 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '댓글')">댓글 (300 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '공유')">공유 (300 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '구독')">구독 (500 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '팔로우')">팔로우 (500 AP)</button>
-      <button class="ad-type-btn" onclick="selectAdType(this, '가입')">가입 (500 AP)</button>
-    </div>
-  </div>
-
-  <div class="form-group-aim">
-    <label class="form-label-aim">광고 제목 *</label>
-    <input type="text" id="adTitle" class="form-control-aim" placeholder="미션 제목을 입력하세요" />
-  </div>
-
-  <div class="form-group-aim">
-    <label class="form-label-aim">대상 URL *</label>
-    <input type="url" id="adTargetUrl" class="form-control-aim" placeholder="https://..." />
-  </div>
-
-  <div class="form-group-aim">
-    <label class="form-label-aim">총 예산 (AP) *</label>
-    <input type="number" id="adBudget" class="form-control-aim" placeholder="1,000,000" oninput="updateAdSplit()" />
-  </div>
-
-  <!-- Revenue split preview -->
-  <div class="card-aim mb-3">
-    <div style="font-size:0.82rem; font-weight:700; margin-bottom:8px">수익 분배 구조</div>
-    <div style="display:flex; gap:0; border-radius:8px; overflow:hidden; margin-bottom:8px">
-      <div style="flex:2; background:#7c3aed; color:white; text-align:center; padding:6px; font-size:0.72rem; font-weight:700">플랫폼 20%</div>
-      <div style="flex:1; background:#06b6d4; color:white; text-align:center; padding:6px; font-size:0.72rem; font-weight:700">멘토 10%</div>
-      <div style="flex:7; background:#10b981; color:white; text-align:center; padding:6px; font-size:0.72rem; font-weight:700">참여자 70%</div>
-    </div>
-    <div style="font-size:0.8rem; color:#888" id="splitPreview">예산 입력 시 분배 금액이 표시됩니다</div>
-  </div>
-
-  <!-- Dates -->
-  <div class="row g-2 mb-3">
-    <div class="col-6">
-      <label class="form-label-aim">시작일</label>
-      <input type="date" id="adStart" class="form-control-aim" />
-    </div>
-    <div class="col-6">
-      <label class="form-label-aim">종료일</label>
-      <input type="date" id="adEnd" class="form-control-aim" />
-    </div>
-  </div>
-
-  <!-- AI Content Request toggle -->
-  <div class="card-aim mb-3">
-    <div class="d-flex align-items-center justify-content-between">
-      <div>
-        <div style="font-weight:700; font-size:0.9rem">AI 콘텐츠 제작 의뢰</div>
-        <div style="font-size:0.75rem; color:#888">AI로 CF/CM송/리뷰 등 제작</div>
-      </div>
-      <label style="position:relative; width:42px; height:24px">
-        <input type="checkbox" id="aiContentToggle" style="opacity:0; width:0; height:0" onchange="toggleAiContent()" />
-        <span id="toggleTrack" style="position:absolute; inset:0; border-radius:999px; background:#ddd; cursor:pointer; transition:0.2s"></span>
-        <span id="toggleThumb" style="position:absolute; left:3px; top:3px; width:18px; height:18px; border-radius:50%; background:white; transition:0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.3)"></span>
-      </label>
-    </div>
-  </div>
-
-  <div id="aiContentSection" style="display:none">
-    <div class="content-type-grid" id="aiTypeGrid">
-      <div class="content-type-card selected" onclick="selectAiType(this, 'review_video')">
-        <i class="bi bi-camera-video-fill"></i>
-        <span>리뷰 영상</span>
-      </div>
-      <div class="content-type-card" onclick="selectAiType(this, 'cf_video')">
-        <i class="bi bi-film"></i>
-        <span>CF 영상</span>
-      </div>
-      <div class="content-type-card" onclick="selectAiType(this, 'cm_song')">
-        <i class="bi bi-music-note-beamed"></i>
-        <span>CM송</span>
-      </div>
-      <div class="content-type-card" onclick="selectAiType(this, 'music_video')">
-        <i class="bi bi-play-circle-fill"></i>
-        <span>뮤직비디오</span>
-      </div>
-      <div class="content-type-card" onclick="selectAiType(this, 'brochure')">
-        <i class="bi bi-file-earmark-pdf-fill"></i>
-        <span>브로셔</span>
-      </div>
-      <div class="content-type-card" onclick="selectAiType(this, 'landing_page')">
-        <i class="bi bi-globe"></i>
-        <span>랜딩페이지</span>
-      </div>
-      <div class="content-type-card" onclick="selectAiType(this, 'poster')">
-        <i class="bi bi-image-fill"></i>
-        <span>포스터</span>
-      </div>
-    </div>
-
-    <div class="form-group-aim">
-      <label class="form-label-aim">제품/서비스 설명 *</label>
-      <textarea class="form-control-aim" id="aiProductDesc" rows="3" placeholder="AI가 제작할 콘텐츠의 제품/서비스를 설명해주세요..."></textarea>
-    </div>
-  </div>
-
-  <button class="btn-aim" onclick="submitAd()">광고 등록하기</button>
-</div>
-
-<!-- Toast -->
-<div class="toast-aim" id="toast"></div>
-
-<!-- Bottom Nav -->
+<!-- ── Bottom Nav ── -->
 <div class="bottom-nav">
-  <button class="nav-item active" id="nav-home" onclick="switchTab('home')">
-    <i class="bi bi-house-fill"></i> 홈
+  <button class="nav-item active" onclick="showTab('home',this)">
+    <i class="bi bi-house-fill"></i>
+    <span data-i18n="navHome">Home</span>
   </button>
-  <button class="nav-item" id="nav-missions" onclick="switchTab('missions')">
-    <i class="bi bi-bullseye"></i> 미션
+  <button class="nav-item" onclick="showTab('missions',this)">
+    <i class="bi bi-grid-fill"></i>
+    <span data-i18n="navMissions">Missions</span>
   </button>
-  <button class="nav-item" id="nav-register" onclick="switchTab('register')">
-    <i class="bi bi-plus-circle-fill" style="font-size:1.6rem"></i>
+  <button class="nav-item" onclick="showTab('submit',this)">
+    <i class="bi bi-plus-circle-fill" style="font-size:26px;color:var(--accent)"></i>
+    <span data-i18n="navSubmit">Submit</span>
   </button>
-  <button class="nav-item" id="nav-rank" onclick="switchTab('rank')">
-    <i class="bi bi-trophy-fill"></i> 랭킹
+  <button class="nav-item" onclick="showTab('rank',this)">
+    <i class="bi bi-trophy-fill"></i>
+    <span data-i18n="navRank">Rank</span>
   </button>
-  <button class="nav-item" id="nav-ad" onclick="switchTab('ad')">
-    <i class="bi bi-megaphone-fill"></i> 광고
+  <button class="nav-item" onclick="showTab('profile',this)">
+    <i class="bi bi-person-fill"></i>
+    <span data-i18n="navProfile">Profile</span>
   </button>
 </div>
+
+<div class="toast-msg" id="toastMsg"></div>
 
 <script>
-// ─── State ─────────────────────────────────────────────────────────────
-const state = {
-  user: null,
-  currentPlatform: 'YouTube',
-  currentAdType: '클릭',
-  currentAiType: 'review_video',
-  currentMissionFilter: 'all',
-  currentRankPeriod: 'daily',
+// ═══════════════════════════════════════════════════
+// i18n strings  (EN / KO / VI)
+// ═══════════════════════════════════════════════════
+const LANGS = {
+  en: {
+    myBalance:'My Balance', referralCode:'Referral Code', copy:'Copy',
+    howItWorks:'How It Works',
+    step1Title:'Join Telegram Group', step1Desc:'Join via referral link → Click Mini App → Auto-registered with mentor code recorded',
+    step2Title:'Choose a Mission', step2Desc:'Pick from 6 earning sections. Complete tasks using your SNS or AI skills',
+    step3Title:'Bot Verifies & Rewards', step3Desc:'Telegram bot auto-verifies your work and deposits AP to your wallet',
+    step4Title:'Withdraw Anytime', step4Desc:'10,000 AP = $1 USD. Withdraw via TON, USDT, or Telegram STARS',
+    revenueShare:'Revenue Share', platform:'Platform', mentor:'Mentor', marketer:'Marketer',
+    myReferralLink:'My Referral Link', copyLink:'Copy Link',
+    earningSections:'6 Earning Sections', tapToExpand:'Tap a section to see details',
+    earning:'Earning: ',
+    s1Title:'SNS Content Marketing',
+    s1Desc:'Post ads on your SNS · Bot verifies engagement · Earn AP per click / like / comment',
+    s1Tag:'Click · Impression · Comment · Like',
+    s1li1:'Register your Facebook / YouTube / TikTok / Instagram / X account',
+    s1li2:'Advertiser selects ad format and assigns AP budget',
+    s1li3:'Bot tracks clicks, impressions, comments, likes in real-time',
+    s1li4:'AP auto-credited to your wallet after verification',
+    s1earn:'Up to 70% of advertiser\'s AP budget per engagement',
+    registerSNS:'Register My SNS',
+    s2Title:'AI Review / CF Creation',
+    s2Desc:'Create AI video reviews & CF ads · Post to your SNS · Get paid from escrow',
+    s2Tag:'AI Video · Product Review · CF Ad',
+    s2li1:'Advertiser deposits AP escrow + provides product link/images/video',
+    s2li2:'You create AI-powered CF or review video using AI tools',
+    s2li3:'Upload to your SNS (YouTube, TikTok, Instagram, etc.)',
+    s2li4:'Bot measures performance → releases AP reward from escrow',
+    s2earn:'70% of escrow based on engagement metrics',
+    submitCF:'Submit CF / Review Video',
+    s3Title:'AI Music / Music Video',
+    s3Desc:'Create AI MP3 & music videos matching advertiser\'s lyrics & theme',
+    s3Tag:'AI Music · MP3 · MV Production',
+    s3li1:'Advertiser provides lyrics, theme, mood references',
+    s3li2:'You generate AI music (Suno, Udio, etc.) matching the brief',
+    s3li3:'Optionally create music video using AI video tools',
+    s3li4:'Submit link → Admin approves → AP rewarded',
+    s3earn:'Fixed AP reward per approved music piece',
+    submitMusic:'Submit Music / MV',
+    s4Title:'Business Content Contest',
+    s4Desc:'Submit biz intro / promo video / poster · Community votes · Top 10 rewarded',
+    s4Tag:'Contest · Voting · Top 10 Reward',
+    s4li1:'Client requests: business intro, promo video, poster, landing page',
+    s4li2:'Multiple members submit their creative content',
+    s4li3:'Community evaluates and votes for best submissions',
+    s4li4:'Top 1–10 ranked creators auto-rewarded from client\'s AP budget',
+    s4earn:'Rank 1 gets largest share · Rank 10 gets base reward',
+    submitContest:'Submit to Contest',
+    s5Title:'SNS Sponsorship Marketplace',
+    s5Desc:'List your SNS as a sponsor slot · Set monthly price · Advertisers hire you directly',
+    s5Tag:'Monthly Sponsor · Banner · Fixed Income',
+    s5li1:'Register your SNS accounts (follower count, niche, engagement rate)',
+    s5li2:'Specify services: banner placement, dedicated posts, story mentions',
+    s5li3:'Set your 1-month package price in AP',
+    s5li4:'Advertisers browse and purchase directly — AP transferred instantly',
+    s5earn:'Fixed monthly AP from sponsor contracts',
+    listSNS:'List My SNS as Sponsor',
+    s6Title:'Follow / Join Rewards',
+    s6Desc:'Follow Instagram · Join Telegram · Subscribe YouTube · Instant AP reward',
+    s6Tag:'Instant Reward · Follow · Subscribe',
+    s6li1:'Advertisers set AP reward per action (follow, join, subscribe)',
+    s6li2:'Complete the action on the target platform',
+    s6li3:'Submit proof (screenshot or bot auto-verify)',
+    s6li4:'AP instantly credited to your wallet',
+    s6earn:'Per-action AP reward · Stacks with multiple tasks',
+    browseFollowTasks:'Browse Follow Tasks',
+    submitContent:'Submit Content', selectSection:'Select Section', selectPlatform:'Platform',
+    contentUrl:'Content URL', description:'Description',
+    hashtagNote:'#AIM hashtag required in your post',
+    missionId:'Mission ID (optional)', submitBtn:'Submit for Review',
+    leaderboard:'Leaderboard', topEarners:'Top AP earners this week',
+    totalAP:'Total AP', usdValue:'USD Value', myMentor:'My Mentor',
+    withdrawAP:'Withdraw AP', withdrawNote:'Min 10,000 AP · TON / USDT / Telegram STARS',
+    requestWithdraw:'Request Withdrawal',
+    navHome:'Home', navMissions:'Missions', navSubmit:'Submit', navRank:'Rank', navProfile:'Profile',
+    submitted:'Submitted for review!', copied:'Copied!', comingSoon:'Coming soon',
+    fillUrl:'Please enter a content URL', addHashtag:'Add #AIM to your post description'
+  },
+
+  ko: {
+    myBalance:'내 잔액', referralCode:'추천 코드', copy:'복사',
+    howItWorks:'이용 방법',
+    step1Title:'텔레그램 그룹 가입', step1Desc:'추천 링크로 가입 → 미니앱 클릭 → 자동 회원가입 (멘토 코드 자동 기록)',
+    step2Title:'미션 선택', step2Desc:'6개 수익 섹션 중 선택. SNS 또는 AI 능력으로 과제 완료',
+    step3Title:'봇이 검수 & 보상', step3Desc:'텔레그램 봇이 자동 검수 후 AP를 지갑에 입금',
+    step4Title:'언제든 출금', step4Desc:'10,000 AP = $1 USD. TON, USDT, 텔레그램 STARS로 출금',
+    revenueShare:'수익 분배', platform:'플랫폼', mentor:'멘토', marketer:'마켓터',
+    myReferralLink:'내 추천 링크', copyLink:'링크 복사',
+    earningSections:'6개 수익 섹션', tapToExpand:'섹션을 탭하면 상세 내용이 열립니다',
+    earning:'수익: ',
+    s1Title:'SNS 콘텐츠 마케팅',
+    s1Desc:'내 SNS에 광고 게시 · 봇이 참여도 검수 · 클릭/좋아요/댓글당 AP 지급',
+    s1Tag:'클릭 · 노출 · 댓글 · 좋아요',
+    s1li1:'페이스북 / 유튜브 / 틱톡 / 인스타그램 / X 계정 등록',
+    s1li2:'광고주가 광고 형태 선택 및 AP 예산 배정',
+    s1li3:'봇이 클릭, 노출, 댓글, 좋아요를 실시간 추적',
+    s1li4:'검수 완료 후 AP 자동 입금',
+    s1earn:'참여도당 광고주 AP 예산의 최대 70%',
+    registerSNS:'내 SNS 등록하기',
+    s2Title:'AI 리뷰 / CF 제작',
+    s2Desc:'AI로 리뷰영상 & CF 광고 제작 · 내 SNS에 업로드 · 에스크로에서 AP 지급',
+    s2Tag:'AI 영상 · 제품 리뷰 · CF 광고',
+    s2li1:'광고주가 AP 에스크로 입금 + 제품 링크/이미지/영상 제공',
+    s2li2:'AI 도구로 CF 또는 리뷰 영상 제작',
+    s2li3:'내 SNS(유튜브, 틱톡, 인스타그램 등)에 업로드',
+    s2li4:'봇이 성과 측정 → 에스크로에서 AP 보상 지급',
+    s2earn:'참여도 지표 기반 에스크로의 70%',
+    submitCF:'CF / 리뷰영상 제출',
+    s3Title:'AI 음악 / 뮤직비디오',
+    s3Desc:'광고주의 가사 & 테마에 맞는 AI MP3 & 뮤직비디오 제작',
+    s3Tag:'AI 음악 · MP3 · MV 제작',
+    s3li1:'광고주가 가사, 테마, 분위기 레퍼런스 제공',
+    s3li2:'AI 음악 도구(Suno, Udio 등)로 음악 생성',
+    s3li3:'AI 영상 도구로 뮤직비디오 제작 (선택)',
+    s3li4:'링크 제출 → 관리자 승인 → AP 보상',
+    s3earn:'승인된 음악 한 편당 고정 AP 보상',
+    submitMusic:'음악 / MV 제출',
+    s4Title:'비즈니스 콘텐츠 공모전',
+    s4Desc:'사업소개서/홍보영상/포스터 제출 · 커뮤니티 투표 · 상위 10위 보상',
+    s4Tag:'공모전 · 투표 · TOP 10 보상',
+    s4li1:'의뢰인이 요청: 사업소개서, 홍보영상, 포스터, 랜딩페이지',
+    s4li2:'여러 회원이 창작 콘텐츠 제출',
+    s4li3:'커뮤니티가 최우수 제출작 평가 및 투표',
+    s4li4:'1~10위 창작자에게 의뢰인 AP 예산에서 자동 보상',
+    s4earn:'1위가 최대 보상 · 10위는 기본 보상',
+    submitContest:'공모전 제출',
+    s5Title:'SNS 스폰서 마켓플레이스',
+    s5Desc:'내 SNS를 스폰서 슬롯으로 등록 · 월별 가격 설정 · 광고주가 직접 계약',
+    s5Tag:'월별 스폰서 · 배너 · 고정 수입',
+    s5li1:'SNS 계정 등록 (팔로워 수, 분야, 참여율)',
+    s5li2:'제공 서비스 명시: 배너 게재, 전용 게시물, 스토리 언급',
+    s5li3:'1개월 패키지 가격을 AP로 설정',
+    s5li4:'광고주가 직접 구매 → AP 즉시 이체',
+    s5earn:'스폰서 계약으로 매월 고정 AP 수입',
+    listSNS:'내 SNS 스폰서로 등록',
+    s6Title:'팔로우 / 가입 보상',
+    s6Desc:'인스타그램 팔로우 · 텔레그램 가입 · 유튜브 구독 · 즉시 AP 보상',
+    s6Tag:'즉시 보상 · 팔로우 · 구독',
+    s6li1:'광고주가 행동당 AP 보상 설정 (팔로우, 가입, 구독)',
+    s6li2:'대상 플랫폼에서 해당 행동 완료',
+    s6li3:'인증 제출 (스크린샷 또는 봇 자동 검증)',
+    s6li4:'AP 즉시 지갑에 입금',
+    s6earn:'행동당 AP 보상 · 여러 과제 동시 진행 가능',
+    browseFollowTasks:'팔로우 과제 보기',
+    submitContent:'콘텐츠 제출', selectSection:'섹션 선택', selectPlatform:'플랫폼',
+    contentUrl:'콘텐츠 URL', description:'설명',
+    hashtagNote:'게시물에 #AIM 해시태그 필수',
+    missionId:'미션 ID (선택)', submitBtn:'검토 요청 제출',
+    leaderboard:'리더보드', topEarners:'이번 주 최다 AP 획득자',
+    totalAP:'총 AP', usdValue:'USD 환산', myMentor:'내 멘토',
+    withdrawAP:'AP 출금', withdrawNote:'최소 10,000 AP · TON / USDT / 텔레그램 STARS',
+    requestWithdraw:'출금 신청',
+    navHome:'홈', navMissions:'미션', navSubmit:'제출', navRank:'랭킹', navProfile:'프로필',
+    submitted:'검토 요청이 제출되었습니다!', copied:'복사되었습니다!', comingSoon:'준비 중',
+    fillUrl:'콘텐츠 URL을 입력해주세요', addHashtag:'설명에 #AIM을 추가해주세요'
+  },
+
+  vi: {
+    myBalance:'Số dư', referralCode:'Mã giới thiệu', copy:'Sao chép',
+    howItWorks:'Cách hoạt động',
+    step1Title:'Tham gia nhóm Telegram', step1Desc:'Tham gia qua link giới thiệu → Nhấn Mini App → Tự động đăng ký (ghi nhận mã mentor)',
+    step2Title:'Chọn nhiệm vụ', step2Desc:'Chọn trong 6 phần kiếm tiền. Hoàn thành bằng kỹ năng SNS hoặc AI',
+    step3Title:'Bot xác minh & thưởng', step3Desc:'Bot Telegram tự xác minh công việc và gửi AP vào ví',
+    step4Title:'Rút bất cứ lúc nào', step4Desc:'10.000 AP = $1 USD. Rút qua TON, USDT hoặc Telegram STARS',
+    revenueShare:'Chia sẻ doanh thu', platform:'Nền tảng', mentor:'Người hướng dẫn', marketer:'Marketer',
+    myReferralLink:'Link giới thiệu của tôi', copyLink:'Sao chép link',
+    earningSections:'6 Phần kiếm tiền', tapToExpand:'Nhấn vào phần để xem chi tiết',
+    earning:'Thu nhập: ',
+    s1Title:'Marketing SNS',
+    s1Desc:'Đăng quảng cáo lên SNS · Bot xác minh tương tác · Kiếm AP mỗi click / like / bình luận',
+    s1Tag:'Click · Hiển thị · Bình luận · Thích',
+    s1li1:'Đăng ký tài khoản Facebook / YouTube / TikTok / Instagram / X',
+    s1li2:'Nhà quảng cáo chọn định dạng quảng cáo và phân bổ ngân sách AP',
+    s1li3:'Bot theo dõi click, hiển thị, bình luận, lượt thích theo thời gian thực',
+    s1li4:'AP tự động ghi có vào ví sau khi xác minh',
+    s1earn:'Lên đến 70% ngân sách AP của nhà quảng cáo mỗi lượt tương tác',
+    registerSNS:'Đăng ký SNS của tôi',
+    s2Title:'Review / Quảng cáo CF bằng AI',
+    s2Desc:'Tạo video review & CF bằng AI · Đăng lên SNS · Nhận AP từ ký quỹ',
+    s2Tag:'Video AI · Review sản phẩm · Quảng cáo CF',
+    s2li1:'Nhà quảng cáo nạp AP ký quỹ + cung cấp link/ảnh/video sản phẩm',
+    s2li2:'Tạo CF hoặc video review bằng công cụ AI',
+    s2li3:'Đăng lên SNS của bạn (YouTube, TikTok, Instagram, v.v.)',
+    s2li4:'Bot đo hiệu suất → giải phóng AP thưởng từ ký quỹ',
+    s2earn:'70% ký quỹ dựa trên chỉ số tương tác',
+    submitCF:'Gửi CF / Video Review',
+    s3Title:'Âm nhạc AI / MV',
+    s3Desc:'Tạo MP3 AI & MV phù hợp với lời bài hát & chủ đề của nhà quảng cáo',
+    s3Tag:'Nhạc AI · MP3 · Sản xuất MV',
+    s3li1:'Nhà quảng cáo cung cấp lời bài hát, chủ đề, tham chiếu tâm trạng',
+    s3li2:'Tạo nhạc AI (Suno, Udio, v.v.) phù hợp với yêu cầu',
+    s3li3:'Tùy chọn tạo MV bằng công cụ video AI',
+    s3li4:'Gửi link → Admin duyệt → Nhận AP thưởng',
+    s3earn:'AP cố định cho mỗi bài nhạc được duyệt',
+    submitMusic:'Gửi Nhạc / MV',
+    s4Title:'Cuộc thi nội dung doanh nghiệp',
+    s4Desc:'Gửi giới thiệu DN / video quảng bá / poster · Cộng đồng bình chọn · Top 10 nhận thưởng',
+    s4Tag:'Cuộc thi · Bình chọn · Thưởng TOP 10',
+    s4li1:'Khách hàng yêu cầu: giới thiệu DN, video quảng bá, poster, landing page',
+    s4li2:'Nhiều thành viên gửi nội dung sáng tạo',
+    s4li3:'Cộng đồng đánh giá và bình chọn bài tốt nhất',
+    s4li4:'Top 1-10 người tạo nội dung tự động nhận thưởng từ ngân sách AP khách hàng',
+    s4earn:'Hạng 1 nhận nhiều nhất · Hạng 10 nhận mức cơ bản',
+    submitContest:'Gửi dự thi',
+    s5Title:'Sàn tài trợ SNS',
+    s5Desc:'Đăng SNS làm vị trí tài trợ · Đặt giá hàng tháng · Nhà QC thuê trực tiếp',
+    s5Tag:'Tài trợ tháng · Banner · Thu nhập cố định',
+    s5li1:'Đăng ký tài khoản SNS (số người theo dõi, lĩnh vực, tỷ lệ tương tác)',
+    s5li2:'Ghi rõ dịch vụ: đặt banner, bài đăng riêng, đề cập story',
+    s5li3:'Đặt giá gói 1 tháng bằng AP',
+    s5li4:'Nhà quảng cáo duyệt và mua trực tiếp — AP chuyển ngay lập tức',
+    s5earn:'AP cố định hàng tháng từ hợp đồng tài trợ',
+    listSNS:'Đăng SNS làm nhà tài trợ',
+    s6Title:'Thưởng theo dõi / Tham gia',
+    s6Desc:'Theo dõi Instagram · Tham gia Telegram · Đăng ký YouTube · Thưởng AP ngay',
+    s6Tag:'Thưởng ngay · Theo dõi · Đăng ký',
+    s6li1:'Nhà quảng cáo đặt AP thưởng mỗi hành động (theo dõi, tham gia, đăng ký)',
+    s6li2:'Hoàn thành hành động trên nền tảng mục tiêu',
+    s6li3:'Gửi bằng chứng (ảnh chụp màn hình hoặc bot tự xác minh)',
+    s6li4:'AP ghi có ngay vào ví',
+    s6earn:'AP thưởng mỗi hành động · Cộng dồn nhiều nhiệm vụ',
+    browseFollowTasks:'Xem nhiệm vụ theo dõi',
+    submitContent:'Gửi nội dung', selectSection:'Chọn phần', selectPlatform:'Nền tảng',
+    contentUrl:'URL nội dung', description:'Mô tả',
+    hashtagNote:'Yêu cầu hashtag #AIM trong bài đăng',
+    missionId:'ID nhiệm vụ (tùy chọn)', submitBtn:'Gửi để xem xét',
+    leaderboard:'Bảng xếp hạng', topEarners:'Người kiếm AP nhiều nhất tuần này',
+    totalAP:'Tổng AP', usdValue:'Giá trị USD', myMentor:'Người hướng dẫn',
+    withdrawAP:'Rút AP', withdrawNote:'Tối thiểu 10.000 AP · TON / USDT / Telegram STARS',
+    requestWithdraw:'Yêu cầu rút tiền',
+    navHome:'Trang chủ', navMissions:'Nhiệm vụ', navSubmit:'Gửi bài', navRank:'Xếp hạng', navProfile:'Hồ sơ',
+    submitted:'Đã gửi để xem xét!', copied:'Đã sao chép!', comingSoon:'Sắp ra mắt',
+    fillUrl:'Vui lòng nhập URL nội dung', addHashtag:'Thêm #AIM vào mô tả bài đăng'
+  }
 };
 
-const MISSIONS_SAMPLE = [
-  { id:'1', type:'cf_video', title:'AI 브랜드 CF 영상 제작', reward:50000, budget:5000000, remaining:2500000, advertiser:'BrandX', tags:['#AIM','#AIcf'], days:16 },
-  { id:'2', type:'sns_post', title:'SNS 게시물 작성 미션', reward:5000, budget:1000000, remaining:800000, advertiser:'TechCo', tags:['#AIM','#AI리뷰'], days:8 },
-  { id:'3', type:'cm_song', title:'AI CM송 제작 및 업로드', reward:30000, budget:3000000, remaining:1200000, advertiser:'MusicBrand', tags:['#AIM','#AICMsong'], days:22 },
-  { id:'4', type:'blog_post', title:'AI 도구 활용 블로그 리뷰', reward:10000, budget:2000000, remaining:1800000, advertiser:'AITools', tags:['#AIM','#AI리뷰'], days:30 },
-  { id:'5', type:'review', title:'앱 리뷰 게시물 작성', reward:3000, budget:500000, remaining:350000, advertiser:'AppCo', tags:['#AIM'], days:5 },
-  { id:'6', type:'signup', title:'뉴스레터 구독 미션', reward:500, budget:200000, remaining:150000, advertiser:'NewsLetter', tags:['#AIM'], days:14 },
-];
+// detect initial lang
+let savedLang = localStorage.getItem('aimLang');
+let browserLang = navigator.language || '';
+let lang = savedLang || (browserLang.startsWith('ko') ? 'ko' : browserLang.startsWith('vi') ? 'vi' : 'en');
+if (!['en','ko','vi'].includes(lang)) lang = 'en';
 
-const RANK_SAMPLE = [
-  { rank:1, name:'김민준', username:'aimaster_kim', points:2450000, emoji:'🥇' },
-  { rank:2, name:'이서연', username:'creative_lee', points:1980000, emoji:'🥈' },
-  { rank:3, name:'박도현', username:'tonhunter', points:1750000, emoji:'🥉' },
-  { rank:4, name:'최지우', username:'aiguru_choi', points:1540000, emoji:'4' },
-  { rank:5, name:'한예준', username:'creator_han', points:1320000, emoji:'5' },
-  { rank:6, name:'정수빈', username:'aiartist_jung', points:1180000, emoji:'6' },
-  { rank:7, name:'강하은', username:'mission_pro', points:960000, emoji:'7' },
-  { rank:8, name:'윤지호', username:'tonearner', points:840000, emoji:'8' },
-];
+function t(key) { return (LANGS[lang] && LANGS[lang][key]) || (LANGS.en[key]) || key; }
 
-// ─── Telegram WebApp init ───────────────────────────────────────────────
+function setLang(l) {
+  lang = l;
+  localStorage.setItem('aimLang', l);
+  document.querySelectorAll('.lang-btn').forEach(b => {
+    const code = b.textContent.trim();
+    b.classList.toggle('active', (l==='en'&&code==='EN') || (l==='ko'&&code==='한') || (l==='vi'&&code==='VI'));
+  });
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = val;
+    else el.textContent = val;
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Telegram WebApp
+// ═══════════════════════════════════════════════════
 const tg = window.Telegram?.WebApp;
 if (tg) {
   tg.ready();
   tg.expand();
-  if (tg.themeParams) {
-    document.documentElement.style.setProperty('--tg-theme-bg-color', tg.themeParams.bg_color || '#fff');
-    document.documentElement.style.setProperty('--tg-theme-text-color', tg.themeParams.text_color || '#000');
-    document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', tg.themeParams.secondary_bg_color || '#f4f4f5');
+  const tp = tg.themeParams;
+  if (tp) {
+    if (tp.bg_color)   document.documentElement.style.setProperty('--tg-bg',   tp.bg_color);
+    if (tp.text_color) document.documentElement.style.setProperty('--tg-text', tp.text_color);
+    if (tp.hint_color) document.documentElement.style.setProperty('--tg-hint', tp.hint_color);
   }
-  if (tg.initDataUnsafe?.user) {
-    state.user = tg.initDataUnsafe.user;
-    initUser();
+  const user = tg.initDataUnsafe?.user;
+  if (user) {
+    document.getElementById('profileName').textContent =
+      ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || '-';
+    document.getElementById('profileUsername').textContent =
+      user.username ? '@' + user.username : '';
+    document.getElementById('profileAvatar').textContent =
+      (user.first_name || '?')[0].toUpperCase();
   }
 }
 
-function initUser() {
-  const u = state.user;
-  const pts = u.points || 0;
-  document.getElementById('homePts').textContent = pts.toLocaleString() + ' AP';
-  document.getElementById('homeUsd').textContent = '≈ ' + (pts / 10000).toFixed(2) + ' USD';
-  document.getElementById('headerPoints').textContent = pts.toLocaleString() + ' AP';
-  const ref = 'https://t.me/AIMBot?start=ref_' + (u.id || 'demo');
-  document.getElementById('referralLink').textContent = ref;
+// ═══════════════════════════════════════════════════
+// Init
+// ═══════════════════════════════════════════════════
+window.onload = function() {
+  setLang(lang);
 
-  // Populate mission select
-  const sel = document.getElementById('missionSelect');
-  MISSIONS_SAMPLE.forEach(m => {
-    const opt = document.createElement('option');
-    opt.value = m.id;
-    opt.textContent = m.title;
-    sel.appendChild(opt);
-  });
-}
+  const ap = parseInt(localStorage.getItem('aimAP') || '0');
+  document.getElementById('apBalance').textContent = ap.toLocaleString();
+  document.getElementById('apUsd').textContent = (ap / 10000).toFixed(2);
+  document.getElementById('profileAP').textContent = ap.toLocaleString() + ' AP';
+  document.getElementById('profileUSD').textContent = '$' + (ap / 10000).toFixed(2);
 
-// ─── Tab switching ──────────────────────────────────────────────────────
-function switchTab(tab) {
-  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  let ref = localStorage.getItem('aimRef');
+  if (!ref) { ref = 'AIM' + Math.random().toString(36).substring(2, 8).toUpperCase(); localStorage.setItem('aimRef', ref); }
+  document.getElementById('myRefCode').textContent = ref;
+  document.getElementById('myRefLink').textContent = 'https://t.me/AIMHubBot?start=' + ref;
+
+  loadRanking();
+};
+
+// ═══════════════════════════════════════════════════
+// Navigation
+// ═══════════════════════════════════════════════════
+function showTab(name, el) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('sec-' + tab).classList.add('active');
-  document.getElementById('nav-' + tab).classList.add('active');
-
-  if (tab === 'missions') renderMissions();
-  if (tab === 'rank') renderRank();
+  document.getElementById('tab-' + name).classList.add('active');
+  el.classList.add('active');
 }
 
-// ─── Missions ──────────────────────────────────────────────────────────
-function filterMissions(type, btn) {
-  document.querySelectorAll('#sec-missions .platform-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.currentMissionFilter = type;
-  renderMissions();
+// ═══════════════════════════════════════════════════
+// Section accordion
+// ═══════════════════════════════════════════════════
+function toggleSection(id) {
+  const panel = document.getElementById(id);
+  const arrow = document.getElementById('arr-' + id);
+  const isOpen = panel.classList.contains('open');
+
+  // close all
+  document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('open'));
+  document.querySelectorAll('.section-arrow').forEach(a => a.classList.remove('open'));
+
+  if (!isOpen) {
+    panel.classList.add('open');
+    arrow.classList.add('open');
+  }
 }
 
-function renderMissions() {
-  const list = document.getElementById('missionList');
-  const filter = state.currentMissionFilter;
-  const missions = filter === 'all' ? MISSIONS_SAMPLE : MISSIONS_SAMPLE.filter(m => m.type === filter);
-
-  list.innerHTML = missions.map(m => {
-    const pct = Math.round(((m.budget - m.remaining) / m.budget) * 100);
-    const typeLabels = { cf_video:'CF 영상', sns_post:'SNS 게시물', blog_post:'블로그', cm_song:'CM송', review:'리뷰', signup:'가입' };
-    return `
-      <div class="mission-card" onclick="joinMission('${m.id}')">
-        <div class="badge-type">${typeLabels[m.type] || m.type}</div>
-        <div style="font-weight:700; font-size:0.9rem; margin-bottom:6px">${m.title}</div>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
-          <span class="reward-tag">+${m.reward.toLocaleString()} AP</span>
-          <span style="font-size:0.75rem; color:#888">${m.days}일 남음</span>
-        </div>
-        <div class="progress-aim">
-          <div class="progress-fill" style="width:${pct}%"></div>
-        </div>
-        <div style="font-size:0.72rem; color:#888; margin-top:4px; display:flex; justify-content:space-between">
-          <span>${m.advertiser}</span>
-          <span>예산 ${pct}% 소진</span>
-        </div>
-        <div style="margin-top:8px; display:flex; gap:4px; flex-wrap:wrap">
-          ${m.tags.map(t => `<span style="font-size:0.7rem; background:rgba(124,58,237,0.1); color:#7c3aed; border-radius:12px; padding:2px 8px">${t}</span>`).join('')}
-        </div>
-      </div>
-    `;
-  }).join('') || '<div style="text-align:center; padding:30px; color:#888">해당 미션이 없습니다</div>';
+function goSubmit(section) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('tab-submit').classList.add('active');
+  document.querySelectorAll('.nav-item')[2].classList.add('active');
+  document.getElementById('submitSection').value = section;
 }
 
-function joinMission(id) {
-  const m = MISSIONS_SAMPLE.find(x => x.id === id);
-  if (!m) return;
-  switchTab('register');
-  document.getElementById('missionSelect').value = id;
-  showToast(`"${m.title}" 미션을 선택했습니다`);
-}
+// ═══════════════════════════════════════════════════
+// Chips
+// ═══════════════════════════════════════════════════
+function toggleChip(el) { el.classList.toggle('selected'); }
 
-// ─── Content Register ──────────────────────────────────────────────────
-function selectPlatform(platform, btn) {
-  document.querySelectorAll('#sec-register .platform-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.currentPlatform = platform;
-  const placeholders = {
-    YouTube: 'https://www.youtube.com/watch?v=...',
-    Instagram: 'https://www.instagram.com/p/...',
-    TikTok: 'https://www.tiktok.com/@.../video/...',
-    Facebook: 'https://www.facebook.com/...',
-    X: 'https://x.com/.../status/...',
-    Telegram: 'https://t.me/...',
-    Reddit: 'https://www.reddit.com/r/.../...',
-    Blog: 'https://your-blog.com/...',
-  };
-  document.getElementById('postUrl').placeholder = placeholders[platform] || 'https://...';
-}
-
+// ═══════════════════════════════════════════════════
+// Submit
+// ═══════════════════════════════════════════════════
 function submitContent() {
-  const url = document.getElementById('postUrl').value.trim();
-  const tagsRaw = document.getElementById('postTags').value.trim();
-  if (!url) { showToast('게시물 URL을 입력해주세요'); return; }
-  if (!tagsRaw.includes('#AIM')) { showToast('#AIM 태그가 필요합니다'); return; }
-
-  showToast('✅ 콘텐츠 등록 완료! 포인트 지급 중...');
-  setTimeout(() => {
-    showToast('+1,000 AP 지급 완료!');
-    document.getElementById('postUrl').value = '';
-    document.getElementById('postTags').value = '';
-    document.getElementById('postNote').value = '';
-  }, 1500);
+  const url  = document.getElementById('contentUrl').value.trim();
+  const desc = document.getElementById('contentDesc').value.trim();
+  if (!url) { showToast(t('fillUrl')); return; }
+  if (!desc.toLowerCase().includes('#aim')) { showToast(t('addHashtag')); return; }
+  showToast(t('submitted'));
+  document.getElementById('contentUrl').value   = '';
+  document.getElementById('contentDesc').value  = '';
+  document.getElementById('missionId').value    = '';
+  document.querySelectorAll('.chip.selected').forEach(c => c.classList.remove('selected'));
 }
 
-// ─── Rank ──────────────────────────────────────────────────────────────
-function switchRankPeriod(period, btn) {
-  document.querySelectorAll('#sec-rank .platform-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.currentRankPeriod = period;
-  renderRank();
-}
-
-function renderRank() {
-  const list = document.getElementById('rankList');
-  const medals = ['🥇', '🥈', '🥉'];
-  list.innerHTML = RANK_SAMPLE.map((u, i) => `
+// ═══════════════════════════════════════════════════
+// Ranking (mock data)
+// ═══════════════════════════════════════════════════
+function loadRanking() {
+  const mock = [
+    { name:'CryptoKim',   ap:128500, medal:'🥇' },
+    { name:'AImaster',    ap:97200,  medal:'🥈' },
+    { name:'SNSking',     ap:84100,  medal:'🥉' },
+    { name:'TokTokPro',   ap:71300,  medal:'4️⃣' },
+    { name:'VietMaker',   ap:65800,  medal:'5️⃣' },
+    { name:'CreatorX',    ap:58200,  medal:'6️⃣' },
+    { name:'MusicBot',    ap:47900,  medal:'7️⃣' },
+    { name:'AIFilm',      ap:39400,  medal:'8️⃣' },
+    { name:'SponsorKing', ap:31100,  medal:'9️⃣' },
+    { name:'FollowPro',   ap:22800,  medal:'🔟' },
+  ];
+  document.getElementById('rankList').innerHTML = mock.map(u => `
     <div class="rank-item">
-      <div class="rank-num">${medals[i] || i + 1}</div>
+      <div style="font-size:18px;font-weight:900;width:28px;text-align:center">${u.medal}</div>
       <div class="rank-avatar">${u.name[0]}</div>
-      <div class="rank-info">
-        <div class="rank-name">${u.name}</div>
-        <div style="font-size:0.72rem; color:#888">@${u.username}</div>
-      </div>
-      <div class="rank-points">${u.points.toLocaleString()} AP</div>
-    </div>
-  `).join('');
+      <div style="flex:1;font-weight:600;font-size:14px">${u.name}</div>
+      <div class="rank-ap">${u.ap.toLocaleString()} AP</div>
+    </div>`).join('');
 }
 
-// ─── Ad Register ───────────────────────────────────────────────────────
-function selectAdType(btn, type) {
-  document.querySelectorAll('#adTypeRow .ad-type-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  state.currentAdType = type;
+// ═══════════════════════════════════════════════════
+// Referral copy
+// ═══════════════════════════════════════════════════
+function copyRef() {
+  const txt = document.getElementById('myRefLink').textContent || document.getElementById('myRefCode').textContent;
+  navigator.clipboard?.writeText(txt).catch(() => {});
+  showToast(t('copied'));
 }
 
-function selectAiType(card, type) {
-  document.querySelectorAll('#aiTypeGrid .content-type-card').forEach(c => c.classList.remove('selected'));
-  card.classList.add('selected');
-  state.currentAiType = type;
-}
-
-function toggleAiContent() {
-  const checked = document.getElementById('aiContentToggle').checked;
-  document.getElementById('aiContentSection').style.display = checked ? 'block' : 'none';
-  const track = document.getElementById('toggleTrack');
-  const thumb = document.getElementById('toggleThumb');
-  track.style.background = checked ? '#7c3aed' : '#ddd';
-  thumb.style.left = checked ? '21px' : '3px';
-}
-
-function updateAdSplit() {
-  const budget = parseInt(document.getElementById('adBudget').value) || 0;
-  if (!budget) {
-    document.getElementById('splitPreview').textContent = '예산 입력 시 분배 금액이 표시됩니다';
-    return;
-  }
-  const platform = Math.floor(budget * 0.2);
-  const mentor = Math.floor(budget * 0.1);
-  const users = budget - platform - mentor;
-  document.getElementById('splitPreview').innerHTML =
-    `플랫폼: <b>${platform.toLocaleString()} AP</b> · 멘토: <b>${mentor.toLocaleString()} AP</b> · 참여자: <b>${users.toLocaleString()} AP</b>`;
-}
-
-function submitAd() {
-  const title = document.getElementById('adTitle').value.trim();
-  const url = document.getElementById('adTargetUrl').value.trim();
-  const budget = document.getElementById('adBudget').value.trim();
-  if (!title || !url || !budget) { showToast('필수 항목을 입력해주세요'); return; }
-  showToast('✅ 광고 등록 완료! 검토 후 활성화됩니다.');
-  document.getElementById('adTitle').value = '';
-  document.getElementById('adTargetUrl').value = '';
-  document.getElementById('adBudget').value = '';
-  updateAdSplit();
-}
-
-// ─── Referral ──────────────────────────────────────────────────────────
-function copyReferral() {
-  const link = document.getElementById('referralLink').textContent;
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(link).then(() => showToast('링크 복사 완료!'));
-  } else {
-    showToast('링크를 직접 복사해주세요');
-  }
-}
-
-// ─── Toast ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════
+// Toast
+// ═══════════════════════════════════════════════════
 function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.remove('show');
-  void t.offsetWidth;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2500);
+  const el = document.getElementById('toastMsg');
+  el.textContent = msg;
+  el.className = 'toast-msg show';
+  setTimeout(() => { el.className = 'toast-msg'; }, 2600);
 }
-
-// ─── Set today's date as default for ad form ───────────────────────────
-(function setDefaultDates() {
-  const today = new Date().toISOString().split('T')[0];
-  const next30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-  document.getElementById('adStart').value = today;
-  document.getElementById('adEnd').value = next30;
-})();
-
-// Initial render
-renderMissions();
-renderRank();
 </script>
 </body>
 </html>
