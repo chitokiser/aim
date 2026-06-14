@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import { MissionCard } from "@/components/mission-card";
+import {
+  AdvertiserListModal,
+  MissionDetailSheet,
+  SubmitLinksModal,
+  type MissionFlowData,
+} from "@/components/mission-join-flow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +105,10 @@ export default function MissionsPage() {
   const { t } = useLanguage();
   const m = t.missions;
 
+  const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
+  const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
+  const [submitMission, setSubmitMission] = useState<MissionFlowData | null>(null);
+
   const FILTERS = [
     { label: m.filterAll, value: "all" },
     { label: m.filterCF, value: "cf_video" },
@@ -161,7 +171,7 @@ export default function MissionsPage() {
       {filtered.length > 0 ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((mission) => (
-            <MissionCard key={mission.id} mission={mission} />
+            <MissionCard key={mission.id} mission={mission} onJoin={setJoinMission} />
           ))}
         </div>
       ) : (
@@ -175,6 +185,35 @@ export default function MissionsPage() {
           <p className="text-sm mt-1">{m.noResultsHint}</p>
         </div>
       )}
+
+      {/* Mission Join Flow */}
+      <AdvertiserListModal
+        mission={joinMission}
+        open={!!joinMission}
+        onClose={() => setJoinMission(null)}
+        onViewDetail={(adv) => {
+          setJoinMission(null);
+          setDetailMission(adv);
+        }}
+        onSubmitWork={(adv) => {
+          setJoinMission(null);
+          setSubmitMission(adv);
+        }}
+      />
+      <MissionDetailSheet
+        mission={detailMission}
+        open={!!detailMission}
+        onClose={() => setDetailMission(null)}
+        onSubmit={() => {
+          if (detailMission) setSubmitMission(detailMission);
+          setDetailMission(null);
+        }}
+      />
+      <SubmitLinksModal
+        mission={submitMission}
+        open={!!submitMission}
+        onClose={() => setSubmitMission(null)}
+      />
     </div>
   );
 }
