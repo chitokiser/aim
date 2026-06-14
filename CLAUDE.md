@@ -62,6 +62,30 @@ Members complete tasks → verified by bot → AP rewarded instantly.
 
 ---
 
+## API Key & Secret Management (CRITICAL)
+
+**Never expose secrets in code or commits.**
+
+### Rules
+- All API keys, tokens, and credentials MUST live in `.env` files only — never hardcoded in source files
+- `.env`, `.env.local`, `.env.production` are listed in `.gitignore` — **never remove them from gitignore**
+- Before every commit, verify no secret values appear in staged files (`git diff --cached`)
+- Never commit files named `.env*` (except `.env.example` with placeholder values only)
+
+### Key files that hold secrets (never commit these)
+- `backend/.env` — Firebase credentials, JWT secret, Telegram bot token
+- `frontend/.env.local` — Firebase client config, API base URL
+
+### If a secret is accidentally committed
+1. Immediately rotate/revoke the exposed key from its provider (Firebase console, Telegram BotFather, etc.)
+2. Remove the secret from git history: `git filter-repo` or contact GitHub support
+3. Force-push the cleaned history (coordinate with team first)
+
+### .env.example pattern
+Keep `backend/.env.example` and `frontend/.env.example` with dummy placeholder values so other developers know which keys are required — never put real values in these files.
+
+---
+
 ## Tech Stack
 - Frontend: Next.js 15 (App Router), TypeScript, TailwindCSS v4, Shadcn UI
 - Backend: NestJS, Firebase Firestore, JWT, Telegraf
