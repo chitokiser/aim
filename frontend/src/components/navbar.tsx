@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
+import { useLanguage, type Lang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,21 +14,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const navLinks = [
-  { href: "/", label: "홈", icon: Home },
-  { href: "/missions", label: "미션", icon: Target },
-  { href: "/leaderboard", label: "랭킹", icon: Trophy },
+const LANG_OPTIONS: { code: Lang; label: string }[] = [
+  { code: "en", label: "EN" },
+  { code: "ko", label: "한" },
+  { code: "vi", label: "VI" },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
+  const { lang, setLang, t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const navLinks = [
+    { href: "/", label: t.nav.home, icon: Home },
+    { href: "/missions", label: t.nav.missions, icon: Target },
+    { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
+  ];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -35,15 +42,13 @@ export function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/images/aimlogo.svg"
+            src="/images/aimlogo.png"
             alt="AIM Logo"
             width={36}
             height={36}
             className="rounded-lg"
           />
-          <span className="hidden font-bold text-lg sm:block">
-            AI Money Makers
-          </span>
+          <span className="hidden font-bold text-lg sm:block">AI Money Makers</span>
         </Link>
 
         {/* Desktop Nav */}
@@ -64,7 +69,25 @@ export function Navbar() {
         </nav>
 
         {/* Right side */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Language Switcher */}
+          <div className="flex items-center gap-0.5 rounded-full border px-1 py-0.5">
+            {LANG_OPTIONS.map(({ code, label }) => (
+              <button
+                key={code}
+                onClick={() => setLang(code)}
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+                  lang === code
+                    ? "bg-violet-600 text-white"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
           {user ? (
             <>
               {/* Points Badge */}
@@ -102,13 +125,13 @@ export function Navbar() {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
-                    <Link href="/profile">내 프로필</Link>
+                    <Link href="/profile">{t.nav.myProfile}</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/profile/posts">내 게시물</Link>
+                    <Link href="/profile/posts">{t.nav.myPosts}</Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link href="/profile/points">포인트 내역</Link>
+                    <Link href="/profile/points">{t.nav.pointHistory}</Link>
                   </DropdownMenuItem>
                   {user.isAdmin && (
                     <>
@@ -116,7 +139,7 @@ export function Navbar() {
                       <DropdownMenuItem asChild>
                         <Link href="/admin">
                           <LayoutDashboard className="mr-2 h-4 w-4" />
-                          관리자 페이지
+                          {t.nav.admin}
                         </Link>
                       </DropdownMenuItem>
                     </>
@@ -125,21 +148,21 @@ export function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link href="/advertiser">
                         <Megaphone className="mr-2 h-4 w-4" />
-                        광고주 페이지
+                        {t.nav.advertiser}
                       </Link>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600 dark:text-red-400">
-                    로그아웃
+                    {t.nav.logout}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </>
           ) : (
             <Link href="/auth">
-              <Button className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90">
-                텔레그램으로 시작
+              <Button className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 text-sm">
+                {t.nav.startTelegram}
               </Button>
             </Link>
           )}
