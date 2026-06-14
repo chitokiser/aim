@@ -23,6 +23,8 @@ export class MissionsService {
     return { id: doc.id, ...doc.data() };
   }
 
+  // ── Legacy create (no escrow) ──────────────────────────────────────────────
+
   async create(advertiserId: string, dto: Record<string, unknown>) {
     const mission = {
       ...dto,
@@ -34,6 +36,175 @@ export class MissionsService {
     const ref = await this.firebase.collection('missions').add(mission);
     return { id: ref.id, ...mission };
   }
+
+  // ── New: create with AP escrow ─────────────────────────────────────────────
+
+  async createWithEscrow(advertiserId: string, dto: Record<string, unknown>) {
+    const totalBudget = dto.totalBudget as number;
+    if (!totalBudget || totalBudget <= 0) throw new BadRequestException('totalBudget required');
+
+    // Deduct AP from advertiser wallet
+    const advertiserDoc = await this.firebase.collection('users').doc(advertiserId).get();
+    if (!advertiserDoc.exists) throw new NotFoundException('Advertiser not found');
+    const advertiserPoints = (advertiserDoc.data()?.points ?? 0) as number;
+    if (advertiserPoints < totalBudget) throw new BadRequestException('Insufficient AP balance');
+
+    await this.firebase.collection('users').doc(advertiserId).update({
+      points: advertiserPoints - totalBudget,
+    });
+
+    // Lock into escrow
+    const escrowRef = await this.firebase.collection('escrow_wallets').add({
+      advertiserId,
+      lockedAP: totalBudget,
+      createdAt: new Date().toISOString(),
+      settled: false,
+    });
+
+    const mission = {
+      ...dto,
+      advertiserId,
+      escrowId: escrowRef.id,
+      status: 'active',
+      participantCount: 0,
+      remainingBudget: totalBudget,
+      createdAt: new Date().toISOString(),
+    };
+    const ref = await this.firebase.collection('missions').add(mission);
+    return { id: ref.id, ...mission };
+  }
+
+  // ── New: multi-link submission (auto-approved; like voting starts) ─────────
+
+  async submitLinks(
+    missionId: string,
+    userId: string,
+    links: { youtube?: string; blog?: string; comment?: string; screenshot?: string },
+  ) {
+    const mission = await this.findById(missionId);
+    const data = mission as Record<string, unknown>;
+
+    if (data.status !== 'active') throw new BadRequestException('Mission is not active');
+
+    // Prevent duplicate submission per user per mission
+    const existing = await this.firebase
+      .collection('submissions')
+      .where('missionId', '==', missionId)
+      .where('userId', '==', userId)
+      .limit(1)
+      .get();
+    if (!existing.empty) throw new BadRequestException('Already submitted');
+
+    const submission = {
+      missionId,
+      userId,
+      links,
+      status: 'approved',
+      likes: 0,
+      submittedAt: new Date().toISOString(),
+    };
+
+    const ref = await this.firebase.collection('submissions').add(submission);
+
+    await this.firebase.collection('missions').doc(missionId).update({
+      participantCount: ((data.participantCount as number) ?? 0) + 1,
+    });
+
+    return { id: ref.id, ...submission };
+  }
+
+  // ── New: like a submission ─────────────────────────────────────────────────
+
+  async likeSubmission(submissionId: string, userId: string) {
+    const subRef = this.firebase.collection('submissions').doc(submissionId);
+    const subDoc = await subRef.get();
+    if (!subDoc.exists) throw new NotFoundException('Submission not found');
+
+    const likeKey = `${submissionId}_${userId}`;
+    const likeDoc = await this.firebase.collection('submission_likes').doc(likeKey).get();
+    const alreadyLiked = likeDoc.exists;
+
+    const current = (subDoc.data()?.likes ?? 0) as number;
+    if (alreadyLiked) {
+      await this.firebase.collection('submission_likes').doc(likeKey).delete();
+      await subRef.update({ likes: Math.max(0, current - 1) });
+      return { liked: false, likes: Math.max(0, current - 1) };
+    } else {
+      await this.firebase.collection('submission_likes').doc(likeKey).set({ userId, submissionId, likedAt: new Date().toISOString() });
+      await subRef.update({ likes: current + 1 });
+      return { liked: true, likes: current + 1 };
+    }
+  }
+
+  // ── New: get submissions for a mission (sorted by likes) ──────────────────
+
+  async getSubmissions(missionId: string) {
+    const snap = await this.firebase
+      .collection('submissions')
+      .where('missionId', '==', missionId)
+      .orderBy('likes', 'desc')
+      .get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  // ── New: settle a mission (like-proportional AP distribution) ────────────
+
+  async settleMission(missionId: string) {
+    const mission = await this.findById(missionId);
+    const data = mission as Record<string, unknown>;
+
+    if (data.status !== 'active') return { skipped: true, reason: 'not active' };
+
+    const submissions = await this.getSubmissions(missionId);
+    if (submissions.length === 0) {
+      await this.firebase.collection('missions').doc(missionId).update({ status: 'settled' });
+      return { settled: true, distributions: [] };
+    }
+
+    const totalLikes = submissions.reduce((s, sub) => s + ((sub as Record<string, unknown>).likes as number ?? 0), 0);
+    const totalBudget = data.totalBudget as number;
+    const memberPool = Math.floor(totalBudget * 0.7);
+    const distributions: { userId: string; ap: number }[] = [];
+
+    for (const sub of submissions) {
+      const s = sub as Record<string, unknown>;
+      const likes = (s.likes as number) ?? 0;
+      const userId = s.userId as string;
+      const share = totalLikes > 0 ? Math.floor((likes / totalLikes) * memberPool) : 0;
+      if (share <= 0) continue;
+
+      const mentorId = (await this.firebase.collection('users').doc(userId).get()).data()
+        ?.mentorId as string | null;
+      const mentorShare = Math.floor(totalBudget * 0.1 * (likes / (totalLikes || 1)));
+      const platformShare = Math.floor(totalBudget * 0.2 * (likes / (totalLikes || 1)));
+
+      await this.points.award(userId, share, 'mission_settlement', `미션 정산: ${data.title}`, missionId, sub.id);
+      if (mentorId) {
+        await this.points.award(mentorId, mentorShare, 'mentor_settlement', `멘토 정산: 미션 ${missionId}`, missionId, sub.id);
+      }
+      distributions.push({ userId, ap: share });
+    }
+
+    // Release escrow
+    if (data.escrowId) {
+      await this.firebase.collection('escrow_wallets').doc(data.escrowId as string).update({ settled: true, settledAt: new Date().toISOString() });
+    }
+
+    await this.firebase.collection('missions').doc(missionId).update({ status: 'settled', settledAt: new Date().toISOString() });
+
+    await this.firebase.collection('settlements').add({
+      missionId,
+      totalBudget,
+      memberPool,
+      totalLikes,
+      distributions,
+      settledAt: new Date().toISOString(),
+    });
+
+    return { settled: true, distributions };
+  }
+
+  // ── Legacy submit (kept for backwards compat) ──────────────────────────────
 
   async submitPost(missionId: string, userId: string, postUrl: string, tags: string[]) {
     const mission = await this.findById(missionId);
@@ -63,9 +234,7 @@ export class MissionsService {
     };
 
     const postRef = await this.firebase.collection('posts').add(post);
-
     await this.verifyAndAwardPost(postRef.id, missionId, userId, data);
-
     return { id: postRef.id, ...post };
   }
 
