@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f59e0b;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ef4444;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="url(#grad1)" />
+
+  <!-- Coin/dollar symbol -->
+  <circle cx="100" cy="100" r="60" fill="none" stroke="url(#grad2)" stroke-width="6" opacity="0.6"/>
+
+  <!-- AIM text -->
+  <text x="100" y="95" font-family="Arial Black, Arial" font-weight="900" font-size="38"
+        fill="white" text-anchor="middle" dominant-baseline="middle" letter-spacing="2">AIM</text>
+
+  <!-- Subtitle -->
+  <text x="100" y="128" font-family="Arial" font-size="10" font-weight="600"
+        fill="#fcd34d" text-anchor="middle" letter-spacing="3">AI MONEY HUB</text>
+
+  <!-- Stars decoration -->
+  <text x="48" y="75" font-size="14" fill="#fcd34d">★</text>
+  <text x="148" y="75" font-size="14" fill="#fcd34d">★</text>
+  <text x="58" y="135" font-size="10" fill="#fcd34d">✦</text>
+  <text x="138" y="135" font-size="10" fill="#fcd34d">✦</text>
+</svg>

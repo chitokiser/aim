@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -33,9 +34,13 @@ export function Navbar() {
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-cyan-500">
-            <span className="text-xs font-black text-white">AIM</span>
-          </div>
+          <Image
+            src="/images/aimlogo.svg"
+            alt="AIM Logo"
+            width={36}
+            height={36}
+            className="rounded-lg"
+          />
           <span className="hidden font-bold text-lg sm:block">
             AI Money Makers
           </span>
