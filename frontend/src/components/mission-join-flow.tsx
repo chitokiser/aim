@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,10 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n";
+import { useAuthStore } from "@/lib/store";
 import {
   Coins, Users, CheckCircle, Heart, ExternalLink,
-  Building2, CalendarDays, Wallet,
+  Building2, CalendarDays, Wallet, Loader2,
 } from "lucide-react";
+
+const API = "https://ai119-bot-production.up.railway.app";
 
 // ─── Shared type ────────────────────────────────────────────────────────────
 
@@ -81,24 +84,58 @@ function calcEstimated(rows: SubmissionRow[], budget: number): SubmissionRow[] {
   }));
 }
 
-const MOCK_SUBMISSIONS: Omit<SubmissionRow, "estimatedAP">[] = [
-  { id: "s1", username: "aimaster_kim", likes: 324, isLiked: false },
-  { id: "s2", username: "creative_lee", likes: 198, isLiked: false },
-  { id: "s3", username: "you", likes: 1, isLiked: false },
-  { id: "s4", username: "maker_park", likes: 88, isLiked: false },
-];
-
 // ─── Submissions Board ────────────────────────────────────────────────────────
 
-function SubmissionsBoard({ totalBudget, daysLeft }: { totalBudget: number; daysLeft: number }) {
+function SubmissionsBoard({
+  missionId,
+  totalBudget,
+  daysLeft,
+}: {
+  missionId: string;
+  totalBudget: number;
+  daysLeft: number;
+}) {
   const { t } = useLanguage();
   const mf = t.missionFlow;
+  const { token } = useAuthStore();
 
-  const [rows, setRows] = useState<SubmissionRow[]>(() =>
-    calcEstimated(MOCK_SUBMISSIONS.map((r) => ({ ...r, estimatedAP: 0 })), totalBudget),
-  );
+  const [rows, setRows] = useState<SubmissionRow[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleLike = (id: string) => {
+  const fetchSubmissions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/missions/${encodeURIComponent(missionId)}/submissions`);
+      if (res.ok) {
+        const data = (await res.json()) as Array<Record<string, unknown>>;
+        const mapped = data.map((s) => ({
+          id: s.id as string,
+          username:
+            (s.displayName as string) ||
+            `User #${((s.userId as string) || '').slice(-4) || '????'}`,
+          likes: (s.likes as number) || 0,
+          isLiked: false,
+          estimatedAP: 0,
+        }));
+        setRows(calcEstimated(mapped, totalBudget));
+      }
+    } catch {
+      // silent — keep empty list
+    } finally {
+      setLoading(false);
+    }
+  }, [missionId, totalBudget]);
+
+  useEffect(() => {
+    fetchSubmissions();
+  }, [fetchSubmissions]);
+
+  const handleLike = async (id: string) => {
+    if (!token) {
+      toast.error(mf.loginToVote);
+      return;
+    }
+
+    // Optimistic toggle
     setRows((prev) => {
       const updated = prev.map((r) =>
         r.id === id
@@ -107,6 +144,43 @@ function SubmissionsBoard({ totalBudget, daysLeft }: { totalBudget: number; days
       );
       return calcEstimated(updated, totalBudget);
     });
+
+    try {
+      const res = await fetch(`${API}/api/missions/submissions/${id}/like`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        // Revert on failure
+        setRows((prev) => {
+          const reverted = prev.map((r) =>
+            r.id === id
+              ? { ...r, likes: r.isLiked ? r.likes + 1 : r.likes - 1, isLiked: !r.isLiked }
+              : r,
+          );
+          return calcEstimated(reverted, totalBudget);
+        });
+      } else {
+        // Update from server response
+        const result = (await res.json()) as { liked: boolean; likes: number };
+        setRows((prev) => {
+          const synced = prev.map((r) =>
+            r.id === id ? { ...r, likes: result.likes, isLiked: result.liked } : r,
+          );
+          return calcEstimated(synced, totalBudget);
+        });
+      }
+    } catch {
+      // Revert on network error
+      setRows((prev) => {
+        const reverted = prev.map((r) =>
+          r.id === id
+            ? { ...r, likes: r.isLiked ? r.likes + 1 : r.likes - 1, isLiked: !r.isLiked }
+            : r,
+        );
+        return calcEstimated(reverted, totalBudget);
+      });
+    }
   };
 
   const sorted = [...rows].sort((a, b) => b.likes - a.likes);
@@ -120,39 +194,49 @@ function SubmissionsBoard({ totalBudget, daysLeft }: { totalBudget: number; days
         </Badge>
       </div>
       <p className="text-xs text-muted-foreground">{mf.voteNote}</p>
-      <div className="space-y-2.5">
-        {sorted.map((row, rank) => (
-          <div key={row.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
-              {rank + 1}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium">@{row.username}</p>
-              <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Heart className="h-3 w-3" />
-                  {row.likes.toLocaleString()}
-                </span>
-                <span className="flex items-center gap-1 text-violet-600 font-medium">
-                  <Coins className="h-3 w-3" />
-                  ~{row.estimatedAP.toLocaleString()} AP
-                </span>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-6 text-sm text-muted-foreground gap-2">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          {mf.loading}
+        </div>
+      ) : sorted.length === 0 ? (
+        <p className="text-sm text-center text-muted-foreground py-6">{mf.noSubmissions}</p>
+      ) : (
+        <div className="space-y-2.5">
+          {sorted.map((row, rank) => (
+            <div key={row.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-bold">
+                {rank + 1}
               </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium">@{row.username}</p>
+                <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Heart className="h-3 w-3" />
+                    {row.likes.toLocaleString()}
+                  </span>
+                  <span className="flex items-center gap-1 text-violet-600 font-medium">
+                    <Coins className="h-3 w-3" />
+                    ~{row.estimatedAP.toLocaleString()} AP
+                  </span>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant={row.isLiked ? "default" : "outline"}
+                className={`shrink-0 text-xs h-8 px-3 ${
+                  row.isLiked ? "bg-pink-500 hover:bg-pink-600 border-pink-500 text-white" : ""
+                }`}
+                onClick={() => handleLike(row.id)}
+              >
+                <Heart className={`h-3.5 w-3.5 mr-1 ${row.isLiked ? "fill-current" : ""}`} />
+                {row.isLiked ? mf.liked : mf.likeBtn}
+              </Button>
             </div>
-            <Button
-              size="sm"
-              variant={row.isLiked ? "default" : "outline"}
-              className={`shrink-0 text-xs h-8 px-3 ${
-                row.isLiked ? "bg-pink-500 hover:bg-pink-600 border-pink-500 text-white" : ""
-              }`}
-              onClick={() => handleLike(row.id)}
-            >
-              <Heart className={`h-3.5 w-3.5 mr-1 ${row.isLiked ? "fill-current" : ""}`} />
-              {row.isLiked ? mf.liked : mf.likeBtn}
-            </Button>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -168,6 +252,7 @@ interface SubmitLinksModalProps {
 export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalProps) {
   const { t } = useLanguage();
   const mf = t.missionFlow;
+  const { token } = useAuthStore();
 
   const [links, setLinks] = useState({ youtube: "", blog: "", comment: "", screenshot: "" });
   const [submitting, setSubmitting] = useState(false);
@@ -176,14 +261,49 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!Object.values(links).some((l) => l.trim())) {
-      toast.error("최소 하나의 링크를 입력해주세요.");
+      toast.error(mf.atLeastOneLink);
       return;
     }
+    if (!token) {
+      toast.error(mf.loginToVote);
+      return;
+    }
+
     setSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setSubmitting(false);
-    setSubmitted(true);
-    toast.success(mf.submitted);
+    try {
+      const primaryUrl =
+        links.youtube || links.blog || links.comment || links.screenshot || "";
+      const platform = links.youtube ? "YouTube" : links.blog ? "Blog" : "Multi";
+
+      const res = await fetch(`${API}/api/missions/submit-general`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          missionId: mission!.id,
+          section: mission!.missionType,
+          platform,
+          postUrl: primaryUrl,
+          description: JSON.stringify(links),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({ message: "Submit failed" }))) as {
+          message?: string;
+        };
+        throw new Error(err.message || "Submit failed");
+      }
+
+      setSubmitted(true);
+      toast.success(mf.submitted);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -240,7 +360,14 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
               className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
               disabled={submitting}
             >
-              {submitting ? mf.submitting : mf.submitBtn}
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {mf.submitting}
+                </>
+              ) : (
+                mf.submitBtn
+              )}
             </Button>
           </form>
         ) : (
@@ -252,7 +379,7 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
                 <p className="text-sm text-green-600 dark:text-green-500 mt-1">{mf.submittedDesc}</p>
               </div>
             </div>
-            <SubmissionsBoard totalBudget={mission.totalBudget} daysLeft={10} />
+            <SubmissionsBoard missionId={mission.id} totalBudget={mission.totalBudget} daysLeft={10} />
           </div>
         )}
       </DialogContent>
@@ -384,9 +511,57 @@ export function AdvertiserListModal({
   const { t } = useLanguage();
   const mf = t.missionFlow;
 
-  if (!mission) return null;
+  const [advertisers, setAdvertisers] = useState<MissionFlowData[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const advertisers = mockAdvertisers(mission);
+  useEffect(() => {
+    if (!open || !mission) return;
+
+    const fetchMissions = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API}/api/missions?status=active`);
+        if (res.ok) {
+          const data = (await res.json()) as Array<Record<string, unknown>>;
+          const filtered = data
+            .filter(
+              (m) =>
+                (m.missionType as string) === mission.missionType ||
+                (m.section as string) === mission.missionType,
+            )
+            .map((m) => ({
+              id: m.id as string,
+              title: (m.title as string) || mission.title,
+              description: (m.description as string) || mission.description,
+              reward: (m.reward as number) || mission.reward,
+              remainingBudget: (m.remainingBudget as number) || 0,
+              totalBudget: (m.totalBudget as number) || 0,
+              endDate: m.endDate ? new Date(m.endDate as string) : mission.endDate,
+              requiredTags: (m.requiredTags as string[]) || [],
+              participantCount: (m.participantCount as number) || 0,
+              missionType: mission.missionType,
+              status: "active" as const,
+              advertiserName:
+                (m.advertiserName as string) ||
+                (m.advertiserId as string)?.slice(-6) ||
+                "Advertiser",
+            }));
+
+          setAdvertisers(filtered.length > 0 ? filtered : mockAdvertisers(mission));
+        } else {
+          setAdvertisers(mockAdvertisers(mission));
+        }
+      } catch {
+        setAdvertisers(mockAdvertisers(mission));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMissions();
+  }, [open, mission]);
+
+  if (!mission) return null;
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -396,86 +571,95 @@ export function AdvertiserListModal({
         </DialogHeader>
         <p className="text-sm text-muted-foreground -mt-2 mb-2">{mf.selectAdvertiser}</p>
 
-        <div className="space-y-4">
-          {advertisers.map((adv) => {
-            const budgetUsed =
-              ((adv.totalBudget - adv.remainingBudget) / adv.totalBudget) * 100;
-            const endStr =
-              adv.endDate instanceof Date
-                ? adv.endDate.toLocaleDateString()
-                : String(adv.endDate);
+        {loading ? (
+          <div className="flex items-center justify-center py-12 text-sm text-muted-foreground gap-2">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            {mf.loading}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {advertisers.map((adv) => {
+              const budgetUsed =
+                adv.totalBudget > 0
+                  ? ((adv.totalBudget - adv.remainingBudget) / adv.totalBudget) * 100
+                  : 0;
+              const endStr =
+                adv.endDate instanceof Date
+                  ? adv.endDate.toLocaleDateString()
+                  : String(adv.endDate);
 
-            return (
-              <Card key={adv.id} className="border shadow-sm hover:shadow-md transition-shadow">
-                <CardContent className="p-5">
-                  {/* Header row */}
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
-                        <Building2 className="h-4 w-4 text-violet-600" />
+              return (
+                <Card key={adv.id} className="border shadow-sm hover:shadow-md transition-shadow">
+                  <CardContent className="p-5">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-9 w-9 rounded-full bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center shrink-0">
+                          <Building2 className="h-4 w-4 text-violet-600" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">{adv.advertiserName}</p>
+                          <p className="text-xs text-muted-foreground line-clamp-1">{adv.title}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-sm">{adv.advertiserName}</p>
-                        <p className="text-xs text-muted-foreground line-clamp-1">{adv.title}</p>
+                      <Badge
+                        variant="outline"
+                        className="text-green-600 border-green-300 text-xs shrink-0"
+                      >
+                        {t.admin.active}
+                      </Badge>
+                    </div>
+
+                    {/* Stats row */}
+                    <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">{mf.totalBudget}</p>
+                        <p className="text-sm font-bold text-violet-600">
+                          {(adv.totalBudget / 10000).toFixed(0)}만 AP
+                        </p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">{mf.endDate}</p>
+                        <p className="text-sm font-bold">{endStr}</p>
+                      </div>
+                      <div className="p-2 rounded-lg bg-muted/50">
+                        <p className="text-xs text-muted-foreground">{mf.participants}</p>
+                        <p className="text-sm font-bold">{adv.participantCount.toLocaleString()}</p>
                       </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="text-green-600 border-green-300 text-xs shrink-0"
-                    >
-                      {t.admin.active}
-                    </Badge>
-                  </div>
 
-                  {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-                    <div className="p-2 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{mf.totalBudget}</p>
-                      <p className="text-sm font-bold text-violet-600">
-                        {(adv.totalBudget / 10000).toFixed(0)}만 AP
+                    {/* Budget bar */}
+                    <div className="space-y-1 mb-4">
+                      <Progress value={budgetUsed} className="h-1.5" />
+                      <p className="text-xs text-muted-foreground text-right">
+                        {Math.round(budgetUsed)}% used
                       </p>
                     </div>
-                    <div className="p-2 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{mf.endDate}</p>
-                      <p className="text-sm font-bold">{endStr}</p>
-                    </div>
-                    <div className="p-2 rounded-lg bg-muted/50">
-                      <p className="text-xs text-muted-foreground">{mf.participants}</p>
-                      <p className="text-sm font-bold">{adv.participantCount.toLocaleString()}</p>
-                    </div>
-                  </div>
 
-                  {/* Budget bar */}
-                  <div className="space-y-1 mb-4">
-                    <Progress value={budgetUsed} className="h-1.5" />
-                    <p className="text-xs text-muted-foreground text-right">
-                      {Math.round(budgetUsed)}% used
-                    </p>
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => onViewDetail(adv)}
-                    >
-                      {mf.viewDetail}
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="flex-1 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
-                      onClick={() => onSubmitWork(adv)}
-                    >
-                      {mf.submitWork}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
+                    {/* Action buttons */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => onViewDetail(adv)}
+                      >
+                        {mf.viewDetail}
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                        onClick={() => onSubmitWork(adv)}
+                      >
+                        {mf.submitWork}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -265,6 +265,10 @@ const T = {
       back: "Back to Missions",
       howSteps: "How to Participate",
       close: "Close",
+      atLeastOneLink: "Please enter at least one link.",
+      loginToVote: "Please log in to vote.",
+      noSubmissions: "No submissions yet. Be the first!",
+      loading: "Loading...",
     },
   },
   ko: {
@@ -527,6 +531,10 @@ const T = {
       back: "미션 목록으로",
       howSteps: "참여 방법",
       close: "닫기",
+      atLeastOneLink: "최소 하나의 링크를 입력해주세요.",
+      loginToVote: "투표하려면 로그인이 필요합니다.",
+      noSubmissions: "아직 제출된 작업이 없습니다. 첫 번째로 참여해보세요!",
+      loading: "로딩 중...",
     },
   },
   vi: {
@@ -789,6 +797,10 @@ const T = {
       back: "Quay lại nhiệm vụ",
       howSteps: "Cách tham gia",
       close: "Đóng",
+      atLeastOneLink: "Vui lòng nhập ít nhất một link.",
+      loginToVote: "Vui lòng đăng nhập để bình chọn.",
+      noSubmissions: "Chưa có bài nộp. Hãy là người đầu tiên!",
+      loading: "Đang tải...",
     },
   },
 };

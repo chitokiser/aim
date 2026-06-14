@@ -27,14 +27,23 @@ export class MissionsService {
     userId: string,
     dto: { postUrl: string; section: string; platform: string; description: string; missionId?: string },
   ) {
+    const userDoc = await this.firebase.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    const displayName =
+      (userData?.firstName as string | null) ||
+      (userData?.username as string | null) ||
+      'User';
+
     const sub = {
       userId,
+      displayName,
       postUrl: dto.postUrl,
       section: dto.section,
       platform: dto.platform,
       description: dto.description,
       missionId: dto.missionId || null,
-      status: 'pending',
+      status: 'approved',
+      likes: 0,
       createdAt: new Date().toISOString(),
     };
     const ref = await this.firebase.collection('submissions').add(sub);
@@ -113,9 +122,17 @@ export class MissionsService {
       .get();
     if (!existing.empty) throw new BadRequestException('Already submitted');
 
+    const userDoc = await this.firebase.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    const displayName =
+      (userData?.firstName as string | null) ||
+      (userData?.username as string | null) ||
+      'User';
+
     const submission = {
       missionId,
       userId,
+      displayName,
       links,
       status: 'approved',
       likes: 0,
