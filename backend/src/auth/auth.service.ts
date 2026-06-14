@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { FirebaseService } from '../firebase/firebase.service';
+import type { DocumentData } from 'firebase-admin/firestore';
 
 @Injectable()
 export class AuthService {
@@ -41,7 +42,7 @@ export class AuthService {
     const usersRef = this.firebase.collection('users');
     const existing = await usersRef.where('telegramId', '==', telegramId).get();
 
-    let user: FirebaseFirestore.DocumentData;
+    let user: DocumentData;
     let userId: string;
 
     if (!existing.empty) {

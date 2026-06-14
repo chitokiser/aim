@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
+import type { Query } from 'firebase-admin/firestore';
 
 @Injectable()
 export class MissionsService {
@@ -10,7 +11,7 @@ export class MissionsService {
   ) {}
 
   async findAll(status?: string) {
-    let query: FirebaseFirestore.Query = this.firebase.collection('missions');
+    let query: Query = this.firebase.collection('missions');
     if (status) query = query.where('status', '==', status);
     const snap = await query.get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
