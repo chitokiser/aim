@@ -2,7 +2,7 @@ import { webcrypto } from 'node:crypto';
 if (!global.crypto) (global as unknown as { crypto: unknown }).crypto = webcrypto;
 
 import { NestFactory } from '@nestjs/core';
-import { Logger, RequestMethod } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 process.on('uncaughtException', (err) => {
@@ -45,7 +45,7 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
 
-  app.setGlobalPrefix('api', { exclude: [{ path: 'health', method: RequestMethod.GET }] });
+  app.setGlobalPrefix('api');
 
   await app.listen(port, '0.0.0.0');
   logger.log(`AIM backend running on port ${port}`);
