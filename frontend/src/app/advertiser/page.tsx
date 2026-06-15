@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Megaphone, Coins, Plus, TrendingUp,
-  Users, Eye, MousePointerClick, Tag, Copy, ExternalLink,
+  Users, Eye, MousePointerClick, Tag, Copy, ExternalLink, LayoutTemplate, Loader2, ArrowLeft,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -42,6 +42,16 @@ const MY_MISSIONS = [
 ];
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+interface MissionTemplate {
+  id: string;
+  title: string;
+  type: string;
+  description?: string;
+  rewardPerUnit?: number;
+  maxParticipants?: number;
+  requiredTags?: string;
+}
 
 export default function AdvertiserPage() {
   const { user, token } = useAuthStore();
@@ -70,6 +80,16 @@ export default function AdvertiserPage() {
     toast.success("Copied!");
   };
 
+  // Templates browse state
+  const [templates, setTemplates] = useState<MissionTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<MissionTemplate | null>(null);
+  const [campaignForm, setCampaignForm] = useState({
+    title: "", budget: "", description: "", targetUrl: "",
+    tags: "", startDate: "", endDate: "", maxParticipants: "",
+  });
+  const [campaignSubmitting, setCampaignSubmitting] = useState(false);
+
   const [missionForm, setMissionForm] = useState({
     title: "", description: "", type: "", budget: "", reward: "",
     maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
@@ -85,6 +105,55 @@ export default function AdvertiserPage() {
     { value: "landing", label: "Landing Page", options: ["HTML", "Mobile", "CTA", "SEO"] },
     { value: "poster", label: "Poster", options: ["SNS poster", "Event poster", "Ad banner"] },
   ];
+
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions/templates`);
+      if (!res.ok) throw new Error();
+      setTemplates(await res.json());
+    } catch {
+      toast.error("Failed to load templates");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, []);
+
+  const handleCampaignRequest = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || !token || !selectedTemplate) return;
+    if (!campaignForm.title.trim() || !campaignForm.budget || !campaignForm.description.trim()) return;
+    setCampaignSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/missions/request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          templateId: selectedTemplate.id,
+          title: campaignForm.title.trim(),
+          budget: Number(campaignForm.budget),
+          description: campaignForm.description.trim(),
+          targetUrl: campaignForm.targetUrl.trim() || undefined,
+          requiredTags: campaignForm.tags.trim() || undefined,
+          startDate: campaignForm.startDate || undefined,
+          endDate: campaignForm.endDate || undefined,
+          maxParticipants: campaignForm.maxParticipants ? Number(campaignForm.maxParticipants) : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Failed to submit campaign");
+        return;
+      }
+      toast.success(t.advertiser.campaignSubmitted);
+      setSelectedTemplate(null);
+      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", endDate: "", maxParticipants: "" });
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setCampaignSubmitting(false);
+    }
+  };
 
   const handleMissionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,12 +250,203 @@ export default function AdvertiserPage() {
 
       <Tabs defaultValue="create">
         <TabsList className="mb-6 flex-wrap h-auto gap-1">
+          <TabsTrigger value="templates" onClick={loadTemplates}>
+            <LayoutTemplate className="h-3.5 w-3.5 mr-1" />
+            {t.advertiser.tabBrowse}
+          </TabsTrigger>
           <TabsTrigger value="create">{t.advertiser.tabCreate}</TabsTrigger>
           <TabsTrigger value="ai-content">{t.advertiser.tabAI}</TabsTrigger>
           <TabsTrigger value="my-missions">{t.advertiser.tabMyMissions}</TabsTrigger>
           <TabsTrigger value="charge">{t.advertiser.tabCharge}</TabsTrigger>
           <TabsTrigger value="stats">{t.advertiser.tabStats}</TabsTrigger>
         </TabsList>
+
+        {/* Browse Templates */}
+        <TabsContent value="templates">
+          {selectedTemplate ? (
+            <Card>
+              <CardHeader>
+                <Button variant="ghost" size="sm" className="w-fit -ml-2 mb-2 gap-1 text-muted-foreground"
+                  onClick={() => setSelectedTemplate(null)}>
+                  <ArrowLeft className="h-4 w-4" />
+                  {t.advertiser.backToTemplates}
+                </Button>
+                <CardTitle className="flex items-center gap-2">
+                  <LayoutTemplate className="h-5 w-5 text-violet-500" />
+                  {selectedTemplate.title}
+                </CardTitle>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <Badge variant="secondary">{selectedTemplate.type}</Badge>
+                  {selectedTemplate.rewardPerUnit && (
+                    <Badge variant="outline">{selectedTemplate.rewardPerUnit.toLocaleString()} AP / unit</Badge>
+                  )}
+                  {selectedTemplate.maxParticipants && (
+                    <Badge variant="outline">max {selectedTemplate.maxParticipants}</Badge>
+                  )}
+                </div>
+                {selectedTemplate.description && (
+                  <CardDescription className="mt-2">{selectedTemplate.description}</CardDescription>
+                )}
+                {selectedTemplate.requiredTags && (
+                  <p className="text-xs font-mono text-violet-500 mt-1">{selectedTemplate.requiredTags}</p>
+                )}
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleCampaignRequest} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label>{t.advertiser.campaignTitle}</Label>
+                    <Input
+                      value={campaignForm.title}
+                      onChange={(e) => setCampaignForm((p) => ({ ...p, title: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>{t.advertiser.campaignBudget}</Label>
+                      <Input
+                        type="number"
+                        value={campaignForm.budget}
+                        onChange={(e) => setCampaignForm((p) => ({ ...p, budget: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.advertiser.campaignMaxPart}</Label>
+                      <Input
+                        type="number"
+                        value={campaignForm.maxParticipants}
+                        onChange={(e) => setCampaignForm((p) => ({ ...p, maxParticipants: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.advertiser.campaignDescription}</Label>
+                    <Textarea
+                      rows={3}
+                      value={campaignForm.description}
+                      onChange={(e) => setCampaignForm((p) => ({ ...p, description: e.target.value }))}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.advertiser.campaignTargetUrl}</Label>
+                    <Input
+                      type="url"
+                      placeholder="https://"
+                      value={campaignForm.targetUrl}
+                      onChange={(e) => setCampaignForm((p) => ({ ...p, targetUrl: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.advertiser.campaignTags}</Label>
+                    <Input
+                      placeholder="#AIM, #brand"
+                      value={campaignForm.tags}
+                      onChange={(e) => setCampaignForm((p) => ({ ...p, tags: e.target.value }))}
+                    />
+                  </div>
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label>{t.advertiser.campaignStartDate}</Label>
+                      <Input
+                        type="date"
+                        value={campaignForm.startDate}
+                        onChange={(e) => setCampaignForm((p) => ({ ...p, startDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>{t.advertiser.campaignEndDate}</Label>
+                      <Input
+                        type="date"
+                        value={campaignForm.endDate}
+                        onChange={(e) => setCampaignForm((p) => ({ ...p, endDate: e.target.value }))}
+                        required
+                      />
+                    </div>
+                  </div>
+                  {campaignForm.budget && (
+                    <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-950/20 text-sm">
+                      <p className="font-semibold mb-2">{t.advertiser.revenueShare}</p>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="p-2 rounded bg-white dark:bg-slate-800">
+                          <div className="font-bold text-violet-600">{Math.round(Number(campaignForm.budget) * 0.2).toLocaleString()} AP</div>
+                          <div className="text-xs text-muted-foreground">{t.advertiser.platform} (20%)</div>
+                        </div>
+                        <div className="p-2 rounded bg-white dark:bg-slate-800">
+                          <div className="font-bold text-cyan-600">{Math.round(Number(campaignForm.budget) * 0.1).toLocaleString()} AP</div>
+                          <div className="text-xs text-muted-foreground">{t.advertiser.mentor} (10%)</div>
+                        </div>
+                        <div className="p-2 rounded bg-white dark:bg-slate-800">
+                          <div className="font-bold text-green-600">{Math.round(Number(campaignForm.budget) * 0.7).toLocaleString()} AP</div>
+                          <div className="text-xs text-muted-foreground">{t.advertiser.participant} (70%)</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <Button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                    disabled={campaignSubmitting}
+                  >
+                    {campaignSubmitting ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.advertiser.campaignSubmitting}</>
+                    ) : (
+                      t.advertiser.campaignSubmitBtn
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-lg font-bold">{t.advertiser.browseTitle}</h2>
+                <p className="text-sm text-muted-foreground">{t.advertiser.browseSubtitle}</p>
+              </div>
+              {templatesLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">{t.advertiser.loadingTemplates}</span>
+                </div>
+              ) : templates.length === 0 ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">{t.advertiser.noTemplates}</div>
+              ) : (
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {templates.map((tpl) => (
+                    <Card key={tpl.id} className="hover:border-violet-400 transition-colors cursor-pointer"
+                      onClick={() => setSelectedTemplate(tpl)}>
+                      <CardContent className="p-5">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-bold leading-tight">{tpl.title}</h3>
+                          <Badge variant="secondary" className="text-xs shrink-0">{tpl.type}</Badge>
+                        </div>
+                        {tpl.description && (
+                          <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{tpl.description}</p>
+                        )}
+                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {tpl.rewardPerUnit && (
+                            <span>{tpl.rewardPerUnit.toLocaleString()} AP / unit</span>
+                          )}
+                          {tpl.maxParticipants && (
+                            <span>max {tpl.maxParticipants}</span>
+                          )}
+                        </div>
+                        {tpl.requiredTags && (
+                          <p className="text-xs font-mono text-violet-500 mt-2">{tpl.requiredTags}</p>
+                        )}
+                        <Button className="w-full mt-4 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90" size="sm">
+                          {t.advertiser.orderBtn}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </TabsContent>
 
         {/* Create Mission */}
         <TabsContent value="create">

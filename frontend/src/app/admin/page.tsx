@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
-  Search, Bell, Loader2, History, Zap, Bot,
+  Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -44,10 +44,25 @@ interface Transaction {
   createdAt: string;
 }
 
-const MISSIONS_PENDING = [
-  { id: "1", advertiser: "BrandX", title: "AI CF 영상 제작 v2", budget: 10000000, type: "cf_video", date: "2026-06-13" },
-  { id: "2", advertiser: "TechCo", title: "앱 리뷰 미션", budget: 2000000, type: "review", date: "2026-06-14" },
-];
+interface MissionTemplate {
+  id: string;
+  title: string;
+  type: string;
+  description?: string;
+  rewardPerUnit?: number;
+  maxParticipants?: number;
+  requiredTags?: string;
+  createdAt?: string;
+}
+
+interface PendingMission {
+  id: string;
+  title: string;
+  type: string;
+  advertiserId: string;
+  budget?: number;
+  createdAt?: string;
+}
 
 const AP_STATUS = [
   { labelKey: "총 발행량", value: "4,200,000,000 AP" },
@@ -57,6 +72,8 @@ const AP_STATUS = [
   { labelKey: "멘토 수당", value: "105,000,000 AP" },
   { labelKey: "출금 대기", value: "42,500 AP" },
 ];
+
+const MISSION_TYPES = ["sns_marketing", "ai_review", "ai_music", "business_content", "sns_sponsorship", "follow_join"];
 
 export default function AdminPage() {
   const { user, token } = useAuthStore();
@@ -85,6 +102,24 @@ export default function AdminPage() {
   const [vault, setVault] = useState<{ totalAP: number; transactions: VaultTransaction[] } | null>(null);
   const [vaultLoading, setVaultLoading] = useState(false);
 
+  // Templates state
+  const [templates, setTemplates] = useState<MissionTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [tplTitle, setTplTitle] = useState("");
+  const [tplType, setTplType] = useState(MISSION_TYPES[0]);
+  const [tplDesc, setTplDesc] = useState("");
+  const [tplReward, setTplReward] = useState("");
+  const [tplMaxPart, setTplMaxPart] = useState("");
+  const [tplTags, setTplTags] = useState("");
+  const [tplSaving, setTplSaving] = useState(false);
+
+  // Pending missions state
+  const [pending, setPending] = useState<PendingMission[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [actioningId, setActioningId] = useState<string | null>(null);
+
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
   }, [user, router]);
@@ -94,14 +129,13 @@ export default function AdminPage() {
     [token],
   );
 
-  // Load members from API
   const loadMembers = useCallback(async (q?: string) => {
     if (!token) return;
     setMembersLoading(true);
     try {
       const url = `${API}/api/users/admin/list${q ? `?search=${encodeURIComponent(q)}` : ""}`;
       const res = await fetch(url, { headers: authHeader() });
-      if (!res.ok) throw new Error("Failed to load members");
+      if (!res.ok) throw new Error();
       setMembers(await res.json());
     } catch {
       toast.error("Failed to load members");
@@ -114,13 +148,11 @@ export default function AdminPage() {
     if (user?.isAdmin) loadMembers();
   }, [user, loadMembers]);
 
-  // Debounce search
   useEffect(() => {
-    const t = setTimeout(() => loadMembers(search), 400);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => loadMembers(search), 400);
+    return () => clearTimeout(timer);
   }, [search, loadMembers]);
 
-  // Load platform vault
   const loadVault = useCallback(async () => {
     if (!token) return;
     setVaultLoading(true);
@@ -135,14 +167,111 @@ export default function AdminPage() {
     }
   }, [token, authHeader]);
 
-  // Open charge dialog
+  const loadTemplates = useCallback(async () => {
+    setTemplatesLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions/templates`);
+      if (!res.ok) throw new Error();
+      setTemplates(await res.json());
+    } catch {
+      toast.error("Failed to load templates");
+    } finally {
+      setTemplatesLoading(false);
+    }
+  }, []);
+
+  const loadPending = useCallback(async () => {
+    if (!token) return;
+    setPendingLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions?status=pending`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setPending(await res.json());
+    } catch {
+      toast.error("Failed to load pending campaigns");
+    } finally {
+      setPendingLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const handleCreateTemplate = async () => {
+    if (!tplTitle.trim() || !tplDesc.trim()) return;
+    setTplSaving(true);
+    try {
+      const res = await fetch(`${API}/api/missions/template`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({
+          title: tplTitle.trim(),
+          type: tplType,
+          description: tplDesc.trim(),
+          rewardPerUnit: tplReward ? Number(tplReward) : undefined,
+          maxParticipants: tplMaxPart ? Number(tplMaxPart) : undefined,
+          requiredTags: tplTags.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.templateSaved);
+      setTplTitle(""); setTplDesc(""); setTplReward(""); setTplMaxPart(""); setTplTags("");
+      loadTemplates();
+    } catch {
+      toast.error("Failed to save template");
+    } finally {
+      setTplSaving(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    try {
+      const res = await fetch(`${API}/api/missions/${id}`, { method: "DELETE", headers: authHeader() });
+      if (!res.ok && res.status !== 204) throw new Error();
+      toast.success(t.admin.templateDeleted);
+      setTemplates((prev) => prev.filter((tpl) => tpl.id !== id));
+    } catch {
+      toast.error("Failed to delete template");
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    setActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/missions/${id}/approve`, { method: "PATCH", headers: authHeader() });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.approveSuccess);
+      setPending((prev) => prev.filter((m) => m.id !== id));
+    } catch {
+      toast.error("Failed to approve mission");
+    } finally {
+      setActioningId(null);
+    }
+  };
+
+  const handleReject = async (id: string) => {
+    setActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/missions/${id}/reject`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.rejectSuccess);
+      setPending((prev) => prev.filter((m) => m.id !== id));
+      setRejectTargetId(null);
+      setRejectReason("");
+    } catch {
+      toast.error("Failed to reject mission");
+    } finally {
+      setActioningId(null);
+    }
+  };
+
   const openCharge = (member: Member) => {
     setChargeTarget(member);
     setChargeAmount("");
     setChargeReason("");
   };
 
-  // Submit AP charge
   const submitCharge = async () => {
     if (!chargeTarget || !chargeAmount || !chargeReason.trim()) return;
     const amount = Number(chargeAmount);
@@ -165,7 +294,6 @@ export default function AdminPage() {
     }
   };
 
-  // Open history dialog
   const openHistory = async (member: Member) => {
     setHistoryTarget(member);
     setTransactions([]);
@@ -195,7 +323,6 @@ export default function AdminPage() {
 
   const approvePost = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
   const rejectPost = (id: string) => toast.error(`#${id} ${t.admin.reject}`);
-  const approveMission = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
   const suspendUser = (id: string) => toast.warning(`#${id} ${t.admin.suspend}`);
   const sendNotice = () => {
     if (!notice.trim()) return;
@@ -242,7 +369,14 @@ export default function AdminPage() {
       <Tabs defaultValue="posts">
         <TabsList className="mb-6 flex-wrap h-auto gap-1">
           <TabsTrigger value="posts">{t.admin.tabPosts}</TabsTrigger>
-          <TabsTrigger value="missions">{t.admin.tabMissions}</TabsTrigger>
+          <TabsTrigger value="templates" onClick={loadTemplates}>
+            <LayoutTemplate className="h-3.5 w-3.5 mr-1" />
+            {t.admin.tabTemplates}
+          </TabsTrigger>
+          <TabsTrigger value="pending" onClick={loadPending}>
+            <Clock className="h-3.5 w-3.5 mr-1" />
+            {t.admin.tabPending}
+          </TabsTrigger>
           <TabsTrigger value="members">{t.admin.tabMembers}</TabsTrigger>
           <TabsTrigger value="vault" onClick={loadVault}>{t.admin.tabVault}</TabsTrigger>
           <TabsTrigger value="points">{t.admin.tabPoints}</TabsTrigger>
@@ -294,33 +428,181 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
 
-        {/* Mission Approval */}
-        <TabsContent value="missions">
+        {/* Mission Templates */}
+        <TabsContent value="templates">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <LayoutTemplate className="h-4 w-4 text-violet-500" />
+                  {t.admin.templateTitle}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">{t.admin.templateSubtitle}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.templateName}</Label>
+                    <Input value={tplTitle} onChange={(e) => setTplTitle(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.templateType}</Label>
+                    <select
+                      className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
+                      value={tplType}
+                      onChange={(e) => setTplType(e.target.value)}
+                    >
+                      {MISSION_TYPES.map((mt) => (
+                        <option key={mt} value={mt}>{mt}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>{t.admin.templateDesc}</Label>
+                    <Input value={tplDesc} onChange={(e) => setTplDesc(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.templateReward}</Label>
+                    <Input type="number" value={tplReward} onChange={(e) => setTplReward(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.templateMaxPart}</Label>
+                    <Input type="number" value={tplMaxPart} onChange={(e) => setTplMaxPart(e.target.value)} />
+                  </div>
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <Label>{t.admin.templateRequiredTags}</Label>
+                    <Input value={tplTags} onChange={(e) => setTplTags(e.target.value)} placeholder="#AIM, #AIcreator" />
+                  </div>
+                </div>
+                <Button
+                  className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                  disabled={tplSaving || !tplTitle.trim() || !tplDesc.trim()}
+                  onClick={handleCreateTemplate}
+                >
+                  {tplSaving ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.admin.templateSaving}</>
+                  ) : (
+                    <><LayoutTemplate className="h-4 w-4 mr-2" />{t.admin.templateSaveBtn}</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t.admin.createTemplate} ({templates.length})</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {templatesLoading ? (
+                  <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">{t.admin.loadingMissions}</span>
+                  </div>
+                ) : templates.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">{t.admin.noTemplates}</div>
+                ) : (
+                  <div className="divide-y">
+                    {templates.map((tpl) => (
+                      <div key={tpl.id} className="p-4 flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold">{tpl.title}</p>
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            <Badge variant="secondary" className="text-xs">{tpl.type}</Badge>
+                            {tpl.rewardPerUnit && (
+                              <span className="text-xs text-muted-foreground">{tpl.rewardPerUnit.toLocaleString()} AP/{t.admin.times}</span>
+                            )}
+                            {tpl.maxParticipants && (
+                              <span className="text-xs text-muted-foreground">max {tpl.maxParticipants}</span>
+                            )}
+                          </div>
+                          {tpl.description && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">{tpl.description}</p>
+                          )}
+                          {tpl.requiredTags && (
+                            <p className="text-xs font-mono text-violet-500 mt-1">{tpl.requiredTags}</p>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-500 hover:text-red-600 shrink-0"
+                          onClick={() => handleDeleteTemplate(tpl.id)}
+                        >
+                          <XCircle className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Pending Campaign Approvals */}
+        <TabsContent value="pending">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{t.admin.missionsPending} ({MISSIONS_PENDING.length})</CardTitle>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-500" />
+                {t.admin.pendingTitle}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">{t.admin.pendingSubtitle}</p>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y">
-                {MISSIONS_PENDING.map((m) => (
-                  <div key={m.id} className="p-4 flex items-center gap-4">
-                    <div className="flex-1">
-                      <p className="font-semibold">{m.title}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="outline" className="text-xs">{m.advertiser}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {t.admin.budget}: {m.budget.toLocaleString()} AP · {m.date}
-                        </span>
+              {pendingLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">{t.admin.loadingMissions}</span>
+                </div>
+              ) : pending.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">{t.admin.noPending}</div>
+              ) : (
+                <div className="divide-y">
+                  {pending.map((m) => (
+                    <div key={m.id} className="p-4 flex items-center gap-4 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{m.title}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <Badge variant="outline" className="text-xs">{t.admin.pendingAdvertiser}: {m.advertiserId}</Badge>
+                          <Badge variant="secondary" className="text-xs">{m.type}</Badge>
+                          {m.budget && (
+                            <span className="text-xs text-muted-foreground">
+                              {t.admin.pendingBudget}: {m.budget.toLocaleString()} AP
+                            </span>
+                          )}
+                          {m.createdAt && (
+                            <span className="text-xs text-muted-foreground">{m.createdAt.slice(0, 10)}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-green-500 hover:bg-green-600 text-white"
+                          disabled={actioningId === m.id}
+                          onClick={() => handleApprove(m.id)}
+                        >
+                          {actioningId === m.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <><CheckCircle className="h-3.5 w-3.5 mr-1" />{t.admin.approve}</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-red-300 text-red-600 hover:bg-red-50"
+                          disabled={actioningId === m.id}
+                          onClick={() => { setRejectTargetId(m.id); setRejectReason(""); }}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />{t.admin.reject}
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white"
-                        onClick={() => approveMission(m.id)}>{t.admin.approve}</Button>
-                      <Button size="sm" variant="outline">{t.admin.reject}</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -433,7 +715,7 @@ export default function AdminPage() {
                 {chargeTarget && (
                   <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">현재 잔액</span>
+                      <span className="text-muted-foreground">Current Balance</span>
                       <span className="font-bold">{(chargeTarget.points ?? 0).toLocaleString()} AP</span>
                     </div>
                     {chargeTarget.telegramId && (
@@ -454,7 +736,7 @@ export default function AdminPage() {
                   />
                   {chargeAmount && !isNaN(Number(chargeAmount)) && (
                     <p className="text-xs text-muted-foreground">
-                      충전 후 잔액: {((chargeTarget?.points ?? 0) + Number(chargeAmount)).toLocaleString()} AP
+                      After charge: {((chargeTarget?.points ?? 0) + Number(chargeAmount)).toLocaleString()} AP
                     </p>
                   )}
                 </div>
@@ -479,7 +761,7 @@ export default function AdminPage() {
                     )}
                   </Button>
                   <Button variant="outline" onClick={() => setChargeTarget(null)}>
-                    취소
+                    Cancel
                   </Button>
                 </div>
               </div>
@@ -550,7 +832,7 @@ export default function AdminPage() {
                   {t.admin.vaultTitle}
                 </CardTitle>
                 <Button size="sm" variant="outline" onClick={loadVault}>
-                  {t.admin.vaultLoading.replace("...", "")}
+                  Refresh
                 </Button>
               </div>
             </CardHeader>
@@ -696,6 +978,43 @@ export default function AdminPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Reject Mission Dialog */}
+      <Dialog open={!!rejectTargetId} onOpenChange={(o) => !o && setRejectTargetId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              {t.admin.reject}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>{t.admin.rejectReasonLabel}</Label>
+              <Input
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="e.g. Budget too low, invalid template..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                className="flex-1"
+                disabled={actioningId === rejectTargetId}
+                onClick={() => rejectTargetId && handleReject(rejectTargetId)}
+              >
+                {actioningId === rejectTargetId ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <><XCircle className="h-4 w-4 mr-2" />{t.admin.reject}</>
+                )}
+              </Button>
+              <Button variant="outline" onClick={() => setRejectTargetId(null)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

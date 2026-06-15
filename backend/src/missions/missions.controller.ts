@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Delete, Param, Body, Query,
+  Controller, Get, Post, Put, Delete, Patch, Param, Body, Query,
   UseGuards, Request, ForbiddenException, HttpCode,
 } from '@nestjs/common';
 import { MissionsService } from './missions.service';
@@ -28,6 +28,12 @@ export class MissionsController {
   @Get()
   findAll(@Query('status') status?: string) {
     return this.missionsService.findAll(status);
+  }
+
+  // Must appear before :id routes
+  @Get('templates')
+  findTemplates() {
+    return this.missionsService.findTemplates();
   }
 
   @Get(':id')
@@ -96,6 +102,49 @@ export class MissionsController {
     @Request() req: { user: { sub: string } },
   ) {
     return this.missionsService.likeSubmission(submissionId, req.user.sub);
+  }
+
+  // ── 3-Tier Mission Flow ────────────────────────────────────────────────────
+
+  @Post('template')
+  @UseGuards(JwtAuthGuard)
+  async createTemplate(
+    @Request() req: { user: { sub: string } },
+    @Body() dto: Record<string, unknown>,
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.createTemplate(req.user.sub, dto);
+  }
+
+  @Post('request')
+  @UseGuards(JwtAuthGuard)
+  requestCampaign(
+    @Request() req: { user: { sub: string } },
+    @Body() body: { templateId: string } & Record<string, unknown>,
+  ) {
+    const { templateId, ...dto } = body;
+    return this.missionsService.requestCampaign(req.user.sub, templateId, dto);
+  }
+
+  @Patch(':id/approve')
+  @UseGuards(JwtAuthGuard)
+  async approveMission(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.approveMission(id);
+  }
+
+  @Patch(':id/reject')
+  @UseGuards(JwtAuthGuard)
+  async rejectMission(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+    @Body() body: { reason?: string },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.rejectMission(id, body.reason);
   }
 
   // ── Admin: create / update / delete missions ──────────────────────────────

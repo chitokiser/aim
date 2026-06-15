@@ -13,7 +13,9 @@ export class MissionsService {
 
   async findAll(status?: string) {
     let query: Query = this.firebase.collection('missions');
-    if (status) query = query.where('status', '==', status);
+    // Default to active-only for public listing; hide templates/pending/rejected unless explicitly requested
+    const effectiveStatus = status ?? 'active';
+    query = query.where('status', '==', effectiveStatus);
     const snap = await query.get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
@@ -23,6 +25,103 @@ export class MissionsService {
     if (!doc.exists) throw new NotFoundException('Mission not found');
     return { id: doc.id, ...doc.data() };
   }
+
+  // ── 3-Tier Mission Flow ────────────────────────────────────────────────────
+
+  async createTemplate(adminId: string, dto: Record<string, unknown>) {
+    const template = {
+      ...dto,
+      adminId,
+      status: 'template',
+      createdAt: new Date().toISOString(),
+    };
+    const ref = await this.firebase.collection('missions').add(template);
+    return { id: ref.id, ...template };
+  }
+
+  async findTemplates() {
+    const snap = await this.firebase
+      .collection('missions')
+      .where('status', '==', 'template')
+      .get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async requestCampaign(advertiserId: string, templateId: string, dto: Record<string, unknown>) {
+    const template = await this.findById(templateId);
+    const tData = template as Record<string, unknown>;
+    if (tData.status !== 'template') throw new BadRequestException('Not a valid template');
+
+    const campaign = {
+      ...dto,
+      templateId,
+      missionType: dto.missionType ?? tData.missionType,
+      advertiserId,
+      status: 'pending',
+      participantCount: 0,
+      createdAt: new Date().toISOString(),
+    };
+    const ref = await this.firebase.collection('missions').add(campaign);
+    return { id: ref.id, ...campaign };
+  }
+
+  async approveMission(missionId: string) {
+    const mission = await this.findById(missionId);
+    const data = mission as Record<string, unknown>;
+    if (data.status !== 'pending') throw new BadRequestException('Mission is not pending');
+
+    const totalBudget = (data.totalBudget as number) ?? 0;
+    const advertiserId = data.advertiserId as string;
+
+    if (totalBudget > 0 && advertiserId) {
+      const advertiserDoc = await this.firebase.collection('users').doc(advertiserId).get();
+      if (!advertiserDoc.exists) throw new NotFoundException('Advertiser not found');
+      const currentPoints = (advertiserDoc.data()?.points ?? 0) as number;
+      if (currentPoints < totalBudget) throw new BadRequestException('Advertiser has insufficient AP');
+
+      await this.firebase.collection('users').doc(advertiserId).update({
+        points: currentPoints - totalBudget,
+      });
+
+      const escrowRef = await this.firebase.collection('escrow_wallets').add({
+        advertiserId,
+        lockedAP: totalBudget,
+        missionId,
+        createdAt: new Date().toISOString(),
+        settled: false,
+      });
+
+      await this.firebase.collection('missions').doc(missionId).update({
+        status: 'active',
+        escrowId: escrowRef.id,
+        remainingBudget: totalBudget,
+        approvedAt: new Date().toISOString(),
+      });
+    } else {
+      await this.firebase.collection('missions').doc(missionId).update({
+        status: 'active',
+        approvedAt: new Date().toISOString(),
+      });
+    }
+
+    const updated = await this.firebase.collection('missions').doc(missionId).get();
+    return { id: missionId, ...updated.data() };
+  }
+
+  async rejectMission(missionId: string, reason?: string) {
+    const mission = await this.findById(missionId);
+    const data = mission as Record<string, unknown>;
+    if (data.status !== 'pending') throw new BadRequestException('Mission is not pending');
+
+    await this.firebase.collection('missions').doc(missionId).update({
+      status: 'rejected',
+      rejectionReason: reason ?? '',
+      rejectedAt: new Date().toISOString(),
+    });
+    return { id: missionId, status: 'rejected' };
+  }
+
+  // ── End 3-Tier Mission Flow ────────────────────────────────────────────────
 
   async submitGeneral(
     userId: string,
