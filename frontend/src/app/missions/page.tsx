@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { MissionCard } from "@/components/mission-card";
 import {
   AdvertiserListModal,
@@ -9,116 +9,63 @@ import {
   CfAdRequestModal,
   type MissionFlowData,
 } from "@/components/mission-join-flow";
+import { MissionAdminModal, type MissionFormData } from "@/components/mission-admin-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/lib/i18n";
-import { Search, SlidersHorizontal, Film } from "lucide-react";
+import { useAuthStore } from "@/lib/store";
+import { Search, SlidersHorizontal, Film, Plus, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
-const MISSIONS = [
-  {
-    id: "1",
-    title: "AI Brand CF Video",
-    description: "Create a 30-second CF video using AI tools and upload to Instagram, TikTok, or YouTube.",
-    reward: 50000,
-    remainingBudget: 2500000,
-    totalBudget: 5000000,
-    endDate: new Date("2026-06-30"),
-    requiredTags: ["#AIM", "#AIcf"],
-    participantCount: 234,
-    missionType: "cf_video" as const,
-    status: "active" as const,
-    advertiserName: "BrandX",
-  },
-  {
-    id: "2",
-    title: "Blog AI Product Review",
-    description: "Write an AI tool review on your blog and share the link. Min 500 characters.",
-    reward: 30000,
-    remainingBudget: 1200000,
-    totalBudget: 3000000,
-    endDate: new Date("2026-07-15"),
-    requiredTags: ["#AIM", "#AIReview"],
-    participantCount: 567,
-    missionType: "blog_post" as const,
-    status: "active" as const,
-    advertiserName: "TechCorp",
-  },
-  {
-    id: "3",
-    title: "AI CM Song Challenge",
-    description: "Create a CM song using AI music tools and upload as YouTube Shorts or Reels.",
-    reward: 80000,
-    remainingBudget: 800000,
-    totalBudget: 4000000,
-    endDate: new Date("2026-07-01"),
-    requiredTags: ["#AIM", "#AICMsong"],
-    participantCount: 89,
-    missionType: "cm_song" as const,
-    status: "active" as const,
-    advertiserName: "MusicBrand",
-  },
-  {
-    id: "4",
-    title: "YouTube 구독 미션",
-    description: "광고주의 유튜브 채널을 방문해 구독, 좋아요, 댓글 1회 완료 시 봇 자동 심사 후 AP 보상. 1계정 1회 참여.",
-    reward: 10000,
-    remainingBudget: 5000000,
-    totalBudget: 10000000,
-    endDate: new Date("2026-08-01"),
-    requiredTags: ["#AIM", "#YTSubscribe"],
-    participantCount: 1203,
-    missionType: "youtube_sub" as const,
-    status: "active" as const,
-    advertiserName: "VideoAds",
-  },
-  {
-    id: "5",
-    title: "SNS 배너 광고 미션",
-    description: "내 블로그/SNS에 광고주 배너를 만들어 게시. 유저 외 장치에서 링크 클릭 시 건당 자동 AP 보상. 예산 소진 시 종료.",
-    reward: 5000,
-    remainingBudget: 600000,
-    totalBudget: 2000000,
-    endDate: new Date("2026-07-20"),
-    requiredTags: ["#AIM", "#SNSAd"],
-    participantCount: 445,
-    missionType: "sns_banner" as const,
-    status: "active" as const,
-    advertiserName: "BannerCo",
-  },
-  {
-    id: "6",
-    title: "텔레그램 광고주 서비스 가입",
-    description: "광고주 추천 링크를 통해 텔레그램 그룹방 또는 채널에 가입 시 즉시 AP 보상. 예산 소진 시 종료.",
-    reward: 15000,
-    remainingBudget: 300000,
-    totalBudget: 1500000,
-    endDate: new Date("2026-06-25"),
-    requiredTags: ["#AIM", "#TGJoin"],
-    participantCount: 892,
-    missionType: "telegram_join" as const,
-    status: "active" as const,
-    advertiserName: "TelegramAds",
-  },
-  {
-    id: "7",
-    title: "⚡ 스페샬! Jumpdao 그룹방 가입",
-    description: "GameHub 접속 → 사냥해서 GP 토큰 모으기 → 묘목 1개 심기 → Jumpdao_bot과 소통 후 검수 → AP 자동 보상!",
-    reward: 100000,
-    remainingBudget: 8000000,
-    totalBudget: 10000000,
-    endDate: new Date("2026-09-01"),
-    requiredTags: ["#AIM", "#Jumpdao", "#GameHub"],
-    participantCount: 56,
-    missionType: "jumpdao" as const,
-    status: "active" as const,
-    advertiserName: "Jumpdao",
-  },
-];
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+type RawMission = Record<string, unknown>;
+
+function toCardMission(m: RawMission) {
+  return {
+    id: String(m.id ?? ""),
+    title: String(m.title ?? ""),
+    description: String(m.description ?? ""),
+    reward: Number(m.reward ?? 0),
+    remainingBudget: Number(m.remainingBudget ?? m.totalBudget ?? 0),
+    totalBudget: Number(m.totalBudget ?? 0),
+    endDate: new Date(String(m.endDate ?? Date.now())),
+    requiredTags: (m.requiredTags as string[]) ?? [],
+    participantCount: Number(m.participantCount ?? 0),
+    missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "jumpdao",
+    status: String(m.status ?? "active") as "active" | "ended" | "pending",
+    advertiserName: String(m.advertiserName ?? ""),
+  };
+}
+
+function toFormData(m: RawMission): MissionFormData {
+  return {
+    id: String(m.id ?? ""),
+    title: String(m.title ?? ""),
+    description: String(m.description ?? ""),
+    missionType: String(m.missionType ?? "cf_video"),
+    advertiserName: String(m.advertiserName ?? ""),
+    reward: Number(m.reward ?? 0),
+    totalBudget: Number(m.totalBudget ?? 0),
+    remainingBudget: Number(m.remainingBudget ?? m.totalBudget ?? 0),
+    endDate: String(m.endDate ?? new Date().toISOString()).slice(0, 10),
+    requiredTags: (m.requiredTags as string[]) ?? [],
+    submitFields: (m.submitFields as string[]) ?? [],
+    status: String(m.status ?? "active"),
+    participantCount: Number(m.participantCount ?? 0),
+  };
+}
 
 export default function MissionsPage() {
   const { t } = useLanguage();
   const m = t.missions;
+  const { user, token } = useAuthStore();
+  const isAdmin = user?.isAdmin === true;
+
+  const [missions, setMissions] = useState<RawMission[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adminModal, setAdminModal] = useState<{ open: boolean; mission?: MissionFormData | null }>({ open: false });
 
   const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
   const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
@@ -139,19 +86,72 @@ export default function MissionsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
 
-  const filtered = MISSIONS.filter((ms) => {
-    const matchSearch =
-      ms.title.toLowerCase().includes(search.toLowerCase()) ||
-      ms.description.toLowerCase().includes(search.toLowerCase());
+  const loadMissions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/missions`);
+      if (!res.ok) throw new Error("fetch failed");
+      const data = await res.json() as RawMission[];
+      setMissions(data);
+    } catch {
+      toast.error("미션 목록을 불러오지 못했습니다");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadMissions(); }, [loadMissions]);
+
+  const handleDelete = async (id: string, title: string) => {
+    if (!confirm(`"${title}" 미션을 삭제하시겠습니까?`)) return;
+    try {
+      const res = await fetch(`${API}/api/missions/${id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok && res.status !== 204) throw new Error(`Error ${res.status}`);
+      setMissions((prev) => prev.filter((ms) => String(ms.id) !== id));
+      toast.success("미션이 삭제되었습니다");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "삭제 실패");
+    }
+  };
+
+  const handleSaved = (saved: MissionFormData) => {
+    setMissions((prev) => {
+      const idx = prev.findIndex((ms) => String(ms.id) === saved.id);
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = saved as unknown as RawMission;
+        return next;
+      }
+      return [saved as unknown as RawMission, ...prev];
+    });
+  };
+
+  const filtered = missions.filter((ms) => {
+    const title = String(ms.title ?? "").toLowerCase();
+    const desc = String(ms.description ?? "").toLowerCase();
+    const matchSearch = title.includes(search.toLowerCase()) || desc.includes(search.toLowerCase());
     const matchFilter = filter === "all" || ms.missionType === filter;
     return matchSearch && matchFilter;
   });
 
   return (
     <div className="container mx-auto px-4 py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black mb-2">{m.title}</h1>
-        <p className="text-muted-foreground">{m.subtitle}</p>
+      <div className="mb-8 flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black mb-2">{m.title}</h1>
+          <p className="text-muted-foreground">{m.subtitle}</p>
+        </div>
+        {isAdmin && (
+          <Button
+            onClick={() => setAdminModal({ open: true, mission: null })}
+            className="shrink-0 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            미션 추가
+          </Button>
+        )}
       </div>
 
       {/* CF Ad Request CTA */}
@@ -203,11 +203,38 @@ export default function MissionsPage() {
       </div>
 
       {/* Mission Grid */}
-      {filtered.length > 0 ? (
+      {loading ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filtered.map((mission) => (
-            <MissionCard key={mission.id} mission={mission} onJoin={setJoinMission} />
+          {[1, 2, 3].map((n) => (
+            <div key={n} className="h-72 rounded-2xl bg-muted animate-pulse" />
           ))}
+        </div>
+      ) : filtered.length > 0 ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filtered.map((ms) => {
+            const card = toCardMission(ms);
+            return (
+              <div key={card.id} className="relative group">
+                <MissionCard mission={card} onJoin={setJoinMission} />
+                {isAdmin && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => setAdminModal({ open: true, mission: toFormData(ms) })}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow border border-border text-muted-foreground hover:text-violet-600 transition-colors"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={() => void handleDelete(card.id, card.title)}
+                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow border border-border text-muted-foreground hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div className="text-center py-20 text-muted-foreground">
@@ -217,7 +244,9 @@ export default function MissionsPage() {
             <circle cx="12" cy="12" r="2" strokeWidth="2" />
           </svg>
           <p className="text-lg font-medium">{m.noResults}</p>
-          <p className="text-sm mt-1">{m.noResultsHint}</p>
+          <p className="text-sm mt-1">
+            {isAdmin ? "아직 미션이 없습니다. 위의 '미션 추가' 버튼으로 첫 미션을 만들어보세요." : m.noResultsHint}
+          </p>
         </div>
       )}
 
@@ -226,14 +255,8 @@ export default function MissionsPage() {
         mission={joinMission}
         open={!!joinMission}
         onClose={() => setJoinMission(null)}
-        onViewDetail={(adv) => {
-          setJoinMission(null);
-          setDetailMission(adv);
-        }}
-        onSubmitWork={(adv) => {
-          setJoinMission(null);
-          setSubmitMission(adv);
-        }}
+        onViewDetail={(adv) => { setJoinMission(null); setDetailMission(adv); }}
+        onSubmitWork={(adv) => { setJoinMission(null); setSubmitMission(adv); }}
       />
       <MissionDetailSheet
         mission={detailMission}
@@ -252,6 +275,14 @@ export default function MissionsPage() {
       <CfAdRequestModal
         open={cfAdOpen}
         onClose={() => setCfAdOpen(false)}
+      />
+
+      {/* Admin: Create / Edit Mission Modal */}
+      <MissionAdminModal
+        open={adminModal.open}
+        mission={adminModal.mission}
+        onClose={() => setAdminModal({ open: false })}
+        onSaved={handleSaved}
       />
     </div>
   );

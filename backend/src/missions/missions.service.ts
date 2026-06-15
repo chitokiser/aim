@@ -51,6 +51,23 @@ export class MissionsService {
     return { id: ref.id, ...sub };
   }
 
+  async update(id: string, dto: Record<string, unknown>) {
+    const ref = this.firebase.collection('missions').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) throw new NotFoundException('Mission not found');
+    const { id: _id, ...fields } = dto;
+    await ref.update({ ...fields, updatedAt: new Date().toISOString() });
+    const updated = await ref.get();
+    return { id, ...updated.data() };
+  }
+
+  async remove(id: string) {
+    const ref = this.firebase.collection('missions').doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) throw new NotFoundException('Mission not found');
+    await ref.delete();
+  }
+
   // ── Legacy create (no escrow) ──────────────────────────────────────────────
 
   async create(advertiserId: string, dto: Record<string, unknown>) {

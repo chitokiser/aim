@@ -1,6 +1,6 @@
 import {
-  Controller, Get, Post, Param, Body, Query,
-  UseGuards, Request, ForbiddenException,
+  Controller, Get, Post, Put, Delete, Param, Body, Query,
+  UseGuards, Request, ForbiddenException, HttpCode,
 } from '@nestjs/common';
 import { MissionsService } from './missions.service';
 import { UsersService } from '../users/users.service';
@@ -96,6 +96,30 @@ export class MissionsController {
     @Request() req: { user: { sub: string } },
   ) {
     return this.missionsService.likeSubmission(submissionId, req.user.sub);
+  }
+
+  // ── Admin: create / update / delete missions ──────────────────────────────
+
+  @Put(':id')
+  @UseGuards(JwtAuthGuard)
+  async update(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+    @Body() dto: Record<string, unknown>,
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.update(id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  async remove(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    await this.missionsService.remove(id);
   }
 
   // ── Admin: manual mission settlement ──────────────────────────────────────
