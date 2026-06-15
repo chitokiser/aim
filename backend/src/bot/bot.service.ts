@@ -47,12 +47,12 @@ export class BotService implements OnModuleInit {
     return {
       inline_keyboard: [
         [
-          { text: '🚀 Start AI119', url: `${SITE}${q}` },
-          { text: '🔗 My Invite Link', callback_data: 'get_invite' },
+          { text: '🚀 AI119 시작하기', url: `${SITE}${q}` },
+          { text: '🔗 초대링크', callback_data: 'get_invite' },
         ],
         [
-          { text: '🎯 Missions', url: `${SITE}/missions${q}` },
-          { text: '🏆 Leaderboard', url: `${SITE}/leaderboard${q}` },
+          { text: '🎯 미션', url: `${SITE}/missions${q}` },
+          { text: '🏆 랭킹', url: `${SITE}/leaderboard${q}` },
         ],
       ],
     };
@@ -74,12 +74,40 @@ export class BotService implements OnModuleInit {
           username: tg.username,
         });
         await ctx.reply(
-          `✅ *Welcome, ${tg.first_name}!*\nTap the button below to open the bot menu 👇`,
+          `👋 *${tg.first_name}님, AI119에 오신 것을 환영합니다!*\n\n아래 버튼을 눌러 봇을 열고 자동 로그인하세요 👇`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '🚀 Open Bot', url: `https://t.me/${botUsername}?start=group` }],
+                [{ text: '🚀 AI119 시작하기', url: `https://t.me/${botUsername}?start=login` }],
+              ],
+            },
+          },
+        );
+        return;
+      }
+
+      // payload = 'login' → came from group "AI119 시작하기" button → send login link directly
+      if (payload === 'login' || payload === 'group') {
+        const { user, isNew } = await this.usersService.registerFromTelegram({
+          telegramId: String(tg.id),
+          firstName: tg.first_name,
+          lastName: tg.last_name,
+          username: tg.username,
+        });
+        const userData = user as Record<string, unknown>;
+        const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
+        const welcomeText = isNew
+          ? `🎉 *${tg.first_name}님 가입을 축하합니다!*\n\n🔗 추천코드: \`${userData.referralCode}\`\n\n`
+          : `👋 *${tg.first_name}님 돌아오셨군요!*\n\n`;
+
+        await ctx.reply(
+          `${welcomeText}아래 버튼을 눌러 AI119에 자동 로그인하세요 🔐`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '✅ AI119 로그인하기', url: `${SITE}?tg=${loginToken}` }],
               ],
             },
           },
@@ -256,25 +284,25 @@ export class BotService implements OnModuleInit {
 
     this.bot.command('login', async (ctx) => {
       if (ctx.chat?.type !== 'private') {
-        await ctx.reply('Use /login in the bot DM to get your login link.');
+        await ctx.reply('봇 DM에서 /login 을 입력하면 로그인 링크를 받을 수 있습니다.');
         return;
       }
       const tg = ctx.from;
-      // Register if not yet in DB
-      await this.usersService.registerFromTelegram({
+      const { user } = await this.usersService.registerFromTelegram({
         telegramId: String(tg.id),
         firstName: tg.first_name,
         lastName: tg.last_name,
         username: tg.username,
       });
+      const userData = user as Record<string, unknown>;
       const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
       await ctx.reply(
-        `🔐 *Your Login Link*\n\nTap the button below to sign in to AI119.\nThis link expires in 1 hour.`,
+        `🔐 *${tg.first_name}님의 로그인 링크*\n\n🔗 추천코드: \`${userData.referralCode}\`\n\n아래 버튼을 눌러 AI119에 자동 로그인하세요.\n⏰ 이 링크는 1시간 후 만료됩니다.`,
         {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '🚀 Sign in to AI119', url: `${SITE}?tg=${loginToken}` }],
+              [{ text: '✅ AI119 로그인하기', url: `${SITE}?tg=${loginToken}` }],
             ],
           },
         },
@@ -418,23 +446,23 @@ export class BotService implements OnModuleInit {
           : `[${member.first_name}](tg://user?id=${member.id})`;
 
         await ctx.reply(
-          `✅ Welcome ${mention}! You're now registered on AI119!\n\n` +
-            `🎯 Complete missions → earn AP → withdraw as USD!\n` +
+          `✅ ${mention}님 AI119에 오신 것을 환영합니다!\n\n` +
+            `🎯 미션 완료 → AP 적립 → USD 출금!\n` +
             `💰 10,000 AP = 1 USD (TON/USDT)\n\n` +
-            `👇 Open the bot to see your menu`,
+            `👇 아래 버튼을 눌러 바로 로그인하세요`,
           {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
                 [
                   {
-                    text: '🚀 Open AI119 Bot',
-                    url: `https://t.me/${botUsername}?start=group`,
+                    text: '🚀 AI119 시작하기',
+                    url: `https://t.me/${botUsername}?start=login`,
                   },
                 ],
                 [
-                  { text: '🎯 Missions', url: `${SITE}/missions` },
-                  { text: '🏆 Leaderboard', url: `${SITE}/leaderboard` },
+                  { text: '🎯 미션', url: `${SITE}/missions` },
+                  { text: '🏆 랭킹', url: `${SITE}/leaderboard` },
                 ],
               ],
             },

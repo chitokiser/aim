@@ -31,14 +31,19 @@ export function TelegramAutoLogin() {
     attempted.current = true;
 
     (async () => {
-      const toastId = toast.loading("Signing in with Telegram…");
+      const toastId = toast.loading("텔레그램 자동 로그인 중…");
       try {
         const res = await fetch(`${API}/api/auth/bot-token?token=${encodeURIComponent(tgToken)}`);
 
         if (!res.ok) {
           const errBody = await res.json().catch(() => ({}));
-          const message = (errBody as { message?: string }).message ?? `Server error ${res.status}`;
-          toast.error(`Login failed: ${message}`, { id: toastId });
+          const message = (errBody as { message?: string }).message ?? `서버 오류 ${res.status}`;
+          toast.error(`로그인 실패: ${message}`, { id: toastId });
+          // Clean URL even on failure so user can retry manually
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("tg");
+          const newUrl = params.size ? `${pathname}?${params}` : pathname;
+          router.replace(newUrl);
           return;
         }
 
@@ -46,7 +51,7 @@ export function TelegramAutoLogin() {
         setToken(data.token);
         setUser(data.user as unknown as Parameters<typeof setUser>[0]);
 
-        toast.success("Signed in via Telegram!", { id: toastId });
+        toast.success("✅ 로그인 성공!", { id: toastId });
 
         // Remove ?tg=... from URL without full reload
         const params = new URLSearchParams(searchParams.toString());
@@ -54,7 +59,10 @@ export function TelegramAutoLogin() {
         const newUrl = params.size ? `${pathname}?${params}` : pathname;
         router.replace(newUrl);
       } catch (err) {
-        toast.error(`Login error: ${err instanceof Error ? err.message : "Network error"}`, { id: toastId });
+        toast.error(
+          `로그인 오류: ${err instanceof Error ? err.message : "네트워크 연결을 확인해주세요"}`,
+          { id: toastId },
+        );
       }
     })();
   }, [searchParams, user, setUser, setToken, router, pathname]);
