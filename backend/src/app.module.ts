@@ -9,6 +9,7 @@ import { MissionsModule } from './missions/missions.module';
 import { PointsModule } from './points/points.module';
 import { BotModule } from './bot/bot.module';
 import { SettlementModule } from './settlement/settlement.module';
+import { ListingsModule } from './listings/listings.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { SettlementModule } from './settlement/settlement.module';
     PointsModule,
     BotModule,
     SettlementModule,
+    ListingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

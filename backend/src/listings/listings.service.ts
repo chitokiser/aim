@@ -1,0 +1,89 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { FirebaseService } from '../firebase/firebase.service';
+import { PointsService } from '../points/points.service';
+
+const BANNER_COST_AP = 10000;
+const COLLECTION = 'listings';
+
+@Injectable()
+export class ListingsService {
+  constructor(
+    private readonly firebase: FirebaseService,
+    private readonly points: PointsService,
+  ) {}
+
+  async findAll(category?: string): Promise<unknown[]> {
+    let query = this.firebase
+      .collection(COLLECTION)
+      .where('status', '==', 'active') as FirebaseFirestore.Query;
+
+    if (category) {
+      query = query.where('category', '==', category);
+    }
+
+    const snap = await query.orderBy('isFeatured', 'desc').orderBy('createdAt', 'desc').get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async create(userId: string, dto: Record<string, unknown>): Promise<{ id: string }> {
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    if (!userSnap.exists) throw new NotFoundException('User not found');
+    const user = userSnap.data()!;
+
+    const listing = {
+      userId,
+      displayName: (user.firstName as string) || (user.username as string) || 'User',
+      telegramId: (user.telegramId as string) || '',
+      category: dto.category ?? 'group',
+      title: dto.title,
+      description: dto.description ?? '',
+      link: dto.link ?? '',
+      logoUrl: dto.logoUrl ?? '',
+      tags: dto.tags ?? [],
+      members: dto.members ?? null,
+      isFeatured: false,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    };
+
+    const ref = await this.firebase.collection(COLLECTION).add(listing);
+    return { id: ref.id };
+  }
+
+  async promote(listingId: string, userId: string): Promise<{ ok: boolean }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+
+    const data = snap.data()!;
+    if (data.userId !== userId) throw new NotFoundException('Not your listing');
+
+    await this.points.deduct(userId, BANNER_COST_AP, `배너 광고 등록: ${data.title as string}`);
+
+    await ref.update({
+      isFeatured: true,
+      featuredAt: new Date().toISOString(),
+      featuredApPaid: BANNER_COST_AP,
+    });
+
+    return { ok: true };
+  }
+
+  async findByUser(userId: string): Promise<unknown[]> {
+    const snap = await this.firebase
+      .collection(COLLECTION)
+      .where('userId', '==', userId)
+      .orderBy('createdAt', 'desc')
+      .get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async remove(listingId: string, userId: string): Promise<{ ok: boolean }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+    if (snap.data()!.userId !== userId) throw new NotFoundException('Not your listing');
+    await ref.update({ status: 'deleted' });
+    return { ok: true };
+  }
+}
