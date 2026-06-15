@@ -91,6 +91,31 @@ Keep `backend/.env.example` and `frontend/.env.example` with dummy placeholder v
 
 ---
 
+## SEO Requirements
+
+Every frontend page MUST include proper SEO metadata. This is not optional.
+
+### Global (layout.tsx)
+- `metadataBase`: set to production URL (`https://ai119.netlify.app`)
+- `title`: descriptive, under 60 characters
+- `description`: 120–160 characters, includes primary keywords
+- `verification.google`: keep the Google Search Console verification tag — never remove it
+- `openGraph`: title, description, url, siteName, type, images (use real image, not favicon)
+- `twitter`: card type `summary_large_image`, title, description, image
+- `robots`: `{ index: true, follow: true }` on public pages
+
+### Per-page metadata
+Each page should export its own `metadata` or `generateMetadata()` with a unique title and description. Format: `"Page Name — AI119"`.
+
+### Additional SEO practices
+- Use semantic HTML: `<h1>` once per page, `<h2>`/`<h3>` for structure
+- All `<img>` tags must have descriptive `alt` text
+- Use Next.js `<Link>` for internal navigation (not `<a href>`)
+- Avoid client-only rendering for content that should be indexed — prefer server components for landing page sections
+- Add `sitemap.xml` and `robots.txt` under `frontend/public/` if not already present
+
+---
+
 ## Tech Stack
 - Frontend: Next.js 15 (App Router), TypeScript, TailwindCSS v4, Shadcn UI
 - Backend: NestJS, Firebase Firestore, JWT, Telegraf

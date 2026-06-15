@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     apple: "/images/favicon.png",
   },
   verification: {
-    google: "google9fc9d28b543bff9f",
+    google: "iSwGv7PBrGFOxh8LIKrKNegCUYW32fXo8EdbQby2Cg8",
   },
   openGraph: {
     title: "AI119 — AI Marketing Platform",
