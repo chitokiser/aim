@@ -175,7 +175,7 @@ export function Navbar() {
           ) : (
             <Link href="/auth">
               <Button className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 text-sm">
-                {t.nav.startTelegram}
+                &gt; 시작하기
               </Button>
             </Link>
           )}
