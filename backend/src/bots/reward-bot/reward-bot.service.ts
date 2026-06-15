@@ -1,38 +1,20 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { Telegraf } from 'telegraf';
-import { GroupJoinsService } from '../group-joins/group-joins.service';
+import { Injectable } from '@nestjs/common';
+import { GroupJoinsService } from '../../group-joins/group-joins.service';
+import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
 
 @Injectable()
-export class RewardBotService implements OnModuleInit {
-  private readonly logger = new Logger(RewardBotService.name);
-  private bot: Telegraf | null = null;
-
-  constructor(private readonly groupJoins: GroupJoinsService) {}
-
-  onModuleInit() {
-    const token = process.env.REWARD_BOT_TOKEN;
-    if (!token) {
-      this.logger.warn('REWARD_BOT_TOKEN not set — ai119_reward_bot disabled');
-      return;
-    }
-
-    this.bot = new Telegraf(token);
-    this.registerHandlers();
-
-    void this.bot.launch().then(() => {
-      this.logger.log('ai119_reward_bot launched');
-    }).catch((err: unknown) => {
-      this.logger.error('ai119_reward_bot launch failed', err);
-    });
-
-    process.once('SIGINT', () => this.bot?.stop('SIGINT'));
-    process.once('SIGTERM', () => this.bot?.stop('SIGTERM'));
+export class RewardBotService extends BaseTelegrafBotService {
+  constructor(private readonly groupJoins: GroupJoinsService) {
+    super();
   }
 
-  private registerHandlers() {
+  protected getBotToken(): string | undefined {
+    return process.env.REWARD_BOT_TOKEN;
+  }
+
+  protected registerHandlers() {
     if (!this.bot) return;
 
-    // New members joined advertiser group
     this.bot.on('new_chat_members', async (ctx) => {
       const chatId = String(ctx.chat.id);
       for (const member of ctx.message.new_chat_members) {
@@ -46,7 +28,6 @@ export class RewardBotService implements OnModuleInit {
       }
     });
 
-    // Member left advertiser group
     this.bot.on('left_chat_member', async (ctx) => {
       const member = ctx.message.left_chat_member;
       if (member.is_bot) return;
@@ -59,7 +40,7 @@ export class RewardBotService implements OnModuleInit {
       }
     });
 
-    // Bot added to a group — send setup confirmation
+    // When bot is added to a group, announce the group's chat ID for advertiser reference
     this.bot.on('my_chat_member', async (ctx) => {
       const update = ctx.myChatMember;
       const newStatus = update.new_chat_member.status;

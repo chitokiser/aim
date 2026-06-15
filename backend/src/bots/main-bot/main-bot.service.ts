@@ -1,19 +1,15 @@
-import { Injectable, OnModuleInit, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Telegraf } from 'telegraf';
-import { UsersService } from '../users/users.service';
-import { MissionsService } from '../missions/missions.service';
-import { AuthService } from '../auth/auth.service';
-import { PointsService } from '../points/points.service';
+import { UsersService } from '../../users/users.service';
+import { MissionsService } from '../../missions/missions.service';
+import { AuthService } from '../../auth/auth.service';
+import { PointsService } from '../../points/points.service';
+import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
 
 const SITE = 'https://ai119.netlify.app';
 
 @Injectable()
-export class BotService implements OnModuleInit {
-  private readonly logger = new Logger(BotService.name);
-  private bot: Telegraf;
-
-  // 1 Telegram Star ≈ $0.013 USD; we credit 100 AP per Star (10,000 AP = $1)
+export class MainBotService extends BaseTelegrafBotService {
   private readonly AP_PER_STAR = 100;
 
   constructor(
@@ -22,24 +18,12 @@ export class BotService implements OnModuleInit {
     private missionsService: MissionsService,
     private authService: AuthService,
     private pointsService: PointsService,
-  ) {}
+  ) {
+    super();
+  }
 
-  async onModuleInit() {
-    try {
-      const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
-      if (!token) {
-        this.logger.warn('TELEGRAM_BOT_TOKEN not set — bot disabled');
-        return;
-      }
-
-      this.bot = new Telegraf(token);
-      this.registerCommands();
-
-      this.bot.launch().catch((err) => this.logger.error('Bot launch failed', err));
-      this.logger.log('Telegram bot started');
-    } catch (err) {
-      this.logger.error('Bot initialization failed — bot disabled', err);
-    }
+  protected getBotToken(): string | undefined {
+    return this.config.get<string>('TELEGRAM_BOT_TOKEN');
   }
 
   private mainKeyboard(loginToken?: string) {
@@ -58,7 +42,9 @@ export class BotService implements OnModuleInit {
     };
   }
 
-  private registerCommands() {
+  protected registerHandlers() {
+    if (!this.bot) return;
+
     this.bot.command('start', async (ctx) => {
       const tg = ctx.from;
       const payload = ctx.message.text.split(' ')[1] ?? '';
@@ -87,7 +73,6 @@ export class BotService implements OnModuleInit {
         return;
       }
 
-      // payload = 'login' → came from group "AI119 시작하기" button → send login link directly
       if (payload === 'login' || payload === 'group') {
         const { user, isNew } = await this.usersService.registerFromTelegram({
           telegramId: String(tg.id),
@@ -280,8 +265,6 @@ export class BotService implements OnModuleInit {
       );
     });
 
-    // ── Telegram Stars top-up ──────────────────────────────────────────────────
-
     this.bot.command('login', async (ctx) => {
       if (ctx.chat?.type !== 'private') {
         await ctx.reply('봇 DM에서 /login 을 입력하면 로그인 링크를 받을 수 있습니다.');
@@ -404,7 +387,6 @@ export class BotService implements OnModuleInit {
 
       await ctx.telegram.approveChatJoinRequest(chatId, applicant.id);
 
-      // Auto-award AP for follow_join missions linked to this group
       const joinRewards = await this.missionsService.awardFollowJoin(String(applicant.id), chatId).catch(() => null);
       if (joinRewards && joinRewards.length > 0) {
         const totalAP = joinRewards.reduce((s, r) => s + r.reward, 0);
@@ -450,7 +432,6 @@ export class BotService implements OnModuleInit {
           username: member.username,
         });
 
-        // Auto-award AP for follow_join missions linked to this group
         await this.missionsService.awardFollowJoin(String(member.id), ctx.chat.id).catch(() => {});
 
         if (!isNew) continue;
@@ -488,7 +469,6 @@ export class BotService implements OnModuleInit {
     this.bot.on('message', async (ctx) => {
       if (ctx.chat?.type !== 'private') return;
 
-      // Handle successful Telegram Stars payment
       const msg = ctx.message as unknown as Record<string, unknown>;
       if (msg.successful_payment) {
         const payment = msg.successful_payment as {
@@ -528,7 +508,7 @@ export class BotService implements OnModuleInit {
   private async handleGetInvite(ctx: {
     from?: { id: number };
     reply: (text: string, extra?: Record<string, unknown>) => Promise<unknown>;
-    telegram: Telegraf['telegram'];
+    telegram: NonNullable<typeof this.bot>['telegram'];
   }) {
     const groupId = this.config.get<string>('TELEGRAM_GROUP_ID');
     if (!groupId) {

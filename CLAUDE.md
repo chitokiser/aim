@@ -14,7 +14,7 @@ All user-facing text MUST support 3 languages, with **English as the default**:
 This applies to:
 - All frontend pages (Next.js)
 - Telegram Mini App (telegram-miniapp/index.html)
-- Telegram Bot messages (backend/src/bot/bot.service.ts)
+- Telegram Bot messages (backend/src/bots/main-bot/main-bot.service.ts)
 - Error messages, toast notifications, labels, placeholders
 - Section titles, descriptions, button text
 
@@ -121,3 +121,71 @@ Each page should export its own `metadata` or `generateMetadata()` with a unique
 - Backend: NestJS, Firebase Firestore, JWT, Telegraf
 - Telegram Mini App: Bootstrap 5, vanilla JS, Telegram WebApp SDK
 - Use `@radix-ui/react-dropdown-menu` (NOT `@base-ui/react/menu`) for dropdown components
+
+---
+
+## Telegram Bot Architecture (CRITICAL — read before adding any bot)
+
+All bots live under `backend/src/bots/`. Never place bot files at the module root.
+
+```
+backend/src/bots/
+  base/
+    base-telegraf-bot.service.ts   ← abstract class all bots extend
+  main-bot/
+    main-bot.module.ts
+    main-bot.service.ts            ← main user bot (@TELEGRAM_BOT_TOKEN)
+  reward-bot/
+    reward-bot.module.ts
+    reward-bot.service.ts          ← advertiser group tracker (@REWARD_BOT_TOKEN)
+  <new-bot>/                       ← next bot goes here
+    <new-bot>.module.ts
+    <new-bot>.service.ts
+```
+
+### Pattern for every new bot
+
+1. Create `backend/src/bots/<new-bot>/` with a module and service file.
+2. Service extends `BaseTelegrafBotService` from `../base/base-telegraf-bot.service`.
+3. Implement **exactly two abstract methods**:
+   - `getBotToken(): string | undefined` — reads from `process.env.NEW_BOT_TOKEN` or `ConfigService`
+   - `registerHandlers(): void` — attaches all `this.bot.on/command/action` listeners
+4. Add the token to `backend/.env` (never hardcode) and to `backend/.env.example` with a placeholder.
+5. Register `<NewBot>Module` in `backend/src/app.module.ts`.
+
+### Bot token env vars (never commit actual values)
+| Bot | `.env` key | BotFather name |
+|-----|------------|----------------|
+| Main user bot | `TELEGRAM_BOT_TOKEN` | @ai_bootcamp_hub_bot (or equivalent) |
+| Advertiser group tracker | `REWARD_BOT_TOKEN` | @ai119_reward_bot |
+
+### Minimal boilerplate for a new bot
+
+```typescript
+// bots/<new-bot>/<new-bot>.service.ts
+import { Injectable } from '@nestjs/common';
+import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
+
+@Injectable()
+export class NewBotService extends BaseTelegrafBotService {
+  protected getBotToken() { return process.env.NEW_BOT_TOKEN; }
+
+  protected registerHandlers() {
+    if (!this.bot) return;
+    this.bot.command('start', async (ctx) => { /* ... */ });
+  }
+}
+```
+
+```typescript
+// bots/<new-bot>/<new-bot>.module.ts
+import { Module } from '@nestjs/common';
+import { NewBotService } from './<new-bot>.service';
+
+@Module({ providers: [NewBotService] })
+export class NewBotModule {}
+```
+
+### Railway deployment — adding a new bot token
+After creating the bot, add its token to Railway environment variables:
+`railway variables set NEW_BOT_TOKEN=<token>` (or via the Railway dashboard).

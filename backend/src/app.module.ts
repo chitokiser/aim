@@ -8,11 +8,11 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MissionsModule } from './missions/missions.module';
 import { PointsModule } from './points/points.module';
-import { BotModule } from './bot/bot.module';
 import { SettlementModule } from './settlement/settlement.module';
 import { ListingsModule } from './listings/listings.module';
 import { GroupJoinsModule } from './group-joins/group-joins.module';
-import { RewardBotModule } from './reward-bot/reward-bot.module';
+import { MainBotModule } from './bots/main-bot/main-bot.module';
+import { RewardBotModule } from './bots/reward-bot/reward-bot.module';
 
 @Module({
   imports: [
@@ -23,10 +23,10 @@ import { RewardBotModule } from './reward-bot/reward-bot.module';
     UsersModule,
     MissionsModule,
     PointsModule,
-    BotModule,
     SettlementModule,
     ListingsModule,
     GroupJoinsModule,
+    MainBotModule,
     RewardBotModule,
   ],
   controllers: [AppController],
