@@ -41,7 +41,7 @@ export class AuthController {
   @Post('bootstrap')
   @HttpCode(200)
   async bootstrap(
-    @Body() body: { setupToken: string; firstName: string; username?: string; telegramId?: string },
+    @Body() body: { setupToken: string; firstName: string; username?: string; telegramId?: string; email?: string },
   ) {
     if (!body?.setupToken || !body?.firstName) throw new UnauthorizedException('Missing required fields');
     const result = await this.authService.bootstrapAdmin(body);
