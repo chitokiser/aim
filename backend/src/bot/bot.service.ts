@@ -20,17 +20,21 @@ export class BotService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
-    if (!token) {
-      this.logger.warn('TELEGRAM_BOT_TOKEN not set — bot disabled');
-      return;
+    try {
+      const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+      if (!token) {
+        this.logger.warn('TELEGRAM_BOT_TOKEN not set — bot disabled');
+        return;
+      }
+
+      this.bot = new Telegraf(token);
+      this.registerCommands();
+
+      this.bot.launch().catch((err) => this.logger.error('Bot launch failed', err));
+      this.logger.log('Telegram bot started');
+    } catch (err) {
+      this.logger.error('Bot initialization failed — bot disabled', err);
     }
-
-    this.bot = new Telegraf(token);
-    this.registerCommands();
-
-    this.bot.launch().catch((err) => this.logger.error('Bot launch failed', err));
-    this.logger.log('Telegram bot started');
   }
 
   private mainKeyboard(loginToken?: string) {

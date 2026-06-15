@@ -40,14 +40,17 @@ export class FirebaseService implements OnModuleInit {
   }
 
   getFirestore(): Firestore {
+    if (!this.db) throw new Error('Firebase not initialized — check FIREBASE_* env vars');
     return this.db;
   }
 
   collection(name: string) {
+    if (!this.db) throw new Error('Firebase not initialized — check FIREBASE_* env vars');
     return this.db.collection(name);
   }
 
   getAdminAuth(): Auth {
+    if (!this.firebaseAuth) throw new Error('Firebase Auth not initialized — check FIREBASE_* env vars');
     return this.firebaseAuth;
   }
 }

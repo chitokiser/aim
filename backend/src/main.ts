@@ -2,10 +2,25 @@ import { webcrypto } from 'node:crypto';
 if (!global.crypto) (global as unknown as { crypto: unknown }).crypto = webcrypto;
 
 import { NestFactory } from '@nestjs/core';
+import { Logger, RequestMethod } from '@nestjs/common';
 import { AppModule } from './app.module';
 
+process.on('uncaughtException', (err) => {
+  console.error('[FATAL] Uncaught exception:', err);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[FATAL] Unhandled rejection:', reason);
+});
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const logger = new Logger('Bootstrap');
+  const port = process.env.PORT ?? 3001;
+
+  logger.log(`Starting AIM backend on port ${port}…`);
+
+  const app = await NestFactory.create(AppModule, {
+    logger: ['error', 'warn', 'log', 'debug'],
+  });
 
   const allowedOrigins = [
     process.env.FRONTEND_URL ?? 'http://localhost:3000',
@@ -30,10 +45,13 @@ async function bootstrap() {
     optionsSuccessStatus: 204,
   });
 
-  app.setGlobalPrefix('api', { exclude: ['health'] });
+  app.setGlobalPrefix('api', { exclude: [{ path: 'health', method: RequestMethod.GET }] });
 
-  const port = process.env.PORT ?? 3001;
-  await app.listen(port);
-  console.log(`AIM backend running on port ${port}`);
+  await app.listen(port, '0.0.0.0');
+  logger.log(`AIM backend running on port ${port}`);
 }
-bootstrap();
+
+bootstrap().catch((err) => {
+  console.error('[FATAL] Bootstrap failed:', err);
+  process.exit(1);
+});
