@@ -350,14 +350,14 @@ export class BotService implements OnModuleInit {
       }
 
       const ap = requestedStars * this.AP_PER_STAR;
-      await ctx.replyWithInvoice(
-        `AP Top-Up — ${requestedStars} Stars`,
-        `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
-        JSON.stringify({ userId: user.id as string, stars: requestedStars }),
-        '',
-        'XTR',
-        [{ label: `${ap.toLocaleString()} AP`, amount: requestedStars }],
-      );
+      await ctx.replyWithInvoice({
+        title: `AP Top-Up — ${requestedStars} Stars`,
+        description: `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
+        payload: JSON.stringify({ userId: user.id as string, stars: requestedStars }),
+        provider_token: '',
+        currency: 'XTR',
+        prices: [{ label: `${ap.toLocaleString()} AP`, amount: requestedStars }],
+      });
     });
 
     this.bot.action(/^topup_(\d+)$/, async (ctx) => {
@@ -368,14 +368,14 @@ export class BotService implements OnModuleInit {
 
       const stars = parseInt((ctx.match as RegExpMatchArray)[1], 10);
       const ap = stars * this.AP_PER_STAR;
-      await ctx.replyWithInvoice(
-        `AP Top-Up — ${stars} Stars`,
-        `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
-        JSON.stringify({ userId: user.id as string, stars }),
-        '',
-        'XTR',
-        [{ label: `${ap.toLocaleString()} AP`, amount: stars }],
-      );
+      await ctx.replyWithInvoice({
+        title: `AP Top-Up — ${stars} Stars`,
+        description: `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
+        payload: JSON.stringify({ userId: user.id as string, stars }),
+        provider_token: '',
+        currency: 'XTR',
+        prices: [{ label: `${ap.toLocaleString()} AP`, amount: stars }],
+      });
     });
 
     this.bot.on('pre_checkout_query', async (ctx) => {
@@ -475,7 +475,7 @@ export class BotService implements OnModuleInit {
       if (ctx.chat?.type !== 'private') return;
 
       // Handle successful Telegram Stars payment
-      const msg = ctx.message as Record<string, unknown>;
+      const msg = ctx.message as unknown as Record<string, unknown>;
       if (msg.successful_payment) {
         const payment = msg.successful_payment as {
           total_amount: number;
