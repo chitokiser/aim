@@ -122,6 +122,79 @@ export class AuthService {
     });
   }
 
+  async loginFromGoogle(idToken: string) {
+    let decoded: { uid: string; email?: string; name?: string; picture?: string };
+    try {
+      decoded = await this.firebase.getAdminAuth().verifyIdToken(idToken);
+    } catch {
+      return null;
+    }
+
+    const usersRef = this.firebase.collection('users');
+    const existing = await usersRef.where('googleId', '==', decoded.uid).get();
+
+    let userId: string;
+    let user: import('firebase-admin/firestore').DocumentData;
+
+    if (!existing.empty) {
+      const doc = existing.docs[0];
+      userId = doc.id;
+      user = doc.data();
+    } else {
+      const byEmail = decoded.email
+        ? await usersRef.where('email', '==', decoded.email).get()
+        : null;
+
+      if (byEmail && !byEmail.empty) {
+        const doc = byEmail.docs[0];
+        userId = doc.id;
+        await usersRef.doc(userId).update({ googleId: decoded.uid });
+        user = { ...doc.data(), googleId: decoded.uid };
+      } else {
+        const referralCode = this.generateReferralCode();
+        const nameParts = (decoded.name ?? '').split(' ');
+
+        let mentorId: string | null = null;
+        let mentorUsername: string | null = null;
+        let mentorCurrentPoints: number | null = null;
+        const adminSnap = await usersRef.where('isAdmin', '==', true).limit(1).get();
+        if (!adminSnap.empty) {
+          const adminDoc = adminSnap.docs[0];
+          mentorId = adminDoc.id;
+          mentorUsername = (adminDoc.data().username as string | null) ?? null;
+          mentorCurrentPoints = (adminDoc.data().points as number) ?? 0;
+        }
+
+        const newUser = {
+          googleId: decoded.uid,
+          email: decoded.email ?? null,
+          username: decoded.email?.split('@')[0] ?? null,
+          firstName: nameParts[0] ?? '',
+          lastName: nameParts.slice(1).join(' ') || null,
+          photoUrl: decoded.picture ?? null,
+          points: 0,
+          mentorId,
+          mentorUsername,
+          referralCode,
+          createdAt: new Date().toISOString(),
+          isAdmin: false,
+          isAdvertiser: false,
+        };
+
+        const docRef = await usersRef.add(newUser);
+        userId = docRef.id;
+        user = newUser;
+
+        if (mentorId && mentorCurrentPoints !== null) {
+          await usersRef.doc(mentorId).update({ points: mentorCurrentPoints + 1000 });
+        }
+      }
+    }
+
+    const token = this.jwt.sign({ sub: userId, googleId: decoded.uid });
+    return { token, user: { id: userId, ...user } };
+  }
+
   async loginOrRegister(telegramData: Record<string, string>) {
     const telegramId = telegramData.id;
     const refCode = telegramData.ref;

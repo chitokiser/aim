@@ -21,6 +21,15 @@ export class AuthController {
     return result;
   }
 
+  @Post('google')
+  @HttpCode(200)
+  async googleAuth(@Body() body: { idToken: string }) {
+    if (!body?.idToken) throw new UnauthorizedException('Missing idToken');
+    const result = await this.authService.loginFromGoogle(body.idToken);
+    if (!result) throw new UnauthorizedException('Invalid Google token');
+    return result;
+  }
+
   @Get('bot-token')
   async exchangeBotToken(@Query('token') token: string) {
     if (!token) throw new UnauthorizedException('Missing token');
