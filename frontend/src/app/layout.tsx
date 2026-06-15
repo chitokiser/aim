@@ -18,17 +18,33 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI119",
-  description: "AI 창작물을 공유하고 보상을 받으세요. Create. Share. Earn.",
+  title: "AI119 — AI Marketing Platform",
+  description: "AI 창작물로 수익을 창출하는 마케팅 플랫폼. Create AI content, earn AimPoints, get rewarded.",
+  metadataBase: new URL("https://ai119.netlify.app"),
   icons: {
     icon: "/images/favicon.png",
     apple: "/images/favicon.png",
   },
+  verification: {
+    google: "google9fc9d28b543bff9f",
+  },
   openGraph: {
-    title: "AI119",
-    description: "AI 창작물을 공유하고 포인트와 TON코인으로 보상을 받으세요.",
+    title: "AI119 — AI Marketing Platform",
+    description: "AI 창작물로 수익을 창출하는 마케팅 플랫폼. Create AI content, earn AimPoints, get rewarded.",
+    url: "https://ai119.netlify.app",
+    siteName: "AI119",
     type: "website",
-    images: ["/images/favicon.png"],
+    images: [{ url: "/images/aimlogo.png", width: 512, height: 512, alt: "AI119 Logo" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI119 — AI Marketing Platform",
+    description: "AI 창작물로 수익을 창출하는 마케팅 플랫폼.",
+    images: ["/images/aimlogo.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
