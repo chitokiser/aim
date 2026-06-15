@@ -47,6 +47,12 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
+  // Raw route at /health for Railway healthcheck (bypasses global prefix)
+  const httpAdapter = app.getHttpAdapter();
+  httpAdapter.get('/health', (_req: unknown, res: { json: (body: unknown) => void }) => {
+    res.json({ status: 'ok' });
+  });
+
   await app.listen(port, '0.0.0.0');
   logger.log(`AIM backend running on port ${port}`);
 }
