@@ -14,20 +14,29 @@ export class FirebaseService implements OnModuleInit {
   constructor(private config: ConfigService) {}
 
   onModuleInit() {
-    if (getApps().length === 0) {
-      this.app = initializeApp({
-        credential: cert({
-          projectId: this.config.get('FIREBASE_PROJECT_ID'),
-          clientEmail: this.config.get('FIREBASE_CLIENT_EMAIL'),
-          privateKey: this.config.get<string>('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n'),
-        }),
-      });
-      this.logger.log('Firebase Admin initialized');
-    } else {
-      this.app = getApps()[0];
+    try {
+      if (getApps().length === 0) {
+        const projectId = this.config.get('FIREBASE_PROJECT_ID');
+        const clientEmail = this.config.get('FIREBASE_CLIENT_EMAIL');
+        const privateKey = this.config.get<string>('FIREBASE_PRIVATE_KEY')?.replace(/\\n/g, '\n');
+
+        if (!projectId || !clientEmail || !privateKey) {
+          this.logger.error(
+            'Firebase credentials missing — set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY in environment variables',
+          );
+          return;
+        }
+
+        this.app = initializeApp({ credential: cert({ projectId, clientEmail, privateKey }) });
+        this.logger.log('Firebase Admin initialized');
+      } else {
+        this.app = getApps()[0];
+      }
+      this.db = getFirestore(this.app);
+      this.firebaseAuth = getAuth(this.app);
+    } catch (err) {
+      this.logger.error('Firebase Admin initialization failed', err);
     }
-    this.db = getFirestore(this.app);
-    this.firebaseAuth = getAuth(this.app);
   }
 
   getFirestore(): Firestore {
