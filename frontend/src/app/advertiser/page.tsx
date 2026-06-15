@@ -86,7 +86,8 @@ export default function AdvertiserPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<MissionTemplate | null>(null);
   const [campaignForm, setCampaignForm] = useState({
     title: "", budget: "", description: "", targetUrl: "",
-    tags: "", startDate: "", endDate: "", maxParticipants: "", targetGroupId: "",
+    tags: "", startDate: "", endDate: "", maxParticipants: "",
+    targetGroupId: "", minDaysRequired: "7", inviteLink: "",
   });
   const [campaignSubmitting, setCampaignSubmitting] = useState(false);
 
@@ -139,6 +140,8 @@ export default function AdvertiserPage() {
           endDate: campaignForm.endDate || undefined,
           maxParticipants: campaignForm.maxParticipants ? Number(campaignForm.maxParticipants) : undefined,
           targetGroupId: campaignForm.targetGroupId.trim() || undefined,
+          inviteLink: campaignForm.inviteLink.trim() || undefined,
+          minDaysRequired: campaignForm.minDaysRequired ? Number(campaignForm.minDaysRequired) : 7,
         }),
       });
       if (!res.ok) {
@@ -148,7 +151,7 @@ export default function AdvertiserPage() {
       }
       toast.success(t.advertiser.campaignSubmitted);
       setSelectedTemplate(null);
-      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", endDate: "", maxParticipants: "", targetGroupId: "" });
+      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", endDate: "", maxParticipants: "", targetGroupId: "", minDaysRequired: "7", inviteLink: "" });
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -340,17 +343,61 @@ export default function AdvertiserPage() {
                     />
                   </div>
                   {selectedTemplate.type === "follow_join" && (
-                    <div className="space-y-1.5">
-                      <Label>Telegram Group ID</Label>
-                      <Input
-                        placeholder="-1001234567890"
-                        value={campaignForm.targetGroupId}
-                        onChange={(e) => setCampaignForm((p) => ({ ...p, targetGroupId: e.target.value }))}
-                        required
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        The Telegram chat ID of the group users must join. Bot must be an admin of that group. (e.g. <code>-1001234567890</code>)
+                    <div className="space-y-4 p-4 rounded-lg border border-violet-200 dark:border-violet-800 bg-violet-50/40 dark:bg-violet-950/20">
+                      <p className="text-sm font-semibold text-violet-700 dark:text-violet-400">
+                        📌 Telegram Group Join Settings
                       </p>
+
+                      <div className="space-y-1.5">
+                        <Label>Telegram Group ID <span className="text-red-500">*</span></Label>
+                        <Input
+                          placeholder="-1001234567890"
+                          value={campaignForm.targetGroupId}
+                          onChange={(e) => setCampaignForm((p) => ({ ...p, targetGroupId: e.target.value }))}
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Add <strong>@ai119_reward_bot</strong> to your group as admin first — it will reply with the Group ID automatically.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Invite Link (t.me/...)</Label>
+                        <Input
+                          placeholder="https://t.me/+xxxxxxxx"
+                          value={campaignForm.inviteLink}
+                          onChange={(e) => setCampaignForm((p) => ({ ...p, inviteLink: e.target.value }))}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Shown to members so they know which group to join.
+                        </p>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label>Minimum Days to Stay (체류 최소 일수)</Label>
+                        <select
+                          className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                          value={campaignForm.minDaysRequired}
+                          onChange={(e) => setCampaignForm((p) => ({ ...p, minDaysRequired: e.target.value }))}
+                        >
+                          <option value="0">즉시 지급 (권장 안 함)</option>
+                          <option value="1">1일 유지 후 지급</option>
+                          <option value="3">3일 유지 후 지급</option>
+                          <option value="7">7일 유지 후 지급 (추천)</option>
+                          <option value="14">14일 유지 후 지급</option>
+                          <option value="30">30일 유지 후 지급</option>
+                        </select>
+                      </div>
+
+                      <div className="p-3 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400 space-y-1">
+                        <p className="font-semibold">🤖 Bot Setup Instructions</p>
+                        <ol className="list-decimal list-inside space-y-0.5">
+                          <li>@ai119_reward_bot 을 귀하의 텔레그램 그룹에 초대</li>
+                          <li>봇을 <strong>관리자(Admin)</strong>로 설정 (멤버 조회 권한 필요)</li>
+                          <li>봇이 그룹 ID를 자동으로 알려줍니다 — 위 필드에 입력하세요</li>
+                          <li>미션 승인 후 회원이 그룹 가입 시 자동 추적 시작</li>
+                        </ol>
+                      </div>
                     </div>
                   )}
                   <div className="space-y-1.5">
