@@ -283,6 +283,17 @@ export class AuthService {
     const existing = await usersRef.where('isAdmin', '==', true).limit(1).get();
     if (!existing.empty) return null;
 
+    // If telegramId provided, promote the existing bot-registered user to admin
+    if (params.telegramId) {
+      const byTg = await usersRef.where('telegramId', '==', params.telegramId).limit(1).get();
+      if (!byTg.empty) {
+        const doc = byTg.docs[0];
+        await usersRef.doc(doc.id).update({ isAdmin: true });
+        const token = this.jwt.sign({ sub: doc.id, telegramId: params.telegramId });
+        return { token, user: { id: doc.id, ...doc.data(), isAdmin: true } };
+      }
+    }
+
     // If email provided, check if a user with that email already exists and just promote them
     if (params.email) {
       const byEmail = await usersRef.where('email', '==', params.email).limit(1).get();

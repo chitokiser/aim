@@ -14,11 +14,12 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export default function SetupPage() {
   const router = useRouter();
-  const { setUser, setToken } = useAuthStore();
+  const { user: currentUser, setUser, setToken } = useAuthStore();
   const [setupToken, setSetupToken] = useState("");
-  const [firstName, setFirstName] = useState("");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("daguri75@gmail.com");
+  const [firstName, setFirstName] = useState(currentUser?.firstName ?? "");
+  const [username, setUsername] = useState(currentUser?.username ?? "");
+  const [email, setEmail] = useState(currentUser?.email ?? "daguri75@gmail.com");
+  const [telegramId, setTelegramId] = useState(currentUser?.telegramId ?? "");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,6 +36,7 @@ export default function SetupPage() {
           firstName: firstName.trim(),
           username: username.trim() || undefined,
           email: email.trim() || undefined,
+          telegramId: telegramId.trim() || undefined,
         }),
       });
 
@@ -109,7 +111,24 @@ export default function SetupPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-300">Google Email <span className="text-slate-500">(for Google login matching)</span></Label>
+                <Label className="text-slate-300">
+                  Telegram ID{" "}
+                  <span className="text-violet-400 text-xs">(권장 — 텔레그램 로그인 유저 승격)</span>
+                </Label>
+                <Input
+                  placeholder="e.g. 123456789"
+                  value={telegramId}
+                  onChange={(e) => setTelegramId(e.target.value)}
+                  className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
+                />
+                {currentUser?.telegramId && (
+                  <p className="text-xs text-violet-400">
+                    현재 로그인: <code>{currentUser.telegramId}</code> ({currentUser.firstName})
+                  </p>
+                )}
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-slate-300">Google Email <span className="text-slate-500">(구글 로그인 매칭용)</span></Label>
                 <Input
                   type="email"
                   placeholder="your@gmail.com"

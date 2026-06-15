@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send } from "lucide-react";
+import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -209,13 +209,37 @@ export function Navbar() {
             </Link>
           ))}
           {(mounted && user) && (
-            <div className="pt-2 border-t mt-2">
-              <div className="flex items-center gap-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 px-3 py-1.5 w-fit">
+            <div className="pt-2 border-t mt-2 space-y-1">
+              <div className="flex items-center gap-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 px-3 py-1.5 w-fit mb-2">
                 <Coins className="h-4 w-4 text-violet-600" />
                 <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">
                   {user.points.toLocaleString()} AP
                 </span>
               </div>
+              <Link
+                href="/profile"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-accent transition-colors"
+              >
+                {t.nav.myProfile}
+              </Link>
+              {user.isAdmin && (
+                <Link
+                  href="/admin"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-violet-600 hover:bg-accent transition-colors"
+                >
+                  <LayoutDashboard className="h-4 w-4" />
+                  {t.nav.admin}
+                </Link>
+              )}
+              <button
+                onClick={() => { logout(); setMobileOpen(false); }}
+                className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+                {t.nav.logout}
+              </button>
             </div>
           )}
         </div>
