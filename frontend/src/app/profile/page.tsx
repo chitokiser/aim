@@ -80,7 +80,7 @@ export default function ProfilePage() {
         <CardContent className="pt-0 pb-6 px-6">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10">
             <Avatar className="h-20 w-20 ring-4 ring-background shadow-xl">
-              <AvatarImage src={user.photoUrl} />
+              <AvatarImage src={user.photoUrl ?? undefined} />
               <AvatarFallback className={`bg-gradient-to-br ${levelInfo.color} text-white text-2xl font-black`}>
                 {user.firstName?.[0] ?? "U"}
               </AvatarFallback>

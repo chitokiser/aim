@@ -111,7 +111,7 @@ export function Navbar() {
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="relative h-9 w-9 rounded-full p-0">
                     <Avatar className="h-9 w-9">
-                      <AvatarImage src={user.photoUrl} alt={user.username} />
+                      <AvatarImage src={user.photoUrl ?? undefined} alt={user.username ?? undefined} />
                       <AvatarFallback className="bg-gradient-to-br from-violet-500 to-cyan-500 text-white text-xs font-bold">
                         {user.firstName?.[0]?.toUpperCase() ?? "U"}
                       </AvatarFallback>
@@ -121,7 +121,7 @@ export function Navbar() {
                 <DropdownMenuContent align="end" className="w-56">
                   <div className="flex items-center gap-2 p-2">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.photoUrl} />
+                      <AvatarImage src={user.photoUrl ?? undefined} />
                       <AvatarFallback className="bg-gradient-to-br from-violet-500 to-cyan-500 text-white text-xs">
                         {user.firstName?.[0]?.toUpperCase() ?? "U"}
                       </AvatarFallback>
