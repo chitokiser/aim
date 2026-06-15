@@ -5,3 +5,4 @@
 [build.environment]
   NODE_VERSION = "22"
   NEXT_PUBLIC_API_URL = "https://ai119-bot-production.up.railway.app"
+  NEXT_PUBLIC_TELEGRAM_BOT_USERNAME = "ai_bootcamp_hub_bot"
