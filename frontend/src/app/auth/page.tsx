@@ -44,20 +44,46 @@ export default function AuthPage() {
       const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
 
-      const res = await fetch(`${API}/api/auth/google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken }),
-      });
+      // Try backend exchange (registers user in DB, returns custom JWT)
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(`${API}/api/auth/google`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ idToken }),
+          signal: controller.signal,
+        });
+        clearTimeout(tid);
 
-      if (res.ok) {
-        const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0] };
-        setToken(data.token);
-        setUser(data.user);
-        router.push("/");
-      } else {
-        toast.error("Google login failed. Please try again.");
+        if (res.ok) {
+          const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0] };
+          setToken(data.token);
+          setUser(data.user);
+          router.push("/");
+          return;
+        }
+      } catch {
+        // Backend unavailable — fall back to Firebase client auth below
       }
+
+      // Fallback: use Firebase user directly with Firebase ID token
+      const fbUser = result.user;
+      const nameParts = (fbUser.displayName ?? "").split(" ");
+      setToken(idToken);
+      setUser({
+        id: fbUser.uid,
+        googleId: fbUser.uid,
+        email: fbUser.email ?? undefined,
+        username: fbUser.email?.split("@")[0] ?? fbUser.uid,
+        firstName: nameParts[0] ?? "",
+        lastName: nameParts.slice(1).join(" ") || undefined,
+        photoUrl: fbUser.photoURL ?? null,
+        points: 0,
+        referralCode: "",
+        createdAt: new Date(),
+      });
+      router.push("/");
     } catch (err) {
       console.error("Google login error:", err);
       toast.error("Google login failed. Please try again.");

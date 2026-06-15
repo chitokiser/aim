@@ -1,10 +1,12 @@
 export interface User {
   id: string;
-  telegramId: string;
+  telegramId?: string;
+  googleId?: string;
+  email?: string;
   username: string;
   firstName: string;
   lastName?: string;
-  photoUrl?: string;
+  photoUrl?: string | null;
   points: number;
   mentorId?: string;
   mentorUsername?: string;
