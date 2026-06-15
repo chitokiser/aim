@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Query, UnauthorizedException, HttpCode } from '@nestjs/common';
+import { Controller, Post, Get, Body, Query, UnauthorizedException, HttpCode, ForbiddenException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -35,6 +35,17 @@ export class AuthController {
     if (!token) throw new UnauthorizedException('Missing token');
     const result = await this.authService.exchangeBotToken(token);
     if (!result) throw new UnauthorizedException('Invalid or expired token');
+    return result;
+  }
+
+  @Post('bootstrap')
+  @HttpCode(200)
+  async bootstrap(
+    @Body() body: { setupToken: string; firstName: string; username?: string; telegramId?: string },
+  ) {
+    if (!body?.setupToken || !body?.firstName) throw new UnauthorizedException('Missing required fields');
+    const result = await this.authService.bootstrapAdmin(body);
+    if (!result) throw new ForbiddenException('Bootstrap failed — invalid token or admin already exists');
     return result;
   }
 }

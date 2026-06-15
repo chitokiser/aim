@@ -1,20 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
-  Search, Bell
+  Search, Bell, Loader2, History, Zap, Bot,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const PENDING_POSTS = [
   { id: "1", user: "aimaster_kim", platform: "Instagram", url: "https://instagram.com/p/ABC", tags: ["#AIM", "#AIcf"], mission: "AI CF 영상", date: "2026-06-14 09:23" },
@@ -22,11 +25,24 @@ const PENDING_POSTS = [
   { id: "3", user: "tonhunter", platform: "Blog", url: "https://blog.example.com/post1", tags: ["#AIM", "#AICMsong"], mission: "CM송 제작", date: "2026-06-14 07:30" },
 ];
 
-const MEMBERS = [
-  { id: "1", username: "aimaster_kim", firstName: "김민준", telegramId: "123456", points: 2450000, posts: 89, status: "active", joined: "2026-01-15" },
-  { id: "2", username: "creative_lee", firstName: "이서연", telegramId: "234567", points: 1980000, posts: 67, status: "active", joined: "2026-02-03" },
-  { id: "3", username: "spammer_x", firstName: "스팸계정", telegramId: "999888", points: 500, posts: 120, status: "suspended", joined: "2026-06-01" },
-];
+interface Member {
+  id: string;
+  username?: string;
+  firstName?: string;
+  telegramId?: string;
+  points?: number;
+  postCount?: number;
+  isAdmin?: boolean;
+  createdAt?: string;
+}
+
+interface Transaction {
+  id: string;
+  amount: number;
+  type: string;
+  description: string;
+  createdAt: string;
+}
 
 const MISSIONS_PENDING = [
   { id: "1", advertiser: "BrandX", title: "AI CF 영상 제작 v2", budget: 10000000, type: "cf_video", date: "2026-06-13" },
@@ -43,15 +59,139 @@ const AP_STATUS = [
 ];
 
 export default function AdminPage() {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const router = useRouter();
   const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
 
+  // Members state
+  const [members, setMembers] = useState<Member[]>([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+
+  // Charge AP dialog
+  const [chargeTarget, setChargeTarget] = useState<Member | null>(null);
+  const [chargeAmount, setChargeAmount] = useState("");
+  const [chargeReason, setChargeReason] = useState("");
+  const [charging, setCharging] = useState(false);
+
+  // History dialog
+  const [historyTarget, setHistoryTarget] = useState<Member | null>(null);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  // Platform vault state
+  interface VaultTransaction { id: string; amount: number; missionId: string; description: string; createdAt: string; }
+  const [vault, setVault] = useState<{ totalAP: number; transactions: VaultTransaction[] } | null>(null);
+  const [vaultLoading, setVaultLoading] = useState(false);
+
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
   }, [user, router]);
+
+  const authHeader = useCallback(
+    () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
+    [token],
+  );
+
+  // Load members from API
+  const loadMembers = useCallback(async (q?: string) => {
+    if (!token) return;
+    setMembersLoading(true);
+    try {
+      const url = `${API}/api/users/admin/list${q ? `?search=${encodeURIComponent(q)}` : ""}`;
+      const res = await fetch(url, { headers: authHeader() });
+      if (!res.ok) throw new Error("Failed to load members");
+      setMembers(await res.json());
+    } catch {
+      toast.error("Failed to load members");
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [token, authHeader]);
+
+  useEffect(() => {
+    if (user?.isAdmin) loadMembers();
+  }, [user, loadMembers]);
+
+  // Debounce search
+  useEffect(() => {
+    const t = setTimeout(() => loadMembers(search), 400);
+    return () => clearTimeout(t);
+  }, [search, loadMembers]);
+
+  // Load platform vault
+  const loadVault = useCallback(async () => {
+    if (!token) return;
+    setVaultLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions/platform-vault`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setVault(await res.json());
+    } catch {
+      toast.error("Failed to load vault");
+    } finally {
+      setVaultLoading(false);
+    }
+  }, [token, authHeader]);
+
+  // Open charge dialog
+  const openCharge = (member: Member) => {
+    setChargeTarget(member);
+    setChargeAmount("");
+    setChargeReason("");
+  };
+
+  // Submit AP charge
+  const submitCharge = async () => {
+    if (!chargeTarget || !chargeAmount || !chargeReason.trim()) return;
+    const amount = Number(chargeAmount);
+    if (isNaN(amount) || amount === 0) return;
+    setCharging(true);
+    try {
+      const res = await fetch(`${API}/api/users/${chargeTarget.id}/charge-ap`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ amount, reason: chargeReason }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`${chargeTarget.firstName ?? chargeTarget.username} — ${t.admin.chargeSuccess}`);
+      setChargeTarget(null);
+      loadMembers(search);
+    } catch {
+      toast.error(t.admin.chargeFail);
+    } finally {
+      setCharging(false);
+    }
+  };
+
+  // Open history dialog
+  const openHistory = async (member: Member) => {
+    setHistoryTarget(member);
+    setTransactions([]);
+    setHistoryLoading(true);
+    try {
+      const res = await fetch(`${API}/api/users/${member.id}/transactions`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setTransactions(await res.json());
+    } catch {
+      toast.error("Failed to load history");
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const txTypeLabel = (type: string): string => {
+    const map: Record<string, string> = {
+      admin_charge: t.admin.txTypeAdminCharge,
+      post_reward: t.admin.txTypePostReward,
+      mission_reward: t.admin.txTypeMissionReward,
+      referral_bonus: t.admin.txTypeReferralBonus,
+      mentor_bonus: t.admin.txTypeMentorBonus,
+      withdrawal: t.admin.txTypeWithdrawal,
+    };
+    return map[type] ?? type;
+  };
 
   const approvePost = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
   const rejectPost = (id: string) => toast.error(`#${id} ${t.admin.reject}`);
@@ -72,9 +212,19 @@ export default function AdminPage() {
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-black mb-1">{t.admin.title}</h1>
-        <p className="text-muted-foreground">{t.admin.subtitle}</p>
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-black mb-1">{t.admin.title}</h1>
+          <p className="text-muted-foreground">{t.admin.subtitle}</p>
+        </div>
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={() => router.push("/admin/telegram")}
+        >
+          <Bot className="h-4 w-4" />
+          Telegram Settings
+        </Button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -94,6 +244,7 @@ export default function AdminPage() {
           <TabsTrigger value="posts">{t.admin.tabPosts}</TabsTrigger>
           <TabsTrigger value="missions">{t.admin.tabMissions}</TabsTrigger>
           <TabsTrigger value="members">{t.admin.tabMembers}</TabsTrigger>
+          <TabsTrigger value="vault" onClick={loadVault}>{t.admin.tabVault}</TabsTrigger>
           <TabsTrigger value="points">{t.admin.tabPoints}</TabsTrigger>
           <TabsTrigger value="notice">{t.admin.tabNotice}</TabsTrigger>
           <TabsTrigger value="tags">{t.admin.tabTags}</TabsTrigger>
@@ -178,46 +329,273 @@ export default function AdminPage() {
         <TabsContent value="members">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between gap-4">
-                <CardTitle className="text-base">{t.admin.memberMgmt}</CardTitle>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <CardTitle className="text-base">
+                  {t.admin.memberMgmt}
+                  {members.length > 0 && (
+                    <span className="ml-2 text-muted-foreground font-normal text-sm">({members.length})</span>
+                  )}
+                </CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder={t.admin.search} value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9 h-8" />
+                  <Input
+                    placeholder={t.admin.search}
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9 h-8"
+                  />
                 </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y">
-                {MEMBERS.filter((m) =>
-                  m.username.includes(search) || m.firstName.includes(search)
-                ).map((member) => (
-                  <div key={member.id} className="p-4 flex items-center gap-3 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-semibold text-sm">{member.firstName}</span>
-                        <span className="text-xs text-muted-foreground">@{member.username}</span>
-                        <Badge variant={member.status === "active" ? "default" : "destructive"} className="text-xs">
-                          {member.status === "active" ? t.admin.active : t.admin.suspended}
-                        </Badge>
+              {membersLoading ? (
+                <div className="flex items-center justify-center py-12 text-muted-foreground gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">{t.admin.loadingMembers}</span>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {members.map((member) => (
+                    <div key={member.id} className="p-4 flex items-center gap-3 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-semibold text-sm">{member.firstName || "—"}</span>
+                          {member.username && (
+                            <span className="text-xs text-muted-foreground">@{member.username}</span>
+                          )}
+                          {member.isAdmin && (
+                            <Badge className="text-xs bg-violet-500">Admin</Badge>
+                          )}
+                        </div>
+                        <div className="flex gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
+                          {member.telegramId && <span>TG: {member.telegramId}</span>}
+                          <span className="font-medium text-foreground">{(member.points ?? 0).toLocaleString()} AP</span>
+                          {member.postCount !== undefined && <span>{member.postCount} posts</span>}
+                          {member.createdAt && (
+                            <span>{member.createdAt.slice(0, 10)}</span>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
-                        <span>TG: {member.telegramId}</span>
-                        <span>{member.points.toLocaleString()} AP</span>
-                        <span>{member.posts} posts</span>
-                        <span>{member.joined}</span>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 border-amber-400 text-amber-600 hover:bg-amber-50"
+                          onClick={() => openCharge(member)}
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                          {t.admin.chargeAp}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={() => openHistory(member)}
+                        >
+                          <History className="h-3.5 w-3.5" />
+                          {t.admin.history}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => suspendUser(member.id)}
+                        >
+                          {t.admin.suspend}
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">{t.admin.adjustPoints}</Button>
-                      {member.status === "active" ? (
-                        <Button size="sm" variant="destructive" onClick={() => suspendUser(member.id)}>{t.admin.suspend}</Button>
-                      ) : (
-                        <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white">{t.admin.restore}</Button>
-                      )}
+                  ))}
+                  {members.length === 0 && !membersLoading && (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                      No members found
                     </div>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Charge AP Dialog */}
+          <Dialog open={!!chargeTarget} onOpenChange={(o) => !o && setChargeTarget(null)}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-amber-500" />
+                  {t.admin.chargeApTitle}
+                  {chargeTarget && (
+                    <span className="font-normal text-muted-foreground text-sm ml-1">
+                      — {chargeTarget.firstName || chargeTarget.username}
+                    </span>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                {chargeTarget && (
+                  <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">현재 잔액</span>
+                      <span className="font-bold">{(chargeTarget.points ?? 0).toLocaleString()} AP</span>
+                    </div>
+                    {chargeTarget.telegramId && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Telegram ID</span>
+                        <span>{chargeTarget.telegramId}</span>
+                      </div>
+                    )}
                   </div>
-                ))}
+                )}
+                <div className="space-y-1.5">
+                  <Label>{t.admin.chargeAmountLabel}</Label>
+                  <Input
+                    type="number"
+                    placeholder={t.admin.chargeAmountPlaceholder}
+                    value={chargeAmount}
+                    onChange={(e) => setChargeAmount(e.target.value)}
+                  />
+                  {chargeAmount && !isNaN(Number(chargeAmount)) && (
+                    <p className="text-xs text-muted-foreground">
+                      충전 후 잔액: {((chargeTarget?.points ?? 0) + Number(chargeAmount)).toLocaleString()} AP
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.admin.chargeReasonLabel}</Label>
+                  <Input
+                    placeholder={t.admin.chargeReasonPlaceholder}
+                    value={chargeReason}
+                    onChange={(e) => setChargeReason(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90"
+                    disabled={charging || !chargeAmount || !chargeReason.trim()}
+                    onClick={submitCharge}
+                  >
+                    {charging ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.admin.charging}</>
+                    ) : (
+                      <><Zap className="h-4 w-4 mr-2" />{t.admin.chargeBtn}</>
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={() => setChargeTarget(null)}>
+                    취소
+                  </Button>
+                </div>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Transaction History Dialog */}
+          <Dialog open={!!historyTarget} onOpenChange={(o) => !o && setHistoryTarget(null)}>
+            <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  {t.admin.historyTitle}
+                  {historyTarget && (
+                    <span className="font-normal text-muted-foreground text-sm ml-1">
+                      — {historyTarget.firstName || historyTarget.username}
+                    </span>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="overflow-y-auto flex-1 mt-2">
+                {historyLoading ? (
+                  <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">Loading...</span>
+                  </div>
+                ) : transactions.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    {t.admin.historyEmpty}
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {transactions.map((tx) => (
+                      <div key={tx.id} className="py-3 px-1 flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge
+                              variant="outline"
+                              className={`text-xs ${tx.amount > 0 ? "border-green-400 text-green-600" : "border-red-400 text-red-600"}`}
+                            >
+                              {txTypeLabel(tx.type)}
+                            </Badge>
+                          </div>
+                          <p className="text-sm mt-0.5 truncate">{tx.description}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {tx.createdAt?.slice(0, 16).replace("T", " ")}
+                          </p>
+                        </div>
+                        <span className={`text-sm font-bold shrink-0 ${tx.amount > 0 ? "text-green-600" : "text-red-500"}`}>
+                          {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} AP
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+        </TabsContent>
+
+        {/* Platform Vault */}
+        <TabsContent value="vault">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Coins className="h-5 w-5 text-amber-500" />
+                  {t.admin.vaultTitle}
+                </CardTitle>
+                <Button size="sm" variant="outline" onClick={loadVault}>
+                  {t.admin.vaultLoading.replace("...", "")}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {vaultLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">{t.admin.vaultLoading}</span>
+                </div>
+              ) : vault ? (
+                <div className="space-y-6">
+                  <div className="rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 p-6 text-center">
+                    <p className="text-sm text-muted-foreground mb-1">{t.admin.vaultBalance}</p>
+                    <p className="text-4xl font-black text-amber-600">{vault.totalAP.toLocaleString()}</p>
+                    <p className="text-sm text-muted-foreground mt-1">AP ≈ ${(vault.totalAP / 10000).toFixed(2)} USD</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold mb-3 text-muted-foreground">Recent Transactions</p>
+                    {vault.transactions.length === 0 ? (
+                      <p className="text-center text-sm text-muted-foreground py-8">{t.admin.vaultEmpty}</p>
+                    ) : (
+                      <div className="divide-y">
+                        {vault.transactions.map((tx) => (
+                          <div key={tx.id} className="py-3 flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{tx.description}</p>
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                {tx.createdAt?.slice(0, 16).replace("T", " ")}
+                              </p>
+                            </div>
+                            <span className="text-sm font-bold text-amber-600 shrink-0">
+                              +{tx.amount.toLocaleString()} AP
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  <Coins className="h-8 w-8 mx-auto mb-3 opacity-30" />
+                  <p>{t.admin.vaultEmpty}</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

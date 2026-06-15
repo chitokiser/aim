@@ -1,12 +1,29 @@
 import {
-  Controller, Get, Post, Param, Body, Query, UseGuards, Request
+  Controller, Get, Post, Param, Body, Query,
+  UseGuards, Request, ForbiddenException,
 } from '@nestjs/common';
 import { MissionsService } from './missions.service';
+import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 
 @Controller('missions')
 export class MissionsController {
-  constructor(private readonly missionsService: MissionsService) {}
+  constructor(
+    private readonly missionsService: MissionsService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  // ── Admin: platform vault balance ──────────────────────────────────────────
+  // Must appear before :id routes to avoid NestJS route conflict
+
+  @Get('platform-vault')
+  @UseGuards(JwtAuthGuard)
+  async getPlatformVault(@Request() req: { user: { sub: string } }) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.getPlatformVaultBalance();
+  }
+
+  // ── Public routes ──────────────────────────────────────────────────────────
 
   @Get()
   findAll(@Query('status') status?: string) {
@@ -22,6 +39,8 @@ export class MissionsController {
   getSubmissions(@Param('id') id: string) {
     return this.missionsService.getSubmissions(id);
   }
+
+  // ── Authenticated routes ───────────────────────────────────────────────────
 
   @Post()
   @UseGuards(JwtAuthGuard)
@@ -77,5 +96,17 @@ export class MissionsController {
     @Request() req: { user: { sub: string } },
   ) {
     return this.missionsService.likeSubmission(submissionId, req.user.sub);
+  }
+
+  // ── Admin: manual mission settlement ──────────────────────────────────────
+
+  @Post(':id/settle')
+  @UseGuards(JwtAuthGuard)
+  async settleMission(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.settleMission(id);
   }
 }

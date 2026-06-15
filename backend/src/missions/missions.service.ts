@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { FieldValue } from 'firebase-admin/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 import type { Query } from 'firebase-admin/firestore';
@@ -148,7 +149,7 @@ export class MissionsService {
     return { id: ref.id, ...submission };
   }
 
-  // ── New: like a submission ─────────────────────────────────────────────────
+  // ── New: like/unlike a submission (FieldValue.increment prevents race condition) ──
 
   async likeSubmission(submissionId: string, userId: string) {
     const subRef = this.firebase.collection('submissions').doc(submissionId);
@@ -158,16 +159,20 @@ export class MissionsService {
     const likeKey = `${submissionId}_${userId}`;
     const likeDoc = await this.firebase.collection('submission_likes').doc(likeKey).get();
     const alreadyLiked = likeDoc.exists;
+    const currentLikes = (subDoc.data()?.likes ?? 0) as number;
 
-    const current = (subDoc.data()?.likes ?? 0) as number;
     if (alreadyLiked) {
       await this.firebase.collection('submission_likes').doc(likeKey).delete();
-      await subRef.update({ likes: Math.max(0, current - 1) });
-      return { liked: false, likes: Math.max(0, current - 1) };
+      await subRef.update({ likes: FieldValue.increment(-1) });
+      return { liked: false, likes: Math.max(0, currentLikes - 1) };
     } else {
-      await this.firebase.collection('submission_likes').doc(likeKey).set({ userId, submissionId, likedAt: new Date().toISOString() });
-      await subRef.update({ likes: current + 1 });
-      return { liked: true, likes: current + 1 };
+      await this.firebase.collection('submission_likes').doc(likeKey).set({
+        userId,
+        submissionId,
+        likedAt: new Date().toISOString(),
+      });
+      await subRef.update({ likes: FieldValue.increment(1) });
+      return { liked: true, likes: currentLikes + 1 };
     }
   }
 
@@ -183,6 +188,10 @@ export class MissionsService {
   }
 
   // ── New: settle a mission (like-proportional AP distribution) ────────────
+  //
+  // Budget split: 70% → creators (proportional to likes), 10% → mentors,
+  //               20% → platform vault
+  // If no votes cast → full refund to advertiser.
 
   async settleMission(missionId: string) {
     const mission = await this.findById(missionId);
@@ -190,53 +199,137 @@ export class MissionsService {
 
     if (data.status !== 'active') return { skipped: true, reason: 'not active' };
 
+    const totalBudget = data.totalBudget as number;
     const submissions = await this.getSubmissions(missionId);
-    if (submissions.length === 0) {
-      await this.firebase.collection('missions').doc(missionId).update({ status: 'settled' });
-      return { settled: true, distributions: [] };
+    const totalLikes = submissions.reduce(
+      (s, sub) => s + (((sub as Record<string, unknown>).likes as number) ?? 0),
+      0,
+    );
+
+    // Refund advertiser if nobody submitted or nobody voted
+    if (submissions.length === 0 || totalLikes === 0) {
+      const advertiserId = data.advertiserId as string;
+      if (advertiserId && totalBudget > 0) {
+        await this.points.award(
+          advertiserId,
+          totalBudget,
+          'mission_refund',
+          `미션 환불: ${data.title as string}`,
+          missionId,
+        );
+      }
+      if (data.escrowId) {
+        await this.firebase
+          .collection('escrow_wallets')
+          .doc(data.escrowId as string)
+          .update({ settled: true, refunded: true, settledAt: new Date().toISOString() });
+      }
+      await this.firebase
+        .collection('missions')
+        .doc(missionId)
+        .update({ status: 'refunded', settledAt: new Date().toISOString() });
+      return {
+        settled: false,
+        refunded: true,
+        reason: submissions.length === 0 ? 'no_submissions' : 'no_votes',
+      };
     }
 
-    const totalLikes = submissions.reduce((s, sub) => s + ((sub as Record<string, unknown>).likes as number ?? 0), 0);
-    const totalBudget = data.totalBudget as number;
+    // Platform vault: 20% of total budget
+    const platformShare = Math.floor(totalBudget * 0.2);
+    await this.creditPlatformVault(platformShare, missionId, data.title as string);
+
+    // Member pool: 70% distributed proportionally by likes
     const memberPool = Math.floor(totalBudget * 0.7);
     const distributions: { userId: string; ap: number }[] = [];
 
     for (const sub of submissions) {
       const s = sub as Record<string, unknown>;
       const likes = (s.likes as number) ?? 0;
+      if (likes <= 0) continue;
       const userId = s.userId as string;
-      const share = totalLikes > 0 ? Math.floor((likes / totalLikes) * memberPool) : 0;
+      const share = Math.floor((likes / totalLikes) * memberPool);
       if (share <= 0) continue;
 
       const mentorId = (await this.firebase.collection('users').doc(userId).get()).data()
         ?.mentorId as string | null;
-      const mentorShare = Math.floor(totalBudget * 0.1 * (likes / (totalLikes || 1)));
-      const platformShare = Math.floor(totalBudget * 0.2 * (likes / (totalLikes || 1)));
+      const mentorShare = Math.floor(totalBudget * 0.1 * (likes / totalLikes));
 
-      await this.points.award(userId, share, 'mission_settlement', `미션 정산: ${data.title}`, missionId, sub.id);
+      await this.points.award(
+        userId,
+        share,
+        'mission_settlement',
+        `미션 정산: ${data.title as string}`,
+        missionId,
+        sub.id,
+      );
       if (mentorId) {
-        await this.points.award(mentorId, mentorShare, 'mentor_settlement', `멘토 정산: 미션 ${missionId}`, missionId, sub.id);
+        await this.points.award(
+          mentorId,
+          mentorShare,
+          'mentor_settlement',
+          `멘토 정산: 미션 ${missionId}`,
+          missionId,
+          sub.id,
+        );
       }
       distributions.push({ userId, ap: share });
     }
 
     // Release escrow
     if (data.escrowId) {
-      await this.firebase.collection('escrow_wallets').doc(data.escrowId as string).update({ settled: true, settledAt: new Date().toISOString() });
+      await this.firebase
+        .collection('escrow_wallets')
+        .doc(data.escrowId as string)
+        .update({ settled: true, settledAt: new Date().toISOString() });
     }
 
-    await this.firebase.collection('missions').doc(missionId).update({ status: 'settled', settledAt: new Date().toISOString() });
+    await this.firebase
+      .collection('missions')
+      .doc(missionId)
+      .update({ status: 'settled', settledAt: new Date().toISOString() });
 
     await this.firebase.collection('settlements').add({
       missionId,
       totalBudget,
+      platformShare,
       memberPool,
       totalLikes,
       distributions,
       settledAt: new Date().toISOString(),
     });
 
-    return { settled: true, distributions };
+    return { settled: true, platformShare, totalLikes, distributions };
+  }
+
+  // ── Platform vault ─────────────────────────────────────────────────────────
+
+  private async creditPlatformVault(amount: number, missionId: string, missionTitle: string) {
+    await this.firebase.collection('platform_vault').add({
+      amount,
+      missionId,
+      source: 'mission_settlement',
+      description: `미션 정산 수수료: ${missionTitle}`,
+      createdAt: new Date().toISOString(),
+    });
+    // Running total stored in a single summary document
+    await this.firebase
+      .collection('platform_vault')
+      .doc('__total__')
+      .set({ totalAP: FieldValue.increment(amount) }, { merge: true });
+  }
+
+  async getPlatformVaultBalance() {
+    const totalDoc = await this.firebase.collection('platform_vault').doc('__total__').get();
+    const totalAP = (totalDoc.data()?.totalAP ?? 0) as number;
+    // Transactions are ordered by createdAt; __total__ has no createdAt so it is excluded
+    const snap = await this.firebase
+      .collection('platform_vault')
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+    const transactions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return { totalAP, transactions };
   }
 
   // ── Legacy submit (kept for backwards compat) ──────────────────────────────
@@ -303,6 +396,9 @@ export class MissionsService {
       remainingBudget: (mission.remainingBudget as number) - reward,
       participantCount: (mission.participantCount as number) + 1,
     });
+
+    // Credit platform share to vault for legacy per-post missions too
+    await this.creditPlatformVault(platformShare, missionId, mission.title as string);
   }
 
   private detectPlatform(url: string): string {

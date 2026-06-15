@@ -105,6 +105,41 @@ export class UsersService {
     });
   }
 
+  async findAll(search?: string): Promise<Array<Record<string, unknown>>> {
+    const snap = await this.firebase.collection('users').orderBy('createdAt', 'desc').limit(500).get();
+    const all = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Record<string, unknown>));
+    if (!search) return all;
+    const q = search.toLowerCase();
+    return all.filter(
+      (u) =>
+        String(u.username ?? '').toLowerCase().includes(q) ||
+        String(u.firstName ?? '').toLowerCase().includes(q) ||
+        String(u.telegramId ?? '').includes(q),
+    );
+  }
+
+  async isAdminUser(userId: string): Promise<boolean> {
+    try {
+      const doc = await this.firebase.collection('users').doc(userId).get();
+      return doc.data()?.isAdmin === true;
+    } catch {
+      return false;
+    }
+  }
+
+  async getTelegramSettings(): Promise<Record<string, string>> {
+    const doc = await this.firebase.collection('admin_settings').doc('telegram').get();
+    return (doc.data() ?? {}) as Record<string, string>;
+  }
+
+  async saveTelegramSettings(settings: Record<string, string>): Promise<Record<string, string>> {
+    await this.firebase
+      .collection('admin_settings')
+      .doc('telegram')
+      .set(settings, { merge: true });
+    return settings;
+  }
+
   async getLeaderboard(period: string) {
     const snap = await this.firebase
       .collection('users')

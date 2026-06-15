@@ -30,6 +30,8 @@ interface TelegramUser {
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "AIM_Hub_bot";
+
 export default function AuthPage() {
   const router = useRouter();
   const { setUser, setToken } = useAuthStore();
@@ -105,27 +107,16 @@ export default function AuthPage() {
           });
 
           if (res.ok) {
-            const userData = await res.json();
-            setUser(userData);
+            const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0] };
+            setToken(data.token);
+            setUser(data.user);
             router.push("/");
           } else {
-            console.error("Auth failed");
+            toast.error("Telegram login failed. Try the bot: send /login");
           }
         } catch (err) {
           console.error("Auth error:", err);
-          const demoUser = {
-            id: String(telegramUser.id),
-            telegramId: String(telegramUser.id),
-            username: telegramUser.username || `user${telegramUser.id}`,
-            firstName: telegramUser.first_name,
-            lastName: telegramUser.last_name,
-            photoUrl: telegramUser.photo_url,
-            points: 5000,
-            referralCode: `REF${telegramUser.id}`,
-            createdAt: new Date(),
-          };
-          setUser(demoUser);
-          router.push("/");
+          toast.error("Login failed — backend unavailable. Try the Telegram bot or Google login.");
         }
       },
     };
@@ -148,7 +139,7 @@ export default function AuthPage() {
         widgetRef.current.innerHTML = "";
       }
     };
-  }, [router, setUser]);
+  }, [router, setUser, setToken]);
 
   const features = [
     { icon: Shield, text: t.auth.feature1 },
@@ -175,8 +166,32 @@ export default function AuthPage() {
             <CardTitle className="text-xl">{t.auth.cardTitle}</CardTitle>
             <CardDescription className="text-slate-400">{t.auth.cardDesc}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex justify-center">
+          <CardContent className="space-y-4">
+            {/* Primary: Telegram Bot login (works without BotFather domain setup) */}
+            <a
+              href={`https://t.me/${BOT_USERNAME}?start=login`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-3 rounded-md bg-[#2AABEE] hover:bg-[#229ED9] px-4 py-3 text-sm font-semibold text-white transition-colors"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5 fill-white">
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.16.16-.295.295-.605.295l.213-3.053 5.56-5.023c.242-.213-.054-.333-.373-.12l-6.871 4.326-2.962-.924c-.643-.204-.657-.643.136-.953l11.57-4.461c.537-.194 1.006.131.833.941z"/>
+              </svg>
+              Login with Telegram Bot
+            </a>
+
+            <p className="text-center text-xs text-slate-500">
+              Opens the bot → send <code className="text-slate-400">/login</code> → tap the link to sign in
+            </p>
+
+            <div className="flex items-center gap-3">
+              <div className="flex-1 border-t border-slate-600" />
+              <span className="text-xs text-slate-500">or</span>
+              <div className="flex-1 border-t border-slate-600" />
+            </div>
+
+            {/* Telegram Widget (requires BotFather /setdomain to be configured) */}
+            <div className="flex justify-center min-h-[40px]">
               <div ref={widgetRef} className="telegram-login-widget" />
             </div>
 
@@ -216,6 +231,12 @@ export default function AuthPage() {
           <a href="/terms" className="text-violet-400 hover:underline">{t.auth.terms}</a>
           {" "}{t.auth.and}{" "}
           <a href="/privacy" className="text-violet-400 hover:underline">{t.auth.privacy}</a>
+        </div>
+
+        <div className="text-center text-xs text-slate-600">
+          <span>Use Telegram bot? Send </span>
+          <code className="text-slate-500">/login</code>
+          <span> to get a sign-in link directly.</span>
         </div>
       </div>
     </div>

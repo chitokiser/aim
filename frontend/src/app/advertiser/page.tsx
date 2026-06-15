@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Megaphone, Coins, Plus, TrendingUp,
-  Users, Eye, MousePointerClick, Tag
+  Users, Eye, MousePointerClick, Tag, Copy, ExternalLink,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -48,6 +48,28 @@ export default function AdvertiserPage() {
   const router = useRouter();
   const { t } = useLanguage();
   const balance = user?.points ?? 0;
+  const [tonWallet, setTonWallet] = useState<string>("");
+  const [botUsername, setBotUsername] = useState<string>("ai_bootcamp_hub_bot");
+  const [customAmount, setCustomAmount] = useState<string>("");
+
+  const loadTelegramSettings = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/users/public/telegram-info`);
+      if (res.ok) {
+        const data = await res.json() as { tonWalletAddress?: string; botUsername?: string };
+        if (data.tonWalletAddress) setTonWallet(data.tonWalletAddress);
+        if (data.botUsername) setBotUsername(data.botUsername);
+      }
+    } catch { /* settings not available */ }
+  }, []);
+
+  useEffect(() => { void loadTelegramSettings(); }, [loadTelegramSettings]);
+
+  const copyToClipboard = (text: string) => {
+    void navigator.clipboard.writeText(text);
+    toast.success("Copied!");
+  };
+
   const [missionForm, setMissionForm] = useState({
     title: "", description: "", type: "", budget: "", reward: "",
     maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
@@ -386,43 +408,160 @@ export default function AdvertiserPage() {
 
         {/* Charge */}
         <TabsContent value="charge">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t.advertiser.chargeTitle}</CardTitle>
-              <CardDescription>{t.advertiser.chargeDesc}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid sm:grid-cols-3 gap-4">
-                {[
-                  { method: "Telegram Stars", icon: "⭐", desc: "Quick payment via Telegram", color: "border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/20" },
-                  { method: "TON", icon: "💎", desc: "Connect TON wallet", color: "border-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-950/20" },
-                  { method: "USDT", icon: "💵", desc: "USDT (TRC20/ERC20)", color: "border-green-300 hover:bg-green-50 dark:hover:bg-green-950/20" },
-                ].map(({ method, icon, desc, color }) => (
-                  <div key={method} className={`p-4 rounded-xl border-2 cursor-pointer transition-colors ${color} text-center`}>
-                    <div className="text-3xl mb-2">{icon}</div>
-                    <p className="font-bold text-sm">{method}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{desc}</p>
+          <div className="space-y-5">
+            {/* Telegram Stars */}
+            <Card className="border-amber-200 dark:border-amber-800">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  ⭐ Telegram Stars
+                  <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 border-0">Instant</Badge>
+                </CardTitle>
+                <CardDescription>
+                  Pay with Telegram Stars directly in the bot. 1 Star = 100 AP. Credited instantly.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[100, 500, 1000, 5000].map((stars) => (
+                    <a
+                      key={stars}
+                      href={`https://t.me/${botUsername}?start=topup_${stars}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-3 rounded-xl border-2 border-amber-200 hover:bg-amber-50 dark:hover:bg-amber-950/20 text-center transition-colors cursor-pointer block"
+                    >
+                      <div className="font-black text-amber-500">⭐ {stars}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {(stars * 100).toLocaleString()} AP
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        ≈ ${(stars * 100 / 10000).toFixed(2)}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+                <Button
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+                  onClick={() => window.open(`https://t.me/${botUsername}?start=topup`, "_blank")}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in Telegram Bot → /topup
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* TON */}
+            <Card className="border-cyan-200 dark:border-cyan-800">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  💎 TON Wallet Transfer
+                </CardTitle>
+                <CardDescription>
+                  Send TON to the platform wallet. Include your Telegram ID as the transfer comment for identification.
+                  Rate: 1 TON ≈ 30,000 AP (based on market price). Admin processes manually within 24h.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {tonWallet ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label>Platform TON Wallet Address</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={tonWallet}
+                          readOnly
+                          className="font-mono text-sm bg-muted"
+                        />
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => copyToClipboard(tonWallet)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Your Telegram ID (use as transfer comment/memo)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          value={user?.telegramId ?? "Login with Telegram to see your ID"}
+                          readOnly
+                          className="font-mono bg-muted"
+                        />
+                        {user?.telegramId && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => copyToClipboard(String(user.telegramId))}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ⚠️ You MUST include your Telegram ID as the comment, otherwise your deposit cannot be matched.
+                      </p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-cyan-50 dark:bg-cyan-950/20 text-xs text-cyan-700 dark:text-cyan-300 space-y-1">
+                      <p className="font-semibold">How to deposit TON</p>
+                      <ol className="list-decimal list-inside space-y-0.5">
+                        <li>Copy the wallet address above</li>
+                        <li>Open your TON wallet (Tonkeeper, Ton Space, etc.)</li>
+                        <li>Send TON — paste your Telegram ID in the Comment/Memo field</li>
+                        <li>Admin will credit AP to your account within 24 hours</li>
+                      </ol>
+                    </div>
+                  </>
+                ) : (
+                  <div className="py-6 text-center text-muted-foreground text-sm">
+                    TON wallet address not configured yet. Contact admin.
                   </div>
-                ))}
-              </div>
-              <div className="space-y-3">
-                <Label>{t.advertiser.chargeAmount} (USD)</Label>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* USDT */}
+            <Card className="border-green-200 dark:border-green-800 opacity-70">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  💵 USDT
+                  <Badge variant="secondary">Coming Soon</Badge>
+                </CardTitle>
+                <CardDescription>
+                  USDT (TRC20 / ERC20) top-up — coming soon.
+                </CardDescription>
+              </CardHeader>
+            </Card>
+
+            {/* AP rate reference */}
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground font-medium mb-2">AP Rate Reference</p>
                 <div className="flex gap-2 flex-wrap">
                   {[10, 50, 100, 500, 1000].map((amt) => (
-                    <Badge key={amt} variant="outline" className="cursor-pointer px-3 py-2 text-sm">
+                    <Badge key={amt} variant="outline" className="px-3 py-1.5 text-sm">
                       ${amt} = {(amt * 10000).toLocaleString()} AP
                     </Badge>
                   ))}
                 </div>
-                <div className="flex gap-2">
-                  <Input type="number" placeholder="Custom (USD)" />
-                  <Button className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 whitespace-nowrap">
-                    {t.advertiser.chargeBtn}
-                  </Button>
+                <div className="mt-3 space-y-1.5">
+                  <Label className="text-xs">{t.advertiser.chargeAmount} (USD)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="number"
+                      placeholder="Custom amount"
+                      value={customAmount}
+                      onChange={(e) => setCustomAmount(e.target.value)}
+                    />
+                    <div className="flex items-center px-3 text-sm text-muted-foreground bg-muted rounded-md whitespace-nowrap">
+                      = {customAmount ? (parseInt(customAmount) * 10000).toLocaleString() : "0"} AP
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* Stats */}

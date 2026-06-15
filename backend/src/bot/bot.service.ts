@@ -4,6 +4,7 @@ import { Telegraf } from 'telegraf';
 import { UsersService } from '../users/users.service';
 import { MissionsService } from '../missions/missions.service';
 import { AuthService } from '../auth/auth.service';
+import { PointsService } from '../points/points.service';
 
 const SITE = 'https://ai119.netlify.app';
 
@@ -12,11 +13,15 @@ export class BotService implements OnModuleInit {
   private readonly logger = new Logger(BotService.name);
   private bot: Telegraf;
 
+  // 1 Telegram Star ≈ $0.013 USD; we credit 100 AP per Star (10,000 AP = $1)
+  private readonly AP_PER_STAR = 100;
+
   constructor(
     private config: ConfigService,
     private usersService: UsersService,
     private missionsService: MissionsService,
     private authService: AuthService,
+    private pointsService: PointsService,
   ) {}
 
   async onModuleInit() {
@@ -247,6 +252,108 @@ export class BotService implements OnModuleInit {
       );
     });
 
+    // ── Telegram Stars top-up ──────────────────────────────────────────────────
+
+    this.bot.command('login', async (ctx) => {
+      if (ctx.chat?.type !== 'private') {
+        await ctx.reply('Use /login in the bot DM to get your login link.');
+        return;
+      }
+      const tg = ctx.from;
+      // Register if not yet in DB
+      await this.usersService.registerFromTelegram({
+        telegramId: String(tg.id),
+        firstName: tg.first_name,
+        lastName: tg.last_name,
+        username: tg.username,
+      });
+      const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
+      await ctx.reply(
+        `🔐 *Your Login Link*\n\nTap the button below to sign in to AI119.\nThis link expires in 1 hour.`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🚀 Sign in to AI119', url: `${SITE}?tg=${loginToken}` }],
+            ],
+          },
+        },
+      );
+    });
+
+    this.bot.command('topup', async (ctx) => {
+      if (ctx.chat?.type !== 'private') {
+        await ctx.reply('Use /topup in the bot DM to top up AP.');
+        return;
+      }
+      const telegramId = String(ctx.from?.id);
+      const user = (await this.usersService.findByTelegramId(telegramId)) as Record<string, unknown> | null;
+      if (!user) {
+        await ctx.reply('Please register first with /start');
+        return;
+      }
+
+      const args = ctx.message.text.split(' ');
+      const requestedStars = args[1] ? parseInt(args[1], 10) : 0;
+
+      const presets = [100, 500, 1000, 5000];
+
+      if (!requestedStars || !presets.includes(requestedStars)) {
+        const buttons = presets.map((s) => ({
+          text: `⭐ ${s} Stars → ${(s * this.AP_PER_STAR).toLocaleString()} AP`,
+          callback_data: `topup_${s}`,
+        }));
+        await ctx.reply(
+          `💰 *AP Top-Up via Telegram Stars*\n\n` +
+            `Rate: ⭐ 1 Star = *${this.AP_PER_STAR} AP*\n` +
+            `10,000 AP = $1 USD\n\n` +
+            `Choose an amount:`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [buttons[0], buttons[1]],
+                [buttons[2], buttons[3]],
+              ],
+            },
+          },
+        );
+        return;
+      }
+
+      const ap = requestedStars * this.AP_PER_STAR;
+      await ctx.replyWithInvoice(
+        `AP Top-Up — ${requestedStars} Stars`,
+        `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
+        JSON.stringify({ userId: user.id as string, stars: requestedStars }),
+        '',
+        'XTR',
+        [{ label: `${ap.toLocaleString()} AP`, amount: requestedStars }],
+      );
+    });
+
+    this.bot.action(/^topup_(\d+)$/, async (ctx) => {
+      await ctx.answerCbQuery();
+      const telegramId = String(ctx.from?.id);
+      const user = (await this.usersService.findByTelegramId(telegramId)) as Record<string, unknown> | null;
+      if (!user) return;
+
+      const stars = parseInt((ctx.match as RegExpMatchArray)[1], 10);
+      const ap = stars * this.AP_PER_STAR;
+      await ctx.replyWithInvoice(
+        `AP Top-Up — ${stars} Stars`,
+        `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
+        JSON.stringify({ userId: user.id as string, stars }),
+        '',
+        'XTR',
+        [{ label: `${ap.toLocaleString()} AP`, amount: stars }],
+      );
+    });
+
+    this.bot.on('pre_checkout_query', async (ctx) => {
+      await ctx.answerPreCheckoutQuery(true);
+    });
+
     this.bot.on('chat_join_request', async (ctx) => {
       const req = ctx.update.chat_join_request;
       if (!req) return;
@@ -338,6 +445,36 @@ export class BotService implements OnModuleInit {
 
     this.bot.on('message', async (ctx) => {
       if (ctx.chat?.type !== 'private') return;
+
+      // Handle successful Telegram Stars payment
+      const msg = ctx.message as Record<string, unknown>;
+      if (msg.successful_payment) {
+        const payment = msg.successful_payment as {
+          total_amount: number;
+          invoice_payload: string;
+        };
+        try {
+          const payload = JSON.parse(payment.invoice_payload) as { userId: string; stars: number };
+          const ap = payment.total_amount * this.AP_PER_STAR;
+          await this.pointsService.award(
+            payload.userId,
+            ap,
+            'stars_topup',
+            `Telegram Stars top-up: ${payment.total_amount} Stars`,
+          );
+          await ctx.reply(
+            `✅ *Top-Up Complete!*\n\n` +
+              `⭐ ${payment.total_amount} Stars → *${ap.toLocaleString()} AP* added to your wallet!\n` +
+              `💰 Total value: $${(ap / 10000).toFixed(2)} USD`,
+            { parse_mode: 'Markdown', reply_markup: this.mainKeyboard() },
+          );
+        } catch (err) {
+          this.logger.error('Stars payment processing failed', err);
+          await ctx.reply('Payment received but AP crediting failed. Please contact support.');
+        }
+        return;
+      }
+
       const loginToken = this.authService.createBotLoginToken(String(ctx.from?.id), ctx.from);
       await ctx.reply(
         `Tap a button to get started 👇\n(or type /start to register)`,

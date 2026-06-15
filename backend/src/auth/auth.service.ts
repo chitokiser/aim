@@ -267,6 +267,56 @@ export class AuthService {
     return { token, user: { id: userId, ...user } };
   }
 
+  async bootstrapAdmin(params: {
+    setupToken: string;
+    firstName: string;
+    username?: string;
+    telegramId?: string;
+    email?: string;
+  }): Promise<{ token: string; user: Record<string, unknown> } | null> {
+    const expected = this.config.get<string>('SETUP_SECRET');
+    if (!expected || params.setupToken !== expected) return null;
+
+    const usersRef = this.firebase.collection('users');
+
+    // Refuse if an admin already exists — bootstrap is one-time only
+    const existing = await usersRef.where('isAdmin', '==', true).limit(1).get();
+    if (!existing.empty) return null;
+
+    // If email provided, check if a user with that email already exists and just promote them
+    if (params.email) {
+      const byEmail = await usersRef.where('email', '==', params.email).limit(1).get();
+      if (!byEmail.empty) {
+        const doc = byEmail.docs[0];
+        await usersRef.doc(doc.id).update({ isAdmin: true });
+        const token = this.jwt.sign({ sub: doc.id });
+        return { token, user: { id: doc.id, ...doc.data(), isAdmin: true } };
+      }
+    }
+
+    const referralCode = this.generateReferralCode();
+    const newUser = {
+      telegramId: params.telegramId ?? null,
+      email: params.email ?? null,
+      username: params.username ?? null,
+      firstName: params.firstName,
+      lastName: null,
+      photoUrl: null,
+      points: 0,
+      mentorId: null,
+      mentorUsername: null,
+      referralCode,
+      createdAt: new Date().toISOString(),
+      isAdmin: true,
+      isAdvertiser: false,
+    };
+
+    const docRef = await usersRef.add(newUser);
+    const userId = docRef.id;
+    const token = this.jwt.sign({ sub: userId });
+    return { token, user: { id: userId, ...newUser } };
+  }
+
   private generateReferralCode(): string {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   }
