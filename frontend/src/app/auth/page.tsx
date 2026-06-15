@@ -37,7 +37,7 @@ export default function AuthPage() {
     window.TelegramLoginWidget = {
       dataOnauth: async (telegramUser: TelegramUser) => {
         try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/auth/telegram`, {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/auth/telegram`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(telegramUser),

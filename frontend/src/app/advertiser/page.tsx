@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -40,10 +41,13 @@ const MY_MISSIONS = [
   { id: "3", title: "Instagram Follow", type: "follow", budget: 1000000, spent: 1000000, participants: 2000, status: "ended" },
 ];
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 export default function AdvertiserPage() {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
+  const router = useRouter();
   const { t } = useLanguage();
-  const [balance] = useState(500000);
+  const balance = user?.points ?? 0;
   const [missionForm, setMissionForm] = useState({
     title: "", description: "", type: "", budget: "", reward: "",
     maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
@@ -60,14 +64,51 @@ export default function AdvertiserPage() {
     { value: "poster", label: "Poster", options: ["SNS poster", "Event poster", "Ad banner"] },
   ];
 
-  const handleMissionSubmit = (e: React.FormEvent) => {
+  const handleMissionSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user || !token) {
+      router.push("/auth");
+      return;
+    }
     const budget = parseInt(missionForm.budget);
     if (budget > balance) {
       toast.error(t.advertiser.chargeTitle);
       return;
     }
-    toast.success(t.advertiser.submitMission);
+    try {
+      const res = await fetch(`${API}/api/missions/escrow`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          title: missionForm.title,
+          description: missionForm.description,
+          missionType: missionForm.type,
+          totalBudget: budget,
+          reward: parseInt(missionForm.reward) || 0,
+          maxParticipants: missionForm.maxParticipants ? parseInt(missionForm.maxParticipants) : null,
+          startDate: missionForm.startDate,
+          endDate: missionForm.endDate,
+          requiredTags: missionForm.requiredTags.split(",").map((s) => s.trim()).filter(Boolean),
+          targetUrl: missionForm.targetUrl || null,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast.error((err as { message?: string }).message || "Mission creation failed");
+        return;
+      }
+      toast.success(t.advertiser.submitMission);
+      setMissionForm({
+        title: "", description: "", type: "", budget: "", reward: "",
+        maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
+        productName: "", website: "", productDesc: "", brandDesc: "", contentType: "", contentOption: "",
+      });
+    } catch {
+      toast.error("Network error. Please try again.");
+    }
   };
 
   const stats = [

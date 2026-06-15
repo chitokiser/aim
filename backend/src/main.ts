@@ -11,6 +11,7 @@ async function bootstrap() {
     origin: (origin, callback) => {
       const allowed = [
         process.env.FRONTEND_URL ?? 'http://localhost:3000',
+        'https://ai119.netlify.app',
         'https://web.telegram.org',
         'https://telegram.org',
       ];

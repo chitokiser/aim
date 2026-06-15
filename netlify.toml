@@ -5,6 +5,4 @@
 
 [build.environment]
   NODE_VERSION = "22"
-
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
+  NEXT_PUBLIC_API_URL = "https://ai119-bot-production.up.railway.app"

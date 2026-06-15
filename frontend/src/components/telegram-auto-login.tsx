@@ -20,7 +20,7 @@ export function TelegramAutoLogin() {
 
     (async () => {
       try {
-        const res = await fetch(`${API}/auth/bot-token?token=${encodeURIComponent(tgToken)}`);
+        const res = await fetch(`${API}/api/auth/bot-token?token=${encodeURIComponent(tgToken)}`);
         if (!res.ok) return;
         const data: { token: string; user: Record<string, unknown> } = await res.json();
         setToken(data.token);
