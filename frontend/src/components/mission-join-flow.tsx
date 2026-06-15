@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -12,13 +13,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
 import {
   Coins, Users, CheckCircle, Heart, ExternalLink,
-  Building2, CalendarDays, Wallet, Loader2,
+  Building2, CalendarDays, Wallet, Loader2, Film,
 } from "lucide-react";
 
 const API = "https://ai119-bot-production.up.railway.app";
@@ -659,6 +661,298 @@ export function AdvertiserListModal({
               );
             })}
           </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─── CF Ad Request Modal ──────────────────────────────────────────────────────
+
+interface CfAdRequestModalProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
+  const { t } = useLanguage();
+  const ca = t.cfAd;
+  const router = useRouter();
+  const { user, token } = useAuthStore();
+
+  const [form, setForm] = useState({
+    brandName: "",
+    campaignTitle: "",
+    campaignDesc: "",
+    productUrl: "",
+    totalBudget: "",
+    rewardPerVideo: "",
+    requiredTags: "#AIM",
+    endDate: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  const set = (key: keyof typeof form) => (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => setForm((p) => ({ ...p, [key]: e.target.value }));
+
+  const handleClose = () => {
+    setForm({
+      brandName: "",
+      campaignTitle: "",
+      campaignDesc: "",
+      productUrl: "",
+      totalBudget: "",
+      rewardPerVideo: "",
+      requiredTags: "#AIM",
+      endDate: "",
+    });
+    setSuccess(false);
+    onClose();
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!token || !user) return;
+
+    const budget = parseInt(form.totalBudget, 10);
+    const rewardPer = parseInt(form.rewardPerVideo, 10);
+
+    if (!budget || budget < 100000) {
+      toast.error("Minimum budget is 100,000 AP");
+      return;
+    }
+    if (!rewardPer || rewardPer <= 0) {
+      toast.error("Reward per video must be greater than 0");
+      return;
+    }
+    if (user.points < budget) {
+      toast.error(ca.insufficientBalance);
+      return;
+    }
+
+    const tags = form.requiredTags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    const description =
+      `${form.campaignDesc}\n\nCreate a 30-second CF video using AI tools and upload to Instagram, TikTok, or YouTube.` +
+      (form.productUrl ? `\n\nProduct URL: ${form.productUrl}` : "");
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "https://ai119-bot-production.up.railway.app"}/api/missions/escrow`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title: form.campaignTitle || `${form.brandName} CF Video`,
+            description,
+            missionType: "cf_video",
+            advertiserName: form.brandName,
+            totalBudget: budget,
+            reward: rewardPer,
+            requiredTags: tags,
+            endDate: form.endDate,
+          }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({ message: "Failed" }))) as {
+          message?: string;
+        };
+        throw new Error(err.message || "Failed to create mission");
+      }
+
+      setSuccess(true);
+      toast.success(ca.success);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to create mission");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!token || !user) {
+    return (
+      <Dialog open={open} onOpenChange={handleClose}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{ca.modalTitle}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-6 text-center">
+            <Film className="h-12 w-12 text-violet-400" />
+            <p className="text-sm text-muted-foreground">{ca.loginRequired}</p>
+            <Button
+              className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+              onClick={() => { handleClose(); router.push("/auth"); }}
+            >
+              {ca.loginBtn}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Film className="h-5 w-5 text-violet-500" />
+            {success ? ca.success : ca.modalTitle}
+          </DialogTitle>
+        </DialogHeader>
+
+        {success ? (
+          <div className="space-y-4 py-2">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
+              <CheckCircle className="h-7 w-7 text-green-500 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-green-700 dark:text-green-400">{ca.success}</p>
+                <p className="text-sm text-green-600 dark:text-green-500 mt-1">{ca.successDesc}</p>
+              </div>
+            </div>
+            <Button
+              className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+              onClick={handleClose}
+            >
+              {t.missionFlow.close}
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">{ca.modalDesc}</p>
+
+            {/* AP balance indicator */}
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800">
+              <span className="text-xs text-violet-700 dark:text-violet-400">{ca.balanceLabel}</span>
+              <span className="text-sm font-bold text-violet-700 dark:text-violet-300 flex items-center gap-1">
+                <Coins className="h-3.5 w-3.5" />
+                {(user.points ?? 0).toLocaleString()} AP
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{ca.brandName} *</Label>
+              <Input
+                required
+                placeholder="Nike, Samsung, ..."
+                value={form.brandName}
+                onChange={set("brandName")}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{ca.campaignTitle} *</Label>
+              <Input
+                required
+                placeholder="Summer 2026 CF Campaign"
+                value={form.campaignTitle}
+                onChange={set("campaignTitle")}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{ca.campaignDesc} *</Label>
+              <Textarea
+                required
+                rows={3}
+                placeholder="Describe your product and what you want creators to highlight..."
+                value={form.campaignDesc}
+                onChange={set("campaignDesc")}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{ca.productUrl}</Label>
+              <div className="relative">
+                <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  type="url"
+                  placeholder="https://yourproduct.com"
+                  value={form.productUrl}
+                  onChange={set("productUrl")}
+                  className="pl-9"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm">{ca.totalBudget} *</Label>
+                <Input
+                  required
+                  type="number"
+                  min={100000}
+                  step={10000}
+                  placeholder="100000"
+                  value={form.totalBudget}
+                  onChange={set("totalBudget")}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">{ca.rewardPerVideo} *</Label>
+                <Input
+                  required
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  placeholder="50000"
+                  value={form.rewardPerVideo}
+                  onChange={set("rewardPerVideo")}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{ca.requiredTags}</Label>
+              <Input
+                placeholder="#AIM,#YourBrand"
+                value={form.requiredTags}
+                onChange={set("requiredTags")}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-sm">{ca.endDate} *</Label>
+              <Input
+                required
+                type="date"
+                value={form.endDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={set("endDate")}
+              />
+            </div>
+
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+              <Wallet className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-xs text-amber-700 dark:text-amber-400">{ca.budgetHint}</p>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {ca.submitting}
+                </>
+              ) : (
+                ca.submitBtn
+              )}
+            </Button>
+          </form>
         )}
       </DialogContent>
     </Dialog>

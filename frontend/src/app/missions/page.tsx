@@ -6,19 +6,20 @@ import {
   AdvertiserListModal,
   MissionDetailSheet,
   SubmitLinksModal,
+  CfAdRequestModal,
   type MissionFlowData,
 } from "@/components/mission-join-flow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useLanguage } from "@/lib/i18n";
-import { Search, SlidersHorizontal } from "lucide-react";
+import { Search, SlidersHorizontal, Film } from "lucide-react";
 
 const MISSIONS = [
   {
     id: "1",
     title: "AI Brand CF Video",
-    description: "Create a 30-second CF video using AI tools and upload to Instagram or TikTok.",
+    description: "Create a 30-second CF video using AI tools and upload to Instagram, TikTok, or YouTube.",
     reward: 50000,
     remainingBudget: 2500000,
     totalBudget: 5000000,
@@ -122,6 +123,7 @@ export default function MissionsPage() {
   const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
   const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
   const [submitMission, setSubmitMission] = useState<MissionFlowData | null>(null);
+  const [cfAdOpen, setCfAdOpen] = useState(false);
 
   const FILTERS = [
     { label: m.filterAll, value: "all" },
@@ -150,6 +152,24 @@ export default function MissionsPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-black mb-2">{m.title}</h1>
         <p className="text-muted-foreground">{m.subtitle}</p>
+      </div>
+
+      {/* CF Ad Request CTA */}
+      <div className="mb-8 rounded-2xl border border-violet-200 dark:border-violet-800 bg-gradient-to-r from-violet-50 to-cyan-50 dark:from-violet-950/30 dark:to-cyan-950/30 p-5 flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-md">
+          <Film className="h-6 w-6 text-white" />
+        </div>
+        <div className="flex-1 text-center sm:text-left">
+          <p className="font-bold text-violet-900 dark:text-violet-200">{t.cfAd.ctaTitle}</p>
+          <p className="text-sm text-violet-700 dark:text-violet-400 mt-0.5">{t.cfAd.ctaSubtitle}</p>
+        </div>
+        <Button
+          onClick={() => setCfAdOpen(true)}
+          className="shrink-0 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 shadow-md"
+        >
+          <Film className="h-4 w-4 mr-2" />
+          {t.cfAd.ctaBtn}
+        </Button>
       </div>
 
       {/* Search & Filter */}
@@ -228,6 +248,10 @@ export default function MissionsPage() {
         mission={submitMission}
         open={!!submitMission}
         onClose={() => setSubmitMission(null)}
+      />
+      <CfAdRequestModal
+        open={cfAdOpen}
+        onClose={() => setCfAdOpen(false)}
       />
     </div>
   );
