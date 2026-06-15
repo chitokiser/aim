@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut } from "lucide-react";
+import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,7 @@ export function Navbar() {
     { href: "/", label: t.nav.home, icon: Home },
     { href: "/missions", label: t.nav.missions, icon: Target },
     { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
+    { href: "/topup", label: t.nav.topup, icon: Zap },
   ];
 
   return (
@@ -156,14 +157,13 @@ export function Navbar() {
                       </DropdownMenuItem>
                     </>
                   )}
-                  {user.isAdvertiser && (
-                    <DropdownMenuItem asChild>
-                      <Link href="/advertiser">
-                        <Megaphone className="mr-2 h-4 w-4" />
-                        {t.nav.advertiser}
-                      </Link>
-                    </DropdownMenuItem>
-                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/advertiser">
+                      <Megaphone className="mr-2 h-4 w-4" />
+                      {t.nav.advertiser}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={logout} className="text-red-600 dark:text-red-400">
                     {t.nav.logout}
@@ -233,6 +233,14 @@ export function Navbar() {
                   {t.nav.admin}
                 </Link>
               )}
+              <Link
+                href="/advertiser"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-cyan-600 hover:bg-accent transition-colors"
+              >
+                <Megaphone className="h-4 w-4" />
+                {t.nav.advertiser}
+              </Link>
               <button
                 onClick={() => { logout(); setMobileOpen(false); }}
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
