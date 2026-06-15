@@ -404,6 +404,17 @@ export class BotService implements OnModuleInit {
 
       await ctx.telegram.approveChatJoinRequest(chatId, applicant.id);
 
+      // Auto-award AP for follow_join missions linked to this group
+      const joinRewards = await this.missionsService.awardFollowJoin(String(applicant.id), chatId).catch(() => null);
+      if (joinRewards && joinRewards.length > 0) {
+        const totalAP = joinRewards.reduce((s, r) => s + r.reward, 0);
+        await ctx.telegram.sendMessage(
+          applicant.id,
+          `🎉 *그룹 가입 보상!*\n\n✅ 텔레그램 그룹에 가입하여 *${totalAP.toLocaleString()} AP*를 획득했습니다!\n💰 10,000 AP = $1 USD`,
+          { parse_mode: 'Markdown' },
+        ).catch(() => {});
+      }
+
       this.logger.log(
         `[JoinRequest] ${applicant.first_name} (id:${applicant.id}) via ${refCode ?? 'direct'} — isNew:${isNew}`,
       );
@@ -438,6 +449,9 @@ export class BotService implements OnModuleInit {
           lastName: member.last_name,
           username: member.username,
         });
+
+        // Auto-award AP for follow_join missions linked to this group
+        await this.missionsService.awardFollowJoin(String(member.id), ctx.chat.id).catch(() => {});
 
         if (!isNew) continue;
 

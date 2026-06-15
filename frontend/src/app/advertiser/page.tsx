@@ -86,7 +86,7 @@ export default function AdvertiserPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<MissionTemplate | null>(null);
   const [campaignForm, setCampaignForm] = useState({
     title: "", budget: "", description: "", targetUrl: "",
-    tags: "", startDate: "", endDate: "", maxParticipants: "",
+    tags: "", startDate: "", endDate: "", maxParticipants: "", targetGroupId: "",
   });
   const [campaignSubmitting, setCampaignSubmitting] = useState(false);
 
@@ -131,13 +131,14 @@ export default function AdvertiserPage() {
         body: JSON.stringify({
           templateId: selectedTemplate.id,
           title: campaignForm.title.trim(),
-          budget: Number(campaignForm.budget),
+          totalBudget: Number(campaignForm.budget),
           description: campaignForm.description.trim(),
           targetUrl: campaignForm.targetUrl.trim() || undefined,
           requiredTags: campaignForm.tags.trim() || undefined,
           startDate: campaignForm.startDate || undefined,
           endDate: campaignForm.endDate || undefined,
           maxParticipants: campaignForm.maxParticipants ? Number(campaignForm.maxParticipants) : undefined,
+          targetGroupId: campaignForm.targetGroupId.trim() || undefined,
         }),
       });
       if (!res.ok) {
@@ -147,7 +148,7 @@ export default function AdvertiserPage() {
       }
       toast.success(t.advertiser.campaignSubmitted);
       setSelectedTemplate(null);
-      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", endDate: "", maxParticipants: "" });
+      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", endDate: "", maxParticipants: "", targetGroupId: "" });
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -338,6 +339,20 @@ export default function AdvertiserPage() {
                       onChange={(e) => setCampaignForm((p) => ({ ...p, targetUrl: e.target.value }))}
                     />
                   </div>
+                  {selectedTemplate.type === "follow_join" && (
+                    <div className="space-y-1.5">
+                      <Label>Telegram Group ID</Label>
+                      <Input
+                        placeholder="-1001234567890"
+                        value={campaignForm.targetGroupId}
+                        onChange={(e) => setCampaignForm((p) => ({ ...p, targetGroupId: e.target.value }))}
+                        required
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        The Telegram chat ID of the group users must join. Bot must be an admin of that group. (e.g. <code>-1001234567890</code>)
+                      </p>
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <Label>{t.advertiser.campaignTags}</Label>
                     <Input

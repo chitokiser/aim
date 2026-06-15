@@ -56,6 +56,9 @@ export class MissionsService {
       ...dto,
       templateId,
       missionType: dto.missionType ?? tData.missionType,
+      rewardPerUnit: dto.rewardPerUnit ?? tData.rewardPerUnit,
+      totalBudget: dto.totalBudget ?? dto.budget,
+      remainingBudget: dto.totalBudget ?? dto.budget,
       advertiserId,
       status: 'pending',
       participantCount: 0,
@@ -119,6 +122,84 @@ export class MissionsService {
       rejectedAt: new Date().toISOString(),
     });
     return { id: missionId, status: 'rejected' };
+  }
+
+  // Auto-award AP when user joins a Telegram group linked to an active follow_join mission
+  async awardFollowJoin(telegramId: string, chatId: string | number) {
+    const userSnap = await this.firebase
+      .collection('users')
+      .where('telegramId', '==', String(telegramId))
+      .limit(1)
+      .get();
+    if (userSnap.empty) return null;
+
+    const userDoc = userSnap.docs[0];
+    const userId = userDoc.id;
+    const userData = userDoc.data();
+
+    const missionsSnap = await this.firebase
+      .collection('missions')
+      .where('status', '==', 'active')
+      .where('missionType', '==', 'follow_join')
+      .where('targetGroupId', '==', String(chatId))
+      .get();
+
+    if (missionsSnap.empty) return null;
+
+    const results: { missionId: string; userId: string; reward: number }[] = [];
+
+    for (const missionDoc of missionsSnap.docs) {
+      const missionId = missionDoc.id;
+      const mission = missionDoc.data();
+
+      const existing = await this.firebase
+        .collection('submissions')
+        .where('missionId', '==', missionId)
+        .where('userId', '==', userId)
+        .limit(1)
+        .get();
+      if (!existing.empty) continue;
+
+      const remainingBudget = (mission.remainingBudget as number) ?? 0;
+      const reward = (mission.rewardPerUnit as number) ?? (mission.reward as number) ?? 1000;
+      if (remainingBudget < reward) continue;
+
+      const maxParticipants = mission.maxParticipants as number | undefined;
+      const participantCount = (mission.participantCount as number) ?? 0;
+      if (maxParticipants && participantCount >= maxParticipants) continue;
+
+      const mentorId = userData.mentorId as string | null;
+      const platformShare = Math.floor(reward * 0.2);
+      const mentorShare = mentorId ? Math.floor(reward * 0.1) : 0;
+      const userShare = reward - platformShare - mentorShare;
+
+      await this.points.award(userId, userShare, 'mission_reward', `그룹 가입 보상: ${mission.title as string}`, missionId);
+      if (mentorId) {
+        await this.points.award(mentorId, mentorShare, 'mentor_bonus', `멘토 수당: 그룹 가입`, missionId);
+      }
+      await this.creditPlatformVault(platformShare, missionId, mission.title as string);
+
+      await this.firebase.collection('submissions').add({
+        missionId,
+        userId,
+        displayName: (userData.firstName as string) || (userData.username as string) || 'User',
+        type: 'follow_join',
+        telegramId: String(telegramId),
+        chatId: String(chatId),
+        status: 'approved',
+        rewardedAP: userShare,
+        submittedAt: new Date().toISOString(),
+      });
+
+      await this.firebase.collection('missions').doc(missionId).update({
+        remainingBudget: remainingBudget - reward,
+        participantCount: participantCount + 1,
+      });
+
+      results.push({ missionId, userId, reward: userShare });
+    }
+
+    return results;
   }
 
   // ── End 3-Tier Mission Flow ────────────────────────────────────────────────
