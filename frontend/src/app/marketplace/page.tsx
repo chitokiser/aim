@@ -38,6 +38,7 @@ interface Listing {
   title: string;
   description: string;
   link: string;
+  logoUrl?: string;
   tags: string[];
   members: number | null;
   isFeatured: boolean;
@@ -50,6 +51,73 @@ function CategoryIcon({ cat, className }: { cat: string; className?: string }) {
   const found = CATEGORIES.find((c) => c.value === cat);
   const Icon = found?.icon ?? Users;
   return <Icon className={className ?? `h-5 w-5 ${found?.color ?? "text-muted-foreground"}`} />;
+}
+
+function FeaturedBannerCard({
+  listing,
+  t,
+}: {
+  listing: Listing;
+  t: Record<string, string>;
+}) {
+  const href = listing.link.startsWith("http")
+    ? listing.link
+    : `https://t.me/${listing.link.replace(/^@/, "")}`;
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex-shrink-0 w-64 sm:w-72 snap-start rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 p-4 hover:shadow-lg transition-shadow group block"
+    >
+      <div className="flex items-start gap-3 mb-3">
+        {listing.logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={listing.logoUrl}
+            alt={listing.title}
+            className="w-11 h-11 rounded-xl object-cover shrink-0 border border-amber-200"
+          />
+        ) : (
+          <div className="w-11 h-11 rounded-xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center shrink-0">
+            <CategoryIcon cat={listing.category} className="h-5 w-5 text-amber-600" />
+          </div>
+        )}
+        <div className="min-w-0">
+          <p className="font-bold text-sm leading-tight line-clamp-1 group-hover:text-amber-600 transition-colors">
+            {listing.title}
+          </p>
+          <Badge variant="secondary" className="text-xs capitalize mt-1">{listing.category}</Badge>
+        </div>
+      </div>
+
+      {listing.description && (
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 leading-relaxed">
+          {listing.description}
+        </p>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          {listing.members != null && (
+            <p className="text-xs text-muted-foreground">
+              {listing.members.toLocaleString()} {t.members}
+            </p>
+          )}
+          {listing.tags?.length > 0 && (
+            <p className="text-xs font-mono text-violet-500 truncate">
+              {listing.tags.slice(0, 2).map((x) => `#${x}`).join(" ")}
+            </p>
+          )}
+        </div>
+        <span className={buttonVariants({ size: "sm", variant: "outline", className: "shrink-0 text-xs border-amber-400 text-amber-700 hover:bg-amber-50 gap-1" })}>
+          {t.visitBtn}
+          <ExternalLink className="h-3 w-3" />
+        </span>
+      </div>
+    </a>
+  );
 }
 
 function ListingCard({
@@ -253,6 +321,30 @@ export default function MarketplacePage() {
 
         {/* Browse */}
         <TabsContent value="browse">
+          {/* Featured Banner Zone */}
+          {!searchQuery && listings.some((l) => l.isFeatured) && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Megaphone className="h-4 w-4 text-amber-500" />
+                <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                  {mp.featuredSponsors}
+                </span>
+                <span className="text-xs text-muted-foreground">— {mp.promoteCost}</span>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 snap-x scrollbar-none">
+                {listings
+                  .filter((l) => l.isFeatured)
+                  .map((l) => (
+                    <FeaturedBannerCard
+                      key={l.id}
+                      listing={l}
+                      t={mp as unknown as Record<string, string>}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
+
           {/* Search bar */}
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
