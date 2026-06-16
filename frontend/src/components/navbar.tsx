@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut, Zap, Store } from "lucide-react";
+import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut, Zap, Store, Sparkles } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,7 @@ export function Navbar() {
     { href: "/missions", label: t.nav.missions, icon: Target },
     { href: "/advertiser", label: t.nav.advertiser, icon: Megaphone },
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
+    { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
     { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
     { href: "/topup", label: t.nav.topup, icon: Zap },
   ];
@@ -242,6 +243,14 @@ export function Navbar() {
               >
                 <Store className="h-4 w-4" />
                 {t.nav.marketplace}
+              </Link>
+              <Link
+                href="/creative-market"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-pink-600 hover:bg-accent transition-colors"
+              >
+                <Sparkles className="h-4 w-4" />
+                {t.nav.creativeMarket}
               </Link>
               <Link
                 href="/advertiser"
