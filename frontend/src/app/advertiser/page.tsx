@@ -443,8 +443,8 @@ export default function AdvertiserPage() {
                   <div className="space-y-1.5">
                     <Label>{t.advertiser.campaignTargetUrl}</Label>
                     <Input
-                      type="url"
-                      placeholder="https://"
+                      type="text"
+                      placeholder="https:// 또는 t.me/..."
                       value={campaignForm.targetUrl}
                       onChange={(e) => setCampaignForm((p) => ({ ...p, targetUrl: e.target.value }))}
                     />
@@ -696,7 +696,7 @@ export default function AdvertiserPage() {
 
                 <div className="space-y-1.5">
                   <Label>{t.advertiser.targetUrl}</Label>
-                  <Input type="url" placeholder="https://your-website.com" value={missionForm.targetUrl}
+                  <Input type="text" placeholder="https:// 또는 t.me/..." value={missionForm.targetUrl}
                     onChange={(e) => setMissionForm(p => ({ ...p, targetUrl: e.target.value }))} />
                 </div>
 
@@ -743,7 +743,7 @@ export default function AdvertiserPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t.advertiser.website}</Label>
-                  <Input type="url" placeholder="https://your-website.com" value={missionForm.website}
+                  <Input type="text" placeholder="https://your-website.com" value={missionForm.website}
                     onChange={(e) => setMissionForm(p => ({ ...p, website: e.target.value }))} />
                 </div>
                 <div className="space-y-1.5">
