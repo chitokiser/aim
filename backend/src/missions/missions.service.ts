@@ -192,8 +192,8 @@ export class MissionsService {
       });
 
       await this.firebase.collection('missions').doc(missionId).update({
-        remainingBudget: remainingBudget - reward,
-        participantCount: participantCount + 1,
+        remainingBudget: FieldValue.increment(-reward),
+        participantCount: FieldValue.increment(1),
       });
 
       results.push({ missionId, userId, reward: userShare });
@@ -311,8 +311,8 @@ export class MissionsService {
     });
 
     await missionRef.update({
-      remainingBudget: remainingBudget - rewardPerUnit,
-      participantCount: ((mission.participantCount as number) ?? 0) + 1,
+      remainingBudget: FieldValue.increment(-rewardPerUnit),
+      participantCount: FieldValue.increment(1),
     });
 
     await subRef.update({ status: 'approved', approvedAt: new Date().toISOString() });
@@ -449,7 +449,7 @@ export class MissionsService {
     const ref = await this.firebase.collection('submissions').add(submission);
 
     await this.firebase.collection('missions').doc(missionId).update({
-      participantCount: ((data.participantCount as number) ?? 0) + 1,
+      participantCount: FieldValue.increment(1),
     });
 
     return { id: ref.id, ...submission };
@@ -699,8 +699,8 @@ export class MissionsService {
     }
 
     await this.firebase.collection('missions').doc(missionId).update({
-      remainingBudget: (mission.remainingBudget as number) - reward,
-      participantCount: (mission.participantCount as number) + 1,
+      remainingBudget: FieldValue.increment(-reward),
+      participantCount: FieldValue.increment(1),
     });
 
     // Credit platform share to vault for legacy per-post missions too
