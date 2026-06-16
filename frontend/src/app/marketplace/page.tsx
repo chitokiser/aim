@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -98,13 +98,15 @@ function ListingCard({
           </div>
           <div className="flex flex-col gap-1 shrink-0">
             {listing.link && (
-              <Button size="sm" variant="outline" asChild>
-                <a href={listing.link.startsWith("http") ? listing.link : `https://t.me/${listing.link.replace(/^@/, "")}`}
-                  target="_blank" rel="noopener noreferrer" className="gap-1">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  {t.visitBtn}
-                </a>
-              </Button>
+              <a
+                href={listing.link.startsWith("http") ? listing.link : `https://t.me/${listing.link.replace(/^@/, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ size: "sm", variant: "outline", className: "gap-1" })}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t.visitBtn}
+              </a>
             )}
             {isOwner && !listing.isFeatured && onPromote && (
               <Button size="sm" variant="outline" onClick={onPromote}
