@@ -453,8 +453,17 @@ export function MissionDetailSheet({ mission, open, onClose, onSubmit }: Mission
             <p className="text-xs font-semibold text-violet-700 dark:text-violet-400">
               {mf.rewardMethod}
             </p>
-            <p className="text-xs text-violet-600 dark:text-violet-500">{mf.likeBasedNote}</p>
-            <p className="text-xs text-muted-foreground">{mf.escrowNote}</p>
+            {(mission.missionType === 'telegram_join' || mission.missionType === 'follow_join') ? (
+              <>
+                <p className="text-xs text-violet-600 dark:text-violet-500">{mf.instantRewardNote}</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{mf.blacklistWarning}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-violet-600 dark:text-violet-500">{mf.likeBasedNote}</p>
+                <p className="text-xs text-muted-foreground">{mf.escrowNote}</p>
+              </>
+            )}
           </div>
 
           {/* Stats grid */}
