@@ -26,17 +26,18 @@ export class MainBotService extends BaseTelegrafBotService {
     return this.config.get<string>('TELEGRAM_BOT_TOKEN');
   }
 
+  // web_app buttons open directly without the "링크를 열까요?" confirmation — private chat only
   private mainKeyboard(loginToken?: string) {
     const q = loginToken ? `?tg=${loginToken}` : '';
     return {
       inline_keyboard: [
         [
-          { text: '🚀 AI119 시작하기', url: `${SITE}${q}` },
+          { text: '🚀 AI119 시작하기', web_app: { url: `${SITE}${q}` } },
           { text: '🔗 초대링크', callback_data: 'get_invite' },
         ],
         [
-          { text: '🎯 미션', url: `${SITE}/missions${q}` },
-          { text: '🏆 랭킹', url: `${SITE}/leaderboard${q}` },
+          { text: '🎯 미션', web_app: { url: `${SITE}/missions${q}` } },
+          { text: '🏆 랭킹', web_app: { url: `${SITE}/leaderboard${q}` } },
         ],
       ],
     };
@@ -64,6 +65,7 @@ export class MainBotService extends BaseTelegrafBotService {
           {
             parse_mode: 'Markdown',
             reply_markup: {
+              // t.me deep links open in-app without confirmation dialog
               inline_keyboard: [
                 [{ text: '🚀 AI119 시작하기', url: `https://t.me/${botUsername}?start=login` }],
               ],
@@ -92,7 +94,7 @@ export class MainBotService extends BaseTelegrafBotService {
             parse_mode: 'Markdown',
             reply_markup: {
               inline_keyboard: [
-                [{ text: '✅ AI119 로그인하기', url: `${SITE}?tg=${loginToken}` }],
+                [{ text: '✅ AI119 로그인하기', web_app: { url: `${SITE}?tg=${loginToken}` } }],
               ],
             },
           },
@@ -159,7 +161,7 @@ export class MainBotService extends BaseTelegrafBotService {
         await ctx.reply('No active missions right now.', {
           reply_markup: {
             inline_keyboard: [
-              [{ text: '🎯 Missions Page', url: `${SITE}/missions?tg=${loginToken}` }],
+              [{ text: '🎯 Missions Page', web_app: { url: `${SITE}/missions?tg=${loginToken}` } }],
             ],
           },
         });
@@ -178,7 +180,7 @@ export class MainBotService extends BaseTelegrafBotService {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📋 View All Missions', url: `${SITE}/missions?tg=${loginToken}` }],
+            [{ text: '📋 View All Missions', web_app: { url: `${SITE}/missions?tg=${loginToken}` } }],
           ],
         },
       });
@@ -201,7 +203,7 @@ export class MainBotService extends BaseTelegrafBotService {
         parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🏆 Full Leaderboard', url: `${SITE}/leaderboard?tg=${loginToken}` }],
+            [{ text: '🏆 Full Leaderboard', web_app: { url: `${SITE}/leaderboard?tg=${loginToken}` } }],
           ],
         },
       });
@@ -229,8 +231,8 @@ export class MainBotService extends BaseTelegrafBotService {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '👤 View Profile', url: `${SITE}/profile?tg=${loginToken}` }],
-              [{ text: '💸 Withdraw', url: `${SITE}/profile?tg=${loginToken}` }],
+              [{ text: '👤 View Profile', web_app: { url: `${SITE}/profile?tg=${loginToken}` } }],
+              [{ text: '💸 Withdraw', web_app: { url: `${SITE}/profile?tg=${loginToken}` } }],
             ],
           },
         },
@@ -258,7 +260,7 @@ export class MainBotService extends BaseTelegrafBotService {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '💸 Withdraw', url: `${SITE}/profile?tg=${loginToken}` }],
+              [{ text: '💸 Withdraw', web_app: { url: `${SITE}/profile?tg=${loginToken}` } }],
             ],
           },
         },
@@ -285,7 +287,7 @@ export class MainBotService extends BaseTelegrafBotService {
           parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '✅ AI119 로그인하기', url: `${SITE}?tg=${loginToken}` }],
+              [{ text: '✅ AI119 로그인하기', web_app: { url: `${SITE}?tg=${loginToken}` } }],
             ],
           },
         },

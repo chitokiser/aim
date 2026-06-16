@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import {
   Megaphone, Coins, Plus, TrendingUp,
   Users, Eye, MousePointerClick, Tag, Copy, ExternalLink, LayoutTemplate, Loader2, ArrowLeft,
+  CheckCircle, XCircle, Clock, ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -51,6 +52,27 @@ interface MissionTemplate {
   rewardPerUnit?: number;
   maxParticipants?: number;
   requiredTags?: string;
+}
+
+interface Campaign {
+  id: string;
+  title: string;
+  status: string;
+  remainingBudget?: number;
+  totalBudget?: number;
+  participantCount?: number;
+  rewardPerUnit?: number;
+}
+
+interface Submission {
+  id: string;
+  userId: string;
+  displayName: string;
+  postUrl: string;
+  description?: string;
+  platform?: string;
+  createdAt: string;
+  status: string;
 }
 
 export default function AdvertiserPage() {
@@ -106,6 +128,87 @@ export default function AdvertiserPage() {
     { value: "landing", label: "Landing Page", options: ["HTML", "Mobile", "CTA", "SEO"] },
     { value: "poster", label: "Poster", options: ["SNS poster", "Event poster", "Ad banner"] },
   ];
+
+  // ── Submission review state ────────────────────────────────────────────────
+  const [myCampaigns, setMyCampaigns] = useState<Campaign[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [pendingSubmissions, setPendingSubmissions] = useState<Submission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+
+  const loadMyCampaigns = useCallback(async () => {
+    if (!token) return;
+    setCampaignsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions/my-campaigns`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      setMyCampaigns(await res.json() as Campaign[]);
+    } catch {
+      toast.error("Failed to load campaigns");
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }, [token]);
+
+  const loadPendingSubmissions = useCallback(async (campaignId: string) => {
+    if (!token) return;
+    setSubmissionsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions/${campaignId}/pending-submissions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error();
+      setPendingSubmissions(await res.json() as Submission[]);
+    } catch {
+      toast.error("Failed to load submissions");
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, [token]);
+
+  const handleApproveSubmission = async (submissionId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/missions/submissions/${submissionId}/approve`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Approval failed");
+        return;
+      }
+      const data = await res.json() as { rewardedAP?: number };
+      toast.success(`Approved! ${data.rewardedAP?.toLocaleString() ?? 0} AP rewarded to member`);
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+      if (selectedCampaign) {
+        setSelectedCampaign((prev) => prev ? { ...prev, participantCount: (prev.participantCount ?? 0) + 1 } : prev);
+      }
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleRejectSubmission = async (submissionId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/missions/submissions/${submissionId}/reject`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Rejection failed");
+        return;
+      }
+      toast.success("Submission rejected");
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== submissionId));
+    } catch {
+      toast.error("Network error");
+    }
+  };
 
   const loadTemplates = useCallback(async () => {
     setTemplatesLoading(true);
@@ -261,6 +364,10 @@ export default function AdvertiserPage() {
           <TabsTrigger value="create">{t.advertiser.tabCreate}</TabsTrigger>
           <TabsTrigger value="ai-content">{t.advertiser.tabAI}</TabsTrigger>
           <TabsTrigger value="my-missions">{t.advertiser.tabMyMissions}</TabsTrigger>
+          <TabsTrigger value="review" onClick={loadMyCampaigns}>
+            <Clock className="h-3.5 w-3.5 mr-1" />
+            제출 검토
+          </TabsTrigger>
           <TabsTrigger value="charge">{t.advertiser.tabCharge}</TabsTrigger>
           <TabsTrigger value="stats">{t.advertiser.tabStats}</TabsTrigger>
         </TabsList>
@@ -726,6 +833,146 @@ export default function AdvertiserPage() {
               );
             })}
           </div>
+        </TabsContent>
+
+        {/* Submission Review */}
+        <TabsContent value="review">
+          {selectedCampaign ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-muted-foreground -ml-2"
+                  onClick={() => { setSelectedCampaign(null); setPendingSubmissions([]); }}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  미션 목록으로
+                </Button>
+                <div>
+                  <h2 className="font-bold text-sm">{selectedCampaign.title}</h2>
+                  <p className="text-xs text-muted-foreground">
+                    남은 예산: {(selectedCampaign.remainingBudget ?? 0).toLocaleString()} AP &middot; 승인된 참여자: {selectedCampaign.participantCount ?? 0}명
+                  </p>
+                </div>
+              </div>
+
+              {submissionsLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading submissions...</span>
+                </div>
+              ) : pendingSubmissions.length === 0 ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">
+                  <CheckCircle className="h-10 w-10 mx-auto mb-3 text-green-400" />
+                  검토 대기 중인 제출물이 없습니다
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingSubmissions.map((sub) => (
+                    <Card key={sub.id}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-semibold text-sm">{sub.displayName}</span>
+                              {sub.platform && (
+                                <Badge variant="secondary" className="text-xs">{sub.platform}</Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground ml-auto">
+                                {new Date(sub.createdAt).toLocaleDateString("ko-KR")}
+                              </span>
+                            </div>
+                            {sub.description && (
+                              <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{sub.description}</p>
+                            )}
+                            <a
+                              href={sub.postUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-violet-600 hover:underline truncate max-w-full"
+                            >
+                              <ExternalLink className="h-3 w-3 shrink-0" />
+                              {sub.postUrl}
+                            </a>
+                          </div>
+                          <div className="flex flex-col gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              className="bg-green-500 hover:bg-green-600 text-white gap-1"
+                              onClick={() => void handleApproveSubmission(sub.id)}
+                            >
+                              <CheckCircle className="h-3.5 w-3.5" />
+                              승인 +AP
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-red-500 border-red-200 hover:bg-red-50 gap-1"
+                              onClick={() => void handleRejectSubmission(sub.id)}
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              반려
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="mb-4">
+                <h2 className="text-lg font-bold">제출 검토</h2>
+                <p className="text-sm text-muted-foreground">
+                  미션을 선택하면 참여자가 제출한 콘텐츠를 확인하고 AP를 지급할 수 있습니다.
+                </p>
+              </div>
+              {campaignsLoading ? (
+                <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading campaigns...</span>
+                </div>
+              ) : myCampaigns.length === 0 ? (
+                <div className="py-16 text-center text-sm text-muted-foreground">
+                  <Megaphone className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+                  진행 중인 미션이 없습니다
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {myCampaigns.map((campaign) => (
+                    <Card
+                      key={campaign.id}
+                      className="hover:border-violet-400 transition-colors cursor-pointer"
+                      onClick={() => {
+                        setSelectedCampaign(campaign);
+                        void loadPendingSubmissions(campaign.id);
+                      }}
+                    >
+                      <CardContent className="p-4 flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold">{campaign.title}</p>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            <span>남은 예산: {(campaign.remainingBudget ?? 0).toLocaleString()} AP</span>
+                            <span>승인 {campaign.participantCount ?? 0}명</span>
+                            <Badge
+                              variant={campaign.status === "active" ? "default" : "secondary"}
+                              className="text-xs"
+                            >
+                              {campaign.status}
+                            </Badge>
+                          </div>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         {/* Charge */}

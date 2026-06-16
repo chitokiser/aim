@@ -23,6 +23,42 @@ export class MissionsController {
     return this.missionsService.getPlatformVaultBalance();
   }
 
+  // ── Advertiser: submission review ──────────────────────────────────────────
+  // All fixed-name routes must appear before :id param routes
+
+  @Get('my-campaigns')
+  @UseGuards(JwtAuthGuard)
+  getMyCampaigns(@Request() req: { user: { sub: string } }) {
+    return this.missionsService.findByAdvertiser(req.user.sub);
+  }
+
+  @Get(':id/pending-submissions')
+  @UseGuards(JwtAuthGuard)
+  getPendingSubmissions(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    return this.missionsService.getPendingSubmissions(id, req.user.sub);
+  }
+
+  @Patch('submissions/:submissionId/approve')
+  @UseGuards(JwtAuthGuard)
+  approveSubmission(
+    @Param('submissionId') submissionId: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    return this.missionsService.approveSubmission(submissionId, req.user.sub);
+  }
+
+  @Patch('submissions/:submissionId/reject')
+  @UseGuards(JwtAuthGuard)
+  rejectSubmission(
+    @Param('submissionId') submissionId: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    return this.missionsService.rejectSubmission(submissionId, req.user.sub);
+  }
+
   // ── Public routes ──────────────────────────────────────────────────────────
 
   @Get()
