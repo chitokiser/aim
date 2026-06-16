@@ -87,7 +87,6 @@ function ListingCard({
               <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{listing.description}</p>
             )}
             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/70">{listing.displayName}</span>
               {listing.members != null && (
                 <span>{listing.members.toLocaleString()} {t.members}</span>
               )}
