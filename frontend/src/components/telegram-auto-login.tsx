@@ -11,21 +11,12 @@ export function TelegramAutoLogin() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { user, setUser, setToken } = useAuthStore();
+  const { setUser, setToken } = useAuthStore();
   const attempted = useRef(false);
 
   useEffect(() => {
     const tgToken = searchParams.get("tg");
     if (!tgToken) return;
-
-    // Already logged in — just clean the URL
-    if (user) {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("tg");
-      const newUrl = params.size ? `${pathname}?${params}` : pathname;
-      router.replace(newUrl);
-      return;
-    }
 
     if (attempted.current) return;
     attempted.current = true;
@@ -65,7 +56,8 @@ export function TelegramAutoLogin() {
         );
       }
     })();
-  }, [searchParams, user, setUser, setToken, router, pathname]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   return null;
 }
