@@ -33,7 +33,7 @@ function toCardMission(m: RawMission) {
     endDate: new Date(String(m.endDate ?? Date.now())),
     requiredTags: (m.requiredTags as string[]) ?? [],
     participantCount: Number(m.participantCount ?? 0),
-    missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "jumpdao",
+    missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao",
     status: String(m.status ?? "active") as "active" | "ended" | "pending",
     advertiserName: String(m.advertiserName ?? ""),
   };
@@ -80,6 +80,7 @@ export default function MissionsPage() {
     { label: m.filterYoutubeSub, value: "youtube_sub" },
     { label: m.filterSnsBanner, value: "sns_banner" },
     { label: m.filterTelegramJoin, value: "telegram_join" },
+    { label: m.filterFollowJoin, value: "follow_join" },
     { label: m.filterJumpdao, value: "jumpdao" },
   ];
 

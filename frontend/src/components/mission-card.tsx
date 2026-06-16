@@ -19,6 +19,7 @@ const MISSION_TYPE_ICONS = {
   youtube_sub: { icon: ThumbsUp, color: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
   sns_banner: { icon: Megaphone, color: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
   telegram_join: { icon: Send, color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
+  follow_join: { icon: Send, color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400" },
   jumpdao: { icon: Zap, color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
 };
 
@@ -44,7 +45,7 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
   const { t } = useLanguage();
   const mc = t.missionCard;
   const mf = t.missions;
-  const typeIcons = MISSION_TYPE_ICONS[mission.missionType];
+  const typeIcons = MISSION_TYPE_ICONS[mission.missionType] ?? { icon: Zap, color: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400" };
   const Icon = typeIcons.icon;
   const TYPE_LABELS: Record<keyof typeof MISSION_TYPE_ICONS, string> = {
     cf_video: mf.filterCF,
@@ -56,6 +57,7 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
     youtube_sub: mf.filterYoutubeSub,
     sns_banner: mf.filterSnsBanner,
     telegram_join: mf.filterTelegramJoin,
+    follow_join: mf.filterFollowJoin,
     jumpdao: mf.filterJumpdao,
   };
   const isJumpdao = mission.missionType === "jumpdao";
