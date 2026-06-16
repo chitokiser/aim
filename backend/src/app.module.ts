@@ -13,6 +13,7 @@ import { ListingsModule } from './listings/listings.module';
 import { GroupJoinsModule } from './group-joins/group-joins.module';
 import { MainBotModule } from './bots/main-bot/main-bot.module';
 import { RewardBotModule } from './bots/reward-bot/reward-bot.module';
+import { BizMatchBotModule } from './bots/bizmatch-bot/bizmatch-bot.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { RewardBotModule } from './bots/reward-bot/reward-bot.module';
     GroupJoinsModule,
     MainBotModule,
     RewardBotModule,
+    BizMatchBotModule,
   ],
   controllers: [AppController],
   providers: [AppService],
