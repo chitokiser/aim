@@ -81,6 +81,7 @@ const SCORE_WEIGHTS = {
 @Injectable()
 export class BizMatchBotService extends BaseTelegrafBotService {
   private openai: OpenAI | null = null;
+  private model = 'gpt-4o-mini';
   private readonly wizardSessions = new Map<number, WizardState>();
   private readonly findSessions = new Map<number, FindState>();
 
@@ -89,8 +90,20 @@ export class BizMatchBotService extends BaseTelegrafBotService {
     private readonly firebase: FirebaseService,
   ) {
     super();
-    const apiKey = this.config.get<string>('OPENAI_API_KEY');
-    if (apiKey) this.openai = new OpenAI({ apiKey });
+    const geminiKey = this.config.get<string>('GEMINI_API_KEY');
+    const openaiKey = this.config.get<string>('OPENAI_API_KEY');
+
+    if (geminiKey) {
+      // Gemini exposes an OpenAI-compatible endpoint, so the OpenAI SDK works as-is.
+      this.openai = new OpenAI({
+        apiKey: geminiKey,
+        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      });
+      this.model = 'gemini-2.0-flash';
+    } else if (openaiKey) {
+      this.openai = new OpenAI({ apiKey: openaiKey });
+      this.model = 'gpt-4o-mini';
+    }
   }
 
   protected getBotToken(): string | undefined {
@@ -247,7 +260,7 @@ Return a JSON array with one object per candidate:
 
     try {
       const resp = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: 'json_object' },
         temperature: 0.3,
@@ -291,7 +304,7 @@ Return a JSON array with one object per candidate:
     if (!this.openai) return description;
     try {
       const resp = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [{
           role: 'user',
           content: `Generate a web search query to find professionals matching:
@@ -742,7 +755,7 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
     if (!this.openai) return [];
     try {
       const resp = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: this.model,
         messages: [{
           role: 'user',
           content: `Generate 5 realistic professional profiles that match: "${description}"
