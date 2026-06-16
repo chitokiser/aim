@@ -21,8 +21,15 @@ export class ListingsService {
       query = query.where('category', '==', category);
     }
 
-    const snap = await query.orderBy('isFeatured', 'desc').orderBy('createdAt', 'desc').get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const snap = await query.get();
+    const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
+    // Sort in memory to avoid requiring a Firestore composite index
+    docs.sort((a, b) => {
+      if (a.isFeatured && !b.isFeatured) return -1;
+      if (!a.isFeatured && b.isFeatured) return 1;
+      return String(b.createdAt ?? '') > String(a.createdAt ?? '') ? 1 : -1;
+    });
+    return docs;
   }
 
   async create(userId: string, dto: Record<string, unknown>): Promise<{ id: string }> {
