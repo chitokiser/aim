@@ -35,6 +35,7 @@ export function Navbar() {
   const navLinks = [
     { href: "/", label: t.nav.home, icon: Home },
     { href: "/missions", label: t.nav.missions, icon: Target },
+    { href: "/advertiser", label: t.nav.advertiser, icon: Megaphone },
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
     { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
     { href: "/topup", label: t.nav.topup, icon: Zap },
