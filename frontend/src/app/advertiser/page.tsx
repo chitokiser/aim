@@ -76,7 +76,7 @@ interface Submission {
 }
 
 export default function AdvertiserPage() {
-  const { user, token } = useAuthStore();
+  const { user, token, setUser } = useAuthStore();
   const router = useRouter();
   const { t } = useLanguage();
   const balance = user?.points ?? 0;
@@ -304,6 +304,14 @@ export default function AdvertiserPage() {
         maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
         productName: "", website: "", productDesc: "", brandDesc: "", contentType: "", contentOption: "",
       });
+      // Refresh user balance so the deducted AP is reflected immediately
+      const meRes = await fetch(`${API}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (meRes.ok) {
+        const freshUser = await meRes.json() as typeof user;
+        if (freshUser) setUser(freshUser);
+      }
     } catch {
       toast.error("Network error. Please try again.");
     }
