@@ -442,6 +442,8 @@ const T = {
       submitting: "Registering...",
       submitSuccess: "Listing registered!",
       loginRequired: "Please log in to register a listing.",
+      searchPlaceholder: "Search by tag, title or keyword...",
+      searchNoResults: "No results found.",
     },
     creativeMarket: {
       title: "Creative Marketplace",
@@ -920,6 +922,8 @@ const T = {
       submitting: "등록 중...",
       submitSuccess: "등록 완료!",
       loginRequired: "등록하려면 로그인이 필요합니다.",
+      searchPlaceholder: "태그, 제목 또는 키워드로 검색...",
+      searchNoResults: "검색 결과가 없습니다.",
     },
     creativeMarket: {
       title: "창작물 마켓플레이스",
@@ -1398,6 +1402,8 @@ const T = {
       submitting: "Đang đăng ký...",
       submitSuccess: "Đã đăng ký!",
       loginRequired: "Vui lòng đăng nhập để đăng ký.",
+      searchPlaceholder: "Tìm theo thẻ, tiêu đề hoặc từ khóa...",
+      searchNoResults: "Không tìm thấy kết quả.",
     },
     creativeMarket: {
       title: "Thị trường Sáng tạo",

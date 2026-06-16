@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Bot, Smartphone, Users, Radio, ExternalLink, Loader2, Star,
-  Plus, Trash2, Megaphone,
+  Plus, Trash2, Megaphone, Search, X,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -135,6 +135,7 @@ export default function MarketplacePage() {
   const mp = t.marketplace;
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(false);
@@ -253,13 +254,34 @@ export default function MarketplacePage() {
 
         {/* Browse */}
         <TabsContent value="browse">
+          {/* Search bar */}
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={mp.searchPlaceholder}
+              className="w-full pl-9 pr-9 py-2 text-sm rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Category filters */}
           <div className="flex flex-wrap gap-2 mb-5">
             {[{ value: "all", label: mp.catAll }, { value: "bot", label: mp.catBot },
               { value: "miniapp", label: mp.catMiniapp }, { value: "group", label: mp.catGroup },
               { value: "channel", label: mp.catChannel }].map(({ value, label }) => (
               <button
                 key={value}
-                onClick={() => setActiveCategory(value)}
+                onClick={() => { setActiveCategory(value); setSearchQuery(""); }}
                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   activeCategory === value
                     ? "bg-violet-600 text-white"
@@ -275,22 +297,45 @@ export default function MarketplacePage() {
             <div className="flex justify-center py-16 gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
             </div>
-          ) : listings.length === 0 ? (
-            <p className="text-center text-sm text-muted-foreground py-16">{mp.noListings}</p>
-          ) : (
-            <div className="space-y-3">
-              {listings.map((l) => (
-                <ListingCard
-                  key={l.id}
-                  listing={l}
-                  isOwner={user?.id === l.userId}
-                  onPromote={() => void handlePromote(l.id)}
-                  onDelete={() => void handleDelete(l.id)}
-                  t={mp as unknown as Record<string, string>}
-                />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const q = searchQuery.trim().toLowerCase();
+            const filtered = q
+              ? listings.filter((l) =>
+                  l.tags?.some((tag) => tag.toLowerCase().includes(q)) ||
+                  l.title.toLowerCase().includes(q) ||
+                  l.description?.toLowerCase().includes(q)
+                )
+              : listings;
+
+            if (filtered.length === 0) {
+              return (
+                <p className="text-center text-sm text-muted-foreground py-16">
+                  {q ? (
+                    <><span className="font-medium text-foreground">&quot;{searchQuery}&quot;</span> — {mp.searchNoResults}</>
+                  ) : mp.noListings}
+                </p>
+              );
+            }
+            return (
+              <div className="space-y-3">
+                {q && (
+                  <p className="text-xs text-muted-foreground">
+                    {filtered.length} result{filtered.length !== 1 ? "s" : ""} for &quot;{searchQuery}&quot;
+                  </p>
+                )}
+                {filtered.map((l) => (
+                  <ListingCard
+                    key={l.id}
+                    listing={l}
+                    isOwner={user?.id === l.userId}
+                    onPromote={() => void handlePromote(l.id)}
+                    onDelete={() => void handleDelete(l.id)}
+                    t={mp as unknown as Record<string, string>}
+                  />
+                ))}
+              </div>
+            );
+          })()}
         </TabsContent>
 
         {/* Register */}
