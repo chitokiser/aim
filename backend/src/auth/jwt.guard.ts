@@ -30,7 +30,18 @@ export class JwtAuthGuard implements CanActivate {
     // Fall back to Firebase ID token verification
     try {
       const decoded = await this.firebase.getAdminAuth().verifyIdToken(token);
-      req.user = { sub: decoded.uid, googleId: decoded.uid, email: decoded.email };
+      // Resolve the Firestore document ID from the Firebase UID so req.user.sub
+      // matches what all services expect (Firestore doc ID, not Firebase UID).
+      let sub = decoded.uid;
+      try {
+        const snap = await this.firebase
+          .collection('users')
+          .where('googleId', '==', decoded.uid)
+          .limit(1)
+          .get();
+        if (!snap.empty) sub = snap.docs[0].id;
+      } catch { /* use Firebase UID as fallback */ }
+      req.user = { sub, googleId: decoded.uid, email: decoded.email };
       return true;
     } catch { /* fall through */ }
 

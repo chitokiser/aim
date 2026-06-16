@@ -22,7 +22,8 @@ export class ListingsService {
     }
 
     const snap = await query.get();
-    const docs = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
+    type DocRow = { id: string; isFeatured?: unknown; createdAt?: unknown; [k: string]: unknown };
+    const docs: DocRow[] = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Record<string, unknown>) }));
     // Sort in memory to avoid requiring a Firestore composite index
     docs.sort((a, b) => {
       if (a.isFeatured && !b.isFeatured) return -1;
