@@ -124,6 +124,71 @@ Each page should export its own `metadata` or `generateMetadata()` with a unique
 
 ---
 
+## Known Pitfalls & Required Practices (CRITICAL — learned from production bugs)
+
+### 1. Button `asChild` is NOT supported (Netlify build killer)
+
+The `Button` component in `frontend/src/components/ui/button.tsx` is based on `@base-ui/react/button`, which does **not** support the `asChild` prop. Using it causes a TypeScript error that blocks the **entire** Netlify build silently — the old code keeps serving and no frontend changes go live.
+
+**Wrong:**
+```tsx
+<Button asChild><a href="...">Visit</a></Button>
+```
+
+**Correct — use `buttonVariants()` directly on the `<a>` tag:**
+```tsx
+import { buttonVariants } from "@/components/ui/button";
+<a href="..." className={buttonVariants({ size: "sm", variant: "outline" })}>Visit</a>
+```
+
+### 2. TypeScript must be clean before every commit
+
+A single TypeScript error in any frontend file silently kills the Netlify build. The site keeps serving the last successful build — making it look like code changes aren't deploying when actually the build failed.
+
+**Before every commit, run:**
+```bash
+cd frontend && npx tsc --noEmit
+```
+Exit code must be `0`. Fix all errors before committing.
+
+**If Netlify seems stuck on old code:** check the Netlify Deploys tab at https://app.netlify.com/projects/ai119/overview — a red failed build means zero frontend changes are live.
+
+### 3. TelegramAutoLogin must ALWAYS run when `?tg=` is present
+
+`frontend/src/components/telegram-auto-login.tsx` must exchange the `?tg=<JWT>` token unconditionally — even if the user already has a Google session in localStorage.
+
+**Never add an early-return guard like:**
+```tsx
+if (user) return;  // WRONG — blocks bot login for Google-logged-in users
+```
+
+The correct flow:
+1. Bot sends `/login` → user taps button → opens `https://ai119.netlify.app?tg=<jwt>`
+2. `TelegramAutoLogin` reads `?tg=`, calls `GET /api/auth/bot-token?token=...`
+3. Response sets the Telegram session, overriding any existing Google session
+4. URL is cleaned (removes `?tg=` param) without page reload
+
+After Telegram login, the user can logout and then use Google login separately.
+
+### 4. Telegram bot button types: `web_app` vs `url`
+
+| Context | Button type | Why |
+|---------|-------------|-----|
+| Private chat with bot | `web_app: { url: '...' }` | Opens URL inline, no confirmation dialog |
+| Group messages | `url: 'https://t.me/bot?start=...'` | `web_app` is not supported in groups |
+
+**Never use `web_app` in group keyboards** — it silently fails or is rejected by Telegram.
+
+### 5. Netlify build debugging checklist
+
+If user reports login/page not working after a code push:
+1. Open https://app.netlify.com/projects/ai119/overview → Deploys tab
+2. If latest deploy shows red/failed: find the build log, fix the error, push again
+3. Common culprits: TypeScript errors, `asChild` on `@base-ui` components, missing `<Suspense>` around `useSearchParams()`
+4. `useSearchParams()` requires `<Suspense>` wrapper in `output: "export"` mode (already done in `layout.tsx` — do not remove it)
+
+---
+
 ## Telegram Bot Architecture (CRITICAL — read before adding any bot)
 
 All bots live under `backend/src/bots/`. Never place bot files at the module root.

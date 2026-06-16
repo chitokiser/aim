@@ -102,6 +102,50 @@ export class MainBotService extends BaseTelegrafBotService {
         return;
       }
 
+      if (payload === 'mission') {
+        await this.usersService.registerFromTelegram({
+          telegramId: String(tg.id),
+          firstName: tg.first_name,
+          lastName: tg.last_name,
+          username: tg.username,
+        });
+        const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
+        await ctx.reply(
+          `🎯 *AI119 미션*\n\n미션을 완료하고 AP를 획득하세요!\n💰 10,000 AP = $1 USD`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🎯 미션 시작하기', web_app: { url: `${SITE}/missions?tg=${loginToken}` } }],
+              ],
+            },
+          },
+        );
+        return;
+      }
+
+      if (payload === 'rank') {
+        await this.usersService.registerFromTelegram({
+          telegramId: String(tg.id),
+          firstName: tg.first_name,
+          lastName: tg.last_name,
+          username: tg.username,
+        });
+        const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
+        await ctx.reply(
+          `🏆 *AI119 랭킹*\n\nAP 적립 TOP 랭커들을 확인하세요!`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: '🏆 랭킹 보기', web_app: { url: `${SITE}/leaderboard?tg=${loginToken}` } }],
+              ],
+            },
+          },
+        );
+        return;
+      }
+
       const refCode = payload.startsWith('AIM') ? payload : undefined;
 
       const { user, isNew } = await this.usersService.registerFromTelegram({
@@ -458,8 +502,8 @@ export class MainBotService extends BaseTelegrafBotService {
                   },
                 ],
                 [
-                  { text: '🎯 미션', url: `${SITE}/missions` },
-                  { text: '🏆 랭킹', url: `${SITE}/leaderboard` },
+                  { text: '🎯 미션', url: `https://t.me/${botUsername}?start=mission` },
+                  { text: '🏆 랭킹', url: `https://t.me/${botUsername}?start=rank` },
                 ],
               ],
             },
