@@ -20,6 +20,19 @@ interface FindState {
   step: FindStep;
 }
 
+interface FavoriteCandidate {
+  name: string;
+  role: string;
+  skills: string;
+  location: string;
+  languages: string;
+  bio: string;
+  profileUrl: string;
+  source: string;
+  score: number;
+  savedAt: string;
+}
+
 interface BizMatchProfile {
   telegramId: string;
   username: string;
@@ -31,7 +44,7 @@ interface BizMatchProfile {
   premium: boolean;
   dailyMatchCount: number;
   lastMatchDate: string;
-  favorites: string[];
+  favorites: FavoriteCandidate[];
   createdAt: string;
   updatedAt: string;
 }
@@ -84,6 +97,8 @@ export class BizMatchBotService extends BaseTelegrafBotService {
   private model = 'gpt-4o-mini';
   private readonly wizardSessions = new Map<number, WizardState>();
   private readonly findSessions = new Map<number, FindState>();
+  // Stores the last match results per user to allow saving full data on callback
+  private readonly lastMatchResults = new Map<number, MatchResult[]>();
 
   constructor(
     private readonly config: ConfigService,
@@ -94,7 +109,6 @@ export class BizMatchBotService extends BaseTelegrafBotService {
     const openaiKey = this.config.get<string>('OPENAI_API_KEY');
 
     if (geminiKey) {
-      // Gemini exposes an OpenAI-compatible endpoint, so the OpenAI SDK works as-is.
       this.openai = new OpenAI({
         apiKey: geminiKey,
         baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
@@ -340,6 +354,18 @@ ${r.candidate.role ? `💼 ${r.candidate.role}` : ''}
 ${r.summary}${url}`;
   }
 
+  private formatFavoriteCard(fav: FavoriteCandidate, index: number): string {
+    const bar = (score: number) => '█'.repeat(Math.round(score / 10)) + '░'.repeat(10 - Math.round(score / 10));
+    const url = fav.profileUrl ? `\n🔗 ${fav.profileUrl}` : '';
+    const savedDate = new Date(fav.savedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `*${index}. ${fav.name}* — ${fav.score}% Match
+${fav.role ? `💼 ${fav.role}` : ''}
+🛠 ${fav.skills || 'Skills not specified'}
+📍 ${fav.location || 'Location unknown'} | 🌐 ${fav.languages || 'Language unknown'}
+📝 ${fav.bio ? fav.bio.slice(0, 120) + (fav.bio.length > 120 ? '…' : '') : ''}
+🌍 via ${fav.source} | 📅 Saved ${savedDate}${url}`;
+  }
+
   // ─── Register handlers ──────────────────────────────────────────────────────
 
   protected registerHandlers() {
@@ -385,6 +411,15 @@ I help you find the perfect collaborators, partners, and clients by searching Li
       await this.handleProfileCommand(ctx);
     });
 
+    this.bot.action('update_profile', async (ctx) => {
+      await ctx.answerCbQuery();
+      this.initUpdateWizard(ctx.from.id);
+      await ctx.reply(
+        `✏️ *Update your profile*\n\nStep 1/5: What is your *full name* or professional alias?`,
+        { parse_mode: 'Markdown' },
+      );
+    });
+
     // /find
     this.bot.command('find', async (ctx) => {
       await this.handleFindCommand(ctx);
@@ -395,7 +430,7 @@ I help you find the perfect collaborators, partners, and clients by searching Li
       await this.handleFindCommand(ctx);
     });
 
-    // /match — show last match or trigger /find
+    // /match
     this.bot.command('match', async (ctx) => {
       const profile = await this.getProfile(String(ctx.from.id));
       if (!profile) {
@@ -423,7 +458,7 @@ I help you find the perfect collaborators, partners, and clients by searching Li
 🆓 *Free plan:*
 • 3 AI matches per day
 • Basic profile
-• Manual favorites
+• Save up to 20 favorites
 
 💎 *Premium plan:*
 • Unlimited AI matches
@@ -469,25 +504,69 @@ Send your report to @ai119admin or join our community 👇`,
       );
     });
 
-    // Save to favorites callback
-    this.bot.action(/^save_fav:(.+)$/, async (ctx) => {
+    // Save to favorites — index-based to avoid Telegram 64-byte callback limit
+    this.bot.action(/^save_fav:(\d+)$/, async (ctx) => {
       await ctx.answerCbQuery('⭐ Saved to favorites!');
-      const profileUrl = ctx.match[1];
+      const idx = parseInt(ctx.match[1], 10);
       const telegramId = String(ctx.from.id);
       const profile = await this.getProfile(telegramId);
       if (!profile) return;
-      if (!profile.favorites.includes(profileUrl)) {
-        const snap = await this.firebase
-          .collection(COLLECTION)
-          .where('telegramId', '==', telegramId)
-          .limit(1)
-          .get();
-        if (!snap.empty) {
-          await snap.docs[0].ref.update({
-            favorites: [...profile.favorites, profileUrl],
-          });
-        }
+
+      const results = this.lastMatchResults.get(ctx.from.id);
+      if (!results || !results[idx]) return;
+
+      const r = results[idx];
+      const alreadySaved = profile.favorites.some(
+        (f) => f.profileUrl === (r.candidate.profileUrl ?? ''),
+      );
+      if (alreadySaved) {
+        await ctx.answerCbQuery('Already in favorites!');
+        return;
       }
+
+      const newFav: FavoriteCandidate = {
+        name: r.candidate.name,
+        role: r.candidate.role ?? '',
+        skills: r.candidate.skills ?? '',
+        location: r.candidate.location ?? '',
+        languages: r.candidate.languages ?? '',
+        bio: r.candidate.bio ?? '',
+        profileUrl: r.candidate.profileUrl ?? '',
+        source: r.candidate.source,
+        score: r.totalScore,
+        savedAt: new Date().toISOString(),
+      };
+
+      const snap = await this.firebase
+        .collection(COLLECTION)
+        .where('telegramId', '==', telegramId)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        await snap.docs[0].ref.update({
+          favorites: [...profile.favorites, newFav],
+        });
+      }
+    });
+
+    // Remove from favorites
+    this.bot.action(/^del_fav:(\d+)$/, async (ctx) => {
+      const idx = parseInt(ctx.match[1], 10);
+      const telegramId = String(ctx.from.id);
+      const profile = await this.getProfile(telegramId);
+      if (!profile) return;
+
+      const updated = profile.favorites.filter((_, i) => i !== idx);
+      const snap = await this.firebase
+        .collection(COLLECTION)
+        .where('telegramId', '==', telegramId)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        await snap.docs[0].ref.update({ favorites: updated });
+      }
+      await ctx.answerCbQuery('🗑 Removed from favorites');
+      await this.handleFavoritesCommand(ctx);
     });
 
     // Handle text input for active wizard sessions
@@ -642,9 +721,8 @@ Now you're ready to find matches! 🚀`,
     }
   }
 
-  // ─── Update profile action ───────────────────────────────────────────────────
+  // ─── Update profile ──────────────────────────────────────────────────────────
 
-  // Re-start wizard for updates
   private initUpdateWizard(userId: number) {
     this.wizardSessions.set(userId, { step: 'name', data: {} });
   }
@@ -708,7 +786,6 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
 
       let candidates = rawResults;
 
-      // If no web results, use OpenAI to synthesize candidates
       if (candidates.length === 0 && this.openai) {
         candidates = await this.synthesizeCandidates(profile, description);
       }
@@ -725,6 +802,9 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
       const scored = await this.scoreWithAI(profile, top5, description);
       scored.sort((a, b) => b.totalScore - a.totalScore);
 
+      // Store results in memory so save_fav can access full data
+      this.lastMatchResults.set(userId, scored);
+
       await this.incrementMatchCount(profile);
 
       await ctx.reply(
@@ -733,11 +813,9 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            ...(scored.slice(0, 3).map((r, i) =>
-              r.candidate.profileUrl
-                ? [Markup.button.callback(`⭐ Save #${i + 1}`, `save_fav:${r.candidate.profileUrl.slice(0, 64)}`)]
-                : [],
-            ).filter((row) => row.length > 0)),
+            ...(scored.slice(0, 3).map((r, i) => [
+              Markup.button.callback(`⭐ Save #${i + 1} (${r.totalScore}%)`, `save_fav:${i}`),
+            ])),
             [Markup.button.callback('🔍 Search Again', 'start_find')],
             [Markup.button.callback('⭐ View Favorites', 'view_favorites')],
             [Markup.button.url('🌐 AI119 Community', GROUP_LINK)],
@@ -750,7 +828,6 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
     }
   }
 
-  // Synthesize candidates using OpenAI when no search API is available
   private async synthesizeCandidates(profile: BizMatchProfile, description: string): Promise<SearchCandidate[]> {
     if (!this.openai) return [];
     try {
@@ -798,7 +875,10 @@ Return JSON array:
 
     if (profile.favorites.length === 0) {
       await ctx.reply(
-        '⭐ *Your Favorites*\n\nNo saved candidates yet.\nUse /find to discover and save matches!',
+        `⭐ *Your Favorites*
+
+No saved candidates yet.
+Use /find to discover and save matches!`,
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([[Markup.button.callback('🔍 Find People', 'start_find')]]),
@@ -807,16 +887,19 @@ Return JSON array:
       return;
     }
 
-    const list = profile.favorites
-      .slice(0, 10)
-      .map((url, i) => `${i + 1}. ${url}`)
-      .join('\n');
+    const favs = profile.favorites.slice(0, 10);
+    const cards = favs.map((fav, i) => this.formatFavoriteCard(fav, i + 1)).join('\n\n---\n\n');
+
+    const deleteButtons = favs.map((_, i) => [
+      Markup.button.callback(`🗑 Remove #${i + 1}`, `del_fav:${i}`),
+    ]);
 
     await ctx.reply(
-      `⭐ *Your Favorites* (${profile.favorites.length})\n\n${list}`,
+      `⭐ *Your Favorites* (${profile.favorites.length})\n\n${cards}`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
+          ...deleteButtons,
           [Markup.button.callback('🔍 Find More', 'start_find')],
           [Markup.button.url('🌐 AI119 Community', GROUP_LINK)],
         ]),

@@ -15,6 +15,7 @@ import { GroupJoinsModule } from './group-joins/group-joins.module';
 import { MainBotModule } from './bots/main-bot/main-bot.module';
 import { RewardBotModule } from './bots/reward-bot/reward-bot.module';
 import { BizMatchBotModule } from './bots/bizmatch-bot/bizmatch-bot.module';
+import { AuctionModule } from './auction/auction.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { BizMatchBotModule } from './bots/bizmatch-bot/bizmatch-bot.module';
     MainBotModule,
     RewardBotModule,
     BizMatchBotModule,
+    AuctionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

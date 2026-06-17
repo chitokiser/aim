@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut, Zap, Store, Sparkles } from "lucide-react";
+import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,7 @@ export function Navbar() {
     { href: "/advertiser", label: t.nav.advertiser, icon: Megaphone },
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
     { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
+    { href: "/auction", label: t.nav.auction, icon: Gavel },
     { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
     { href: "/topup", label: t.nav.topup, icon: Zap },
   ];
