@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Bot, Smartphone, Users, Radio, ExternalLink, Loader2, Star,
-  Plus, Trash2, Megaphone, Search, X,
+  Plus, Trash2, Megaphone, Search, X, ChevronLeft, ChevronRight,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -69,7 +69,7 @@ function FeaturedBannerCard({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex-shrink-0 w-64 sm:w-72 snap-start rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 p-4 hover:shadow-lg transition-shadow group block"
+      className="w-full rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 p-4 hover:shadow-lg transition-shadow group block"
     >
       <div className="flex items-start gap-3 mb-3">
         {listing.logoUrl ? (
@@ -212,6 +212,10 @@ export default function MarketplacePage() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const [bannerIndex, setBannerIndex] = useState(0);
+  const [bannerFading, setBannerFading] = useState(false);
+  const bannerTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const loadListings = useCallback(async (cat?: string) => {
     setLoading(true);
     try {
@@ -300,6 +304,35 @@ export default function MarketplacePage() {
     } catch { toast.error("Network error"); }
   };
 
+  const featuredListings = listings.filter((l) => l.isFeatured);
+  const bannerCount = featuredListings.length;
+  const VISIBLE = 3;
+
+  const advanceBanner = useCallback((dir: 1 | -1 = 1) => {
+    if (bannerCount <= VISIBLE) return;
+    setBannerFading(true);
+    setTimeout(() => {
+      setBannerIndex((i) => (i + dir + bannerCount) % bannerCount);
+      setBannerFading(false);
+    }, 200);
+  }, [bannerCount]);
+
+  const resetBannerTimer = useCallback(() => {
+    if (bannerTimerRef.current) clearInterval(bannerTimerRef.current);
+    if (bannerCount > VISIBLE) {
+      bannerTimerRef.current = setInterval(() => advanceBanner(1), 5000);
+    }
+  }, [bannerCount, advanceBanner]);
+
+  useEffect(() => {
+    resetBannerTimer();
+    return () => { if (bannerTimerRef.current) clearInterval(bannerTimerRef.current); };
+  }, [resetBannerTimer]);
+
+  const visibleBanners = bannerCount <= VISIBLE
+    ? featuredListings
+    : [0, 1, 2].map((i) => featuredListings[(bannerIndex + i) % bannerCount]);
+
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
       <div className="mb-8">
@@ -321,27 +354,72 @@ export default function MarketplacePage() {
 
         {/* Browse */}
         <TabsContent value="browse">
-          {/* Featured Banner Zone */}
-          {!searchQuery && listings.some((l) => l.isFeatured) && (
+          {/* Featured Banner Zone — auto-rotates every 5 s when > 3 banners */}
+          {!searchQuery && featuredListings.length > 0 && (
             <div className="mb-6">
-              <div className="flex items-center gap-2 mb-3">
-                <Megaphone className="h-4 w-4 text-amber-500" />
-                <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
-                  {mp.featuredSponsors}
-                </span>
-                <span className="text-xs text-muted-foreground">— {mp.promoteCost}</span>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Megaphone className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-semibold text-amber-600 dark:text-amber-400">
+                    {mp.featuredSponsors}
+                  </span>
+                  <span className="text-xs text-muted-foreground">— {mp.promoteCost}</span>
+                  {bannerCount > VISIBLE && (
+                    <span className="text-xs text-muted-foreground">({bannerIndex + 1}/{bannerCount})</span>
+                  )}
+                </div>
+                {bannerCount > VISIBLE && (
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => { advanceBanner(-1); resetBannerTimer(); }}
+                      className="rounded-full p-1 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                      aria-label="Previous"
+                    >
+                      <ChevronLeft className="h-4 w-4 text-amber-600" />
+                    </button>
+                    <button
+                      onClick={() => { advanceBanner(1); resetBannerTimer(); }}
+                      className="rounded-full p-1 hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors"
+                      aria-label="Next"
+                    >
+                      <ChevronRight className="h-4 w-4 text-amber-600" />
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="flex gap-3 overflow-x-auto pb-2 snap-x scrollbar-none">
-                {listings
-                  .filter((l) => l.isFeatured)
-                  .map((l) => (
-                    <FeaturedBannerCard
-                      key={l.id}
-                      listing={l}
-                      t={mp as unknown as Record<string, string>}
+
+              {/* Rotating grid */}
+              <div
+                className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 transition-opacity duration-200 ${
+                  bannerFading ? "opacity-0" : "opacity-100"
+                }`}
+              >
+                {visibleBanners.map((l, i) => (
+                  <FeaturedBannerCard
+                    key={`${l.id}-${bannerIndex}-${i}`}
+                    listing={l}
+                    t={mp as unknown as Record<string, string>}
+                  />
+                ))}
+              </div>
+
+              {/* Dot indicators */}
+              {bannerCount > VISIBLE && (
+                <div className="flex justify-center gap-1.5 mt-3">
+                  {featuredListings.map((_, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setBannerIndex(i); resetBannerTimer(); }}
+                      className={`h-1.5 rounded-full transition-all ${
+                        i === bannerIndex
+                          ? "w-4 bg-amber-500"
+                          : "w-1.5 bg-amber-200 hover:bg-amber-300"
+                      }`}
+                      aria-label={`Go to banner ${i + 1}`}
                     />
                   ))}
-              </div>
+                </div>
+              )}
             </div>
           )}
 
