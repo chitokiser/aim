@@ -254,6 +254,14 @@ export function Navbar() {
                 {t.nav.creativeMarket}
               </Link>
               <Link
+                href="/auction"
+                onClick={() => setMobileOpen(false)}
+                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-amber-600 hover:bg-accent transition-colors"
+              >
+                <Gavel className="h-4 w-4" />
+                {t.nav.auction}
+              </Link>
+              <Link
                 href="/advertiser"
                 onClick={() => setMobileOpen(false)}
                 className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-cyan-600 hover:bg-accent transition-colors"

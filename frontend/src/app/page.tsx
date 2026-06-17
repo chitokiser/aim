@@ -16,6 +16,9 @@ import {
   Bot,
   Star,
   TrendingUp,
+  Store,
+  Sparkles,
+  Gavel,
 } from "lucide-react";
 
 const SAMPLE_MISSIONS = [
@@ -170,6 +173,34 @@ export default function HomePage() {
               </CardContent>
             </Card>
           ))}
+        </div>
+      </section>
+
+      {/* Services */}
+      <section className="py-14 bg-muted/20">
+        <div className="container mx-auto px-4">
+          <h2 className="text-2xl md:text-3xl font-black text-center mb-8">{h.servicesTitle}</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 max-w-4xl mx-auto">
+            {[
+              { href: "/marketplace", icon: Store, color: "from-violet-500 to-cyan-500", title: t.nav.marketplace, desc: t.marketplace.subtitle },
+              { href: "/creative-market", icon: Sparkles, color: "from-pink-500 to-rose-500", title: t.nav.creativeMarket, desc: t.creativeMarket.subtitle },
+              { href: "/auction", icon: Gavel, color: "from-amber-500 to-orange-500", title: t.nav.auction, desc: t.auction.subtitle },
+            ].map(({ href, icon: Icon, color, title, desc }) => (
+              <Link key={href} href={href} className="group">
+                <Card className="h-full hover:shadow-lg transition-shadow border-0 shadow-md cursor-pointer group-hover:scale-[1.02] transition-transform">
+                  <CardContent className="pt-6 flex flex-col items-center text-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center shadow-sm`}>
+                      <Icon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-bold">{title}</p>
+                      <p className="text-xs text-muted-foreground mt-1 leading-relaxed">{desc}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 

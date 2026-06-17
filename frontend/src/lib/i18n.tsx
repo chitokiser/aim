@@ -62,6 +62,7 @@ const T = {
       terms: "Terms of Service",
       privacy: "Privacy Policy",
       advertiserLink: "Advertiser",
+      servicesTitle: "Explore Our Services",
     },
     missions: {
       title: "Mission Center",
@@ -626,6 +627,7 @@ const T = {
       terms: "이용약관",
       privacy: "개인정보처리방침",
       advertiserLink: "광고주",
+      servicesTitle: "서비스 탐색",
     },
     missions: {
       title: "미션 센터",
@@ -1190,6 +1192,7 @@ const T = {
       terms: "Điều khoản sử dụng",
       privacy: "Chính sách bảo mật",
       advertiserLink: "Nhà quảng cáo",
+      servicesTitle: "Khám phá Dịch vụ",
     },
     missions: {
       title: "Trung tâm nhiệm vụ",
