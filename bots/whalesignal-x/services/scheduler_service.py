@@ -1,16 +1,20 @@
 """Scheduled data collection and daily digest delivery."""
 import asyncio
 import logging
+from datetime import datetime, timezone
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from telegram import Bot
 from collectors import ALL_COLLECTORS
 from database import db
-from services.ai_service import generate_daily_digest, pick_today_opportunity
-from utils.keyboards import community_keyboard
-from utils.formatters import format_today_pick
-from config import DAILY_DIGEST_HOUR, COLLECT_INTERVAL_MINUTES
+from services.ai_service import generate_daily_digest, pick_today_opportunity, generate_group_broadcast
+from utils.keyboards import community_keyboard, group_broadcast_keyboard
+from utils.formatters import format_today_pick, format_group_stats
+from config import (
+    DAILY_DIGEST_HOUR, COLLECT_INTERVAL_MINUTES,
+    GROUP_CHAT_ID, GROUP_BROADCAST_MORNING_HOUR, GROUP_BROADCAST_EVENING_HOUR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +46,28 @@ def init_scheduler(bot: Bot):
         id="notify_alerts",
         replace_existing=True,
     )
+
+    if GROUP_CHAT_ID:
+        scheduler.add_job(
+            send_group_broadcast,
+            CronTrigger(hour=GROUP_BROADCAST_MORNING_HOUR, minute=0),
+            args=["morning"],
+            id="group_broadcast_morning",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            send_group_broadcast,
+            CronTrigger(hour=GROUP_BROADCAST_EVENING_HOUR, minute=0),
+            args=["evening"],
+            id="group_broadcast_evening",
+            replace_existing=True,
+        )
+        logger.info(
+            f"Group broadcast scheduled: {GROUP_BROADCAST_MORNING_HOUR:02d}:00 & "
+            f"{GROUP_BROADCAST_EVENING_HOUR:02d}:00 UTC → chat {GROUP_CHAT_ID}"
+        )
+    else:
+        logger.warning("GROUP_CHAT_ID not set — group broadcasts disabled")
 
     scheduler.start()
     logger.info("Scheduler started")
@@ -97,6 +123,40 @@ async def send_daily_digest():
             await asyncio.sleep(0.05)
         except Exception as e:
             logger.warning(f"Daily digest send error {user['user_id']}: {e}")
+
+
+async def send_group_broadcast(slot: str):
+    """Send a live status broadcast to the group chat (morning/evening)."""
+    if not _bot or not GROUP_CHAT_ID:
+        return
+
+    try:
+        opps = await db.get_top_opportunities(limit=10)
+        all_opps = await db.get_opportunities(limit=200, min_score=60)
+
+        by_category: dict = {}
+        for o in (all_opps or []):
+            cat = o.get("category", "other")
+            by_category[cat] = by_category.get(cat, 0) + 1
+
+        now_utc = datetime.now(timezone.utc)
+        date_str = now_utc.strftime("%Y-%m-%d  %H:%M UTC")
+
+        header = format_group_stats(slot, date_str, len(all_opps or []), by_category)
+        body = await generate_group_broadcast(opps or [], slot)
+
+        text = header + body
+
+        await _bot.send_message(
+            chat_id=GROUP_CHAT_ID,
+            text=text,
+            parse_mode="Markdown",
+            reply_markup=group_broadcast_keyboard(),
+            disable_web_page_preview=True,
+        )
+        logger.info(f"Group broadcast sent: slot={slot}, chat={GROUP_CHAT_ID}")
+    except Exception as e:
+        logger.error(f"Group broadcast error (slot={slot}): {e}")
 
 
 async def notify_unsent_alerts():

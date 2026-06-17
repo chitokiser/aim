@@ -1,7 +1,9 @@
 """All bot command and callback query handlers."""
 import json
 import logging
-from telegram import Update
+import time
+import jwt as pyjwt
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, CommandHandler, CallbackQueryHandler
 from database import db
 from collectors import CATEGORY_MAP, ALL_COLLECTORS
@@ -16,9 +18,22 @@ from utils.formatters import (
     format_github, format_social, format_dao, format_jobs, format_government,
     format_hidden_gem, format_ecosystem, format_today_pick, whale_score_badge,
 )
-from config import FREE_DAILY_LIMIT, AI119_COMMUNITY_URL
+from config import FREE_DAILY_LIMIT, AI119_COMMUNITY_URL, AIM_SITE_URL, JWT_SECRET
 
 logger = logging.getLogger(__name__)
+
+
+def _create_login_token(telegram_id: int, first_name: str = "", username: str = "") -> str:
+    now = int(time.time())
+    payload = {
+        "telegramId": str(telegram_id),
+        "type": "bot-login",
+        "firstName": first_name,
+        "username": username,
+        "iat": now,
+        "exp": now + 3600,
+    }
+    return pyjwt.encode(payload, JWT_SECRET, algorithm="HS256")
 
 FORMATTER_MAP = {
     "funding": format_funding,
@@ -166,7 +181,10 @@ async def _fetch_and_display(update: Update, category: str, live: bool = False):
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data = await _ensure_user(update)
-    name = update.effective_user.first_name or "Whale Hunter"
+    tg_user = update.effective_user
+    name = tg_user.first_name or "Whale Hunter"
+    is_private = update.effective_chat.type == "private"
+
     text = (
         f"🐋 *WhaleSignal X에 오신 것을 환영합니다, {name}님!*\n\n"
         f"*Follow The Money* — 돈이 흐르는 곳에 기회가 있다\n\n"
@@ -179,8 +197,26 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
         f"아래 메뉴를 선택하거나 명령어를 입력하세요."
     )
+
+    if is_private:
+        login_token = _create_login_token(
+            tg_user.id,
+            first_name=tg_user.first_name or "",
+            username=tg_user.username or "",
+        )
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🚀 AI119 플랫폼 입장", web_app={"url": f"{AIM_SITE_URL}?tg={login_token}"}),
+                InlineKeyboardButton("💬 AIM 커뮤니티", url=AI119_COMMUNITY_URL),
+            ],
+        ])
+    else:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💬 AIM 커뮤니티", url=AI119_COMMUNITY_URL)],
+        ])
+
     await update.message.reply_text(
-        text, parse_mode="Markdown", reply_markup=main_menu_keyboard()
+        text, parse_mode="Markdown", reply_markup=keyboard
     )
 
 

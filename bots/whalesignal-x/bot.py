@@ -15,7 +15,7 @@ from handlers.commands import (
 )
 from handlers.admin import (
     admin_handler, stats_handler, users_handler, broadcast_handler,
-    trending_handler, collect_handler, set_subscription_handler,
+    trending_handler, collect_handler, set_subscription_handler, groupcast_handler,
 )
 from services.scheduler_service import init_scheduler
 from telegram.ext import CommandHandler, CallbackQueryHandler
@@ -87,6 +87,7 @@ def main():
     app.add_handler(CommandHandler("broadcast", broadcast_handler))
     app.add_handler(CommandHandler("trending", trending_handler))
     app.add_handler(CommandHandler("collect", collect_handler))
+    app.add_handler(CommandHandler("groupcast", groupcast_handler))
     app.add_handler(CallbackQueryHandler(callback_query_handler))
 
     logger.info("WhaleSignal X bot starting...")

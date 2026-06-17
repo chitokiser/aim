@@ -221,6 +221,32 @@ def format_today_pick(data: dict) -> str:
     )
 
 
+_CATEGORY_ICONS = {
+    "funding": "💰", "grant": "💰", "hackathon": "🏆", "airdrop": "🎁",
+    "testnet": "🧪", "listings": "📈", "smartmoney": "🐳", "github": "👨‍💻",
+    "social": "🔥", "dao": "🏛", "jobs": "💼", "gov": "🏦",
+    "gamefi": "🎮", "nft": "🖼", "depin": "📡", "rwa": "🏢",
+    "etf": "📊", "hidden": "💎",
+}
+
+
+def format_group_stats(slot: str, date_str: str, total: int, by_category: dict) -> str:
+    icon = "🌅" if slot == "morning" else "🌙"
+    label = "아침 브리핑" if slot == "morning" else "저녁 브리핑"
+    cat_parts = [
+        f"{_CATEGORY_ICONS.get(k, '📌')} {v}건"
+        for k, v in sorted(by_category.items(), key=lambda x: -x[1])[:6]
+        if v > 0
+    ]
+    cat_line = "  |  ".join(cat_parts) if cat_parts else "데이터 수집 중"
+    return (
+        f"{icon} *WhaleSignal X — {label}*\n"
+        f"📅 {date_str}\n\n"
+        f"📡 오늘 수집된 기회: *{total}건* \\(WhaleScore 60\\+\\)\n"
+        f"{cat_line}\n\n"
+    )
+
+
 def format_opportunity_list(opps: list) -> str:
     if not opps:
         return "📭 현재 해당 카테고리의 최신 기회가 없습니다.\n\n잠시 후 다시 확인해주세요."

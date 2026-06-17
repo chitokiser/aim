@@ -4,9 +4,9 @@ from telegram import Update
 from telegram.ext import ContextTypes, CommandHandler
 from database import db
 from collectors import ALL_COLLECTORS
-from services.scheduler_service import collect_all
+from services.scheduler_service import collect_all, send_group_broadcast
 from utils.keyboards import community_keyboard
-from config import ADMIN_IDS
+from config import ADMIN_IDS, GROUP_CHAT_ID
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ def admin_only(func):
 
 @admin_only
 async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    group_status = f"`{GROUP_CHAT_ID}`" if GROUP_CHAT_ID else "❌ 미설정"
     text = (
         "🔧 *WhaleSignal X — 관리자 패널*\n\n"
         "/stats — 통계 보기\n"
@@ -29,9 +30,12 @@ async def admin_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/broadcast <메시지> — 전체 공지\n"
         "/trending — 인기 기회 보기\n"
         "/collect — 즉시 데이터 수집\n"
+        "/groupcast — 그룹 생중계 즉시 발송\n"
+        "/groupcast evening — 저녁 슬롯으로 발송\n"
         "/setpro <user_id> — Pro 구독 설정\n"
         "/setvip <user_id> — VIP 구독 설정\n"
-        "/setfree <user_id> — Free로 변경\n"
+        "/setfree <user_id> — Free로 변경\n\n"
+        f"📡 그룹 채팅: {group_status}"
     )
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -114,7 +118,27 @@ async def collect_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 @admin_only
+async def groupcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not GROUP_CHAT_ID:
+        await update.message.reply_text("❌ GROUP_CHAT_ID가 .env에 설정되지 않았습니다.")
+        return
+
+    slot = (context.args[0].lower() if context.args else "morning")
+    if slot not in ("morning", "evening"):
+        await update.message.reply_text("사용법: /groupcast [morning|evening]")
+        return
+
+    slot_label = "아침" if slot == "morning" else "저녁"
+    msg = await update.message.reply_text(f"📡 {slot_label} 생중계 발송 중...")
+    try:
+        await send_group_broadcast(slot)
+        await msg.edit_text(f"✅ {slot_label} 생중계 발송 완료! → 채팅 {GROUP_CHAT_ID}")
+    except Exception as e:
+        await msg.edit_text(f"❌ 발송 실패: {e}")
+
+
 async def set_subscription_handler(plan: str):
+    @admin_only
     async def handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
             await update.message.reply_text(f"사용법: /set{plan} <user_id>")

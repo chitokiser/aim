@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from config import AI119_COMMUNITY_URL
+from config import AI119_COMMUNITY_URL, BOT_USERNAME
 
 AI119_BTN = InlineKeyboardButton("🤖 AI119 커뮤니티", url=AI119_COMMUNITY_URL)
 
@@ -74,5 +74,13 @@ def back_keyboard() -> InlineKeyboardMarkup:
 def pro_feature_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ Pro/VIP 업그레이드", callback_data="cmd_subscribe")],
+        [AI119_BTN],
+    ])
+
+
+def group_broadcast_keyboard() -> InlineKeyboardMarkup:
+    """Group-safe keyboard: url buttons only (web_app is forbidden in groups)."""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🤖 개인 분석 받기", url=f"https://t.me/{BOT_USERNAME}?start=group")],
         [AI119_BTN],
     ])

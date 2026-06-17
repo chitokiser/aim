@@ -3,13 +3,13 @@ from typing import Optional
 import anthropic
 from config import ANTHROPIC_API_KEY, AI_MODEL_FAST, AI_MODEL_DEEP
 
-_client: Optional[anthropic.Anthropic] = None
+_client: Optional[anthropic.AsyncAnthropic] = None
 
 
-def _get_client() -> anthropic.Anthropic:
+def _get_client() -> anthropic.AsyncAnthropic:
     global _client
     if _client is None:
-        _client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        _client = anthropic.AsyncAnthropic(api_key=ANTHROPIC_API_KEY)
     return _client
 
 
@@ -45,7 +45,7 @@ Return ONLY valid JSON, no explanation."""
 
     try:
         client = _get_client()
-        resp = client.messages.create(
+        resp = await client.messages.create(
             model=AI_MODEL_FAST,
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
@@ -93,7 +93,7 @@ Format:
 
     try:
         client = _get_client()
-        resp = client.messages.create(
+        resp = await client.messages.create(
             model=AI_MODEL_FAST,
             max_tokens=600,
             messages=[{"role": "user", "content": prompt}],
@@ -131,7 +131,7 @@ Return ONLY valid JSON array."""
 
     try:
         client = _get_client()
-        resp = client.messages.create(
+        resp = await client.messages.create(
             model=AI_MODEL_DEEP,
             max_tokens=800,
             messages=[{"role": "user", "content": prompt}],
@@ -171,7 +171,7 @@ Return ONLY valid JSON."""
 
     try:
         client = _get_client()
-        resp = client.messages.create(
+        resp = await client.messages.create(
             model=AI_MODEL_FAST,
             max_tokens=512,
             messages=[{"role": "user", "content": prompt}],
@@ -184,6 +184,56 @@ Return ONLY valid JSON."""
         return json.loads(text)
     except Exception:
         return {"sentiment": "neutral", "score": 50, "summary": "분석 중..."}
+
+
+async def generate_group_broadcast(opportunities: list, slot: str) -> str:
+    """Generate a twice-daily group broadcast message (morning or evening)."""
+    slot_label = "아침" if slot == "morning" else "저녁"
+    if not opportunities:
+        return f"📭 {slot_label} 브리핑 — 현재 데이터를 수집 중입니다. 잠시 후 다시 확인해주세요."
+
+    opp_text = "\n".join([
+        f"[{o.get('category', '').upper()}] {o.get('title', '')} (WhaleScore: {o.get('whale_score', 0)})"
+        for o in opportunities[:10]
+    ])
+
+    prompt = f"""You are WhaleSignal X, an AI Opportunity Intelligence platform.
+Write a {slot_label} ({"morning" if slot == "morning" else "evening"}) broadcast for a Korean Telegram GROUP.
+Be exciting, use emojis, concise. MAX 350 words. Write ENTIRELY in Korean.
+
+Today's top signals:
+{opp_text}
+
+Use this exact format:
+🔝 *TOP 5 주목 기회*
+[5 items: emoji + category + project name + one-line reason why it matters]
+
+💡 *핵심 인사이트*
+[2-3 bullets: what trends are emerging today]
+
+⚡ *즉시 액션 아이템*
+[1-2 concrete things to do RIGHT NOW]
+
+⚠️ 리서치 참고용 | 투자 권유 아님"""
+
+    try:
+        client = _get_client()
+        resp = await client.messages.create(
+            model=AI_MODEL_FAST,
+            max_tokens=700,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return resp.content[0].text.strip()
+    except Exception:
+        lines = [f"🔝 *TOP {slot_label} 기회*\n"]
+        for i, opp in enumerate(opportunities[:5], 1):
+            score = opp.get("whale_score", 0)
+            cat = opp.get("category", "").upper()
+            title = opp.get("title", "")[:60]
+            badge = "🔴" if score >= 85 else "🟡" if score >= 75 else "🟢"
+            lines.append(f"{i}\\. {badge} \\[{cat}\\] {title} \\(Score: {score}\\)")
+        lines.append("\n⚠️ 리서치 참고용 | 투자 권유 아님")
+        return "\n".join(lines)
 
 
 async def pick_today_opportunity(opportunities: list) -> Optional[dict]:
@@ -216,7 +266,7 @@ Return ONLY valid JSON."""
 
     try:
         client = _get_client()
-        resp = client.messages.create(
+        resp = await client.messages.create(
             model=AI_MODEL_FAST,
             max_tokens=400,
             messages=[{"role": "user", "content": prompt}],

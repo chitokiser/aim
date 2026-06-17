@@ -6,6 +6,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv("WHALASIGNAL_BOT_TOKEN", "")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///whalesignal.db")
+JWT_SECRET = os.getenv("JWT_SECRET", "aim-secret-key")
 REDIS_URL = os.getenv("REDIS_URL", "")
 
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()]
@@ -31,6 +32,11 @@ AI_MODEL_DEEP = "claude-sonnet-4-6"
 
 COLLECT_INTERVAL_MINUTES = 30
 DAILY_DIGEST_HOUR = 9
+
+GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "")
+BOT_USERNAME = os.getenv("BOT_USERNAME", "WhaleSignalXBot")
+GROUP_BROADCAST_MORNING_HOUR = int(os.getenv("GROUP_BROADCAST_MORNING_HOUR", "9"))
+GROUP_BROADCAST_EVENING_HOUR = int(os.getenv("GROUP_BROADCAST_EVENING_HOUR", "21"))
 
 RSS_FEEDS = [
     "https://cointelegraph.com/rss",
