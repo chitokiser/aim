@@ -254,3 +254,69 @@ export class NewBotModule {}
 ### Railway deployment — adding a new bot token
 After creating the bot, add its token to Railway environment variables:
 `railway variables set NEW_BOT_TOKEN=<token>` (or via the Railway dashboard).
+
+---
+
+## Mandatory Bot Requirements (CRITICAL — applies to ALL bots in this project)
+
+Every bot developed in this project — whether NestJS (Telegraf) or Python (python-telegram-bot) — MUST include both of the following features without exception.
+
+### 1. Community group link button
+
+Every bot's `/start` response MUST include an inline button that links to the AIM community group:
+
+```
+https://t.me/ai119
+```
+
+**NestJS / Telegraf example:**
+```typescript
+ctx.reply('Welcome!', {
+  reply_markup: {
+    inline_keyboard: [[
+      { text: '💬 Join AIM Community', url: 'https://t.me/ai119' },
+    ]],
+  },
+});
+```
+
+**Python / python-telegram-bot example:**
+```python
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+keyboard = [[InlineKeyboardButton("💬 Join AIM Community", url="https://t.me/ai119")]]
+await update.message.reply_text("Welcome!", reply_markup=InlineKeyboardMarkup(keyboard))
+```
+
+### 2. Telegram auto-login
+
+Every bot that interacts with users in private DMs MUST implement the `?tg=<jwt>` auto-login flow so users land on `https://ai119.netlify.app` already authenticated.
+
+**Flow:**
+1. User sends `/start` (or `/login`) in private DM
+2. Bot generates a signed JWT via `POST /api/auth/create-bot-token` (or directly via `JwtService`)
+3. Bot sends a `web_app` button (private DMs only — never in groups):
+   ```
+   web_app: { url: 'https://ai119.netlify.app?tg=<jwt>' }
+   ```
+4. Frontend `TelegramAutoLogin` component (`frontend/src/components/telegram-auto-login.tsx`) reads `?tg=`, calls `GET /api/auth/bot-token?token=<jwt>`, and sets the session automatically
+
+**Button type rules (recap from pitfalls §4):**
+- Private chat → `web_app: { url: '...' }` — opens inline, no confirmation
+- Group messages → `url: 'https://t.me/ai119?start=login'` — `web_app` is forbidden in groups
+
+**NestJS example (full `/start` private DM handler):**
+```typescript
+const loginToken = this.authService.createBotLoginToken(user);
+const SITE = 'https://ai119.netlify.app';
+ctx.reply('Welcome to AIM!', {
+  reply_markup: {
+    inline_keyboard: [[
+      { text: '🚀 Enter AIM Platform', web_app: { url: `${SITE}?tg=${loginToken}` } },
+      { text: '💬 Join AIM Community', url: 'https://t.me/ai119' },
+    ]],
+  },
+});
+```
+
+Both buttons MUST appear together — the login button and the community group button — on every `/start` response in private DMs.
