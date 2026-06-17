@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
 import { FirebaseService } from '../../firebase/firebase.service';
 import { Markup } from 'telegraf';
-import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -93,11 +93,10 @@ const SCORE_WEIGHTS = {
 
 @Injectable()
 export class BizMatchBotService extends BaseTelegrafBotService {
-  private openai: OpenAI | null = null;
-  private model = 'gpt-4o-mini';
+  private anthropic: Anthropic | null = null;
+  private model = 'claude-opus-4-8';
   private readonly wizardSessions = new Map<number, WizardState>();
   private readonly findSessions = new Map<number, FindState>();
-  // Stores the last match results per user to allow saving full data on callback
   private readonly lastMatchResults = new Map<number, MatchResult[]>();
 
   constructor(
@@ -105,23 +104,21 @@ export class BizMatchBotService extends BaseTelegrafBotService {
     private readonly firebase: FirebaseService,
   ) {
     super();
-    const geminiKey = this.config.get<string>('GEMINI_API_KEY');
-    const openaiKey = this.config.get<string>('OPENAI_API_KEY');
-
-    if (geminiKey) {
-      this.openai = new OpenAI({
-        apiKey: geminiKey,
-        baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-      });
-      this.model = 'gemini-2.0-flash';
-    } else if (openaiKey) {
-      this.openai = new OpenAI({ apiKey: openaiKey });
-      this.model = 'gpt-4o-mini';
+    const anthropicKey = this.config.get<string>('ANTHROPIC_API_KEY');
+    if (anthropicKey && anthropicKey !== 'your-anthropic-api-key') {
+      this.anthropic = new Anthropic({ apiKey: anthropicKey });
     }
   }
 
   protected getBotToken(): string | undefined {
     return this.config.get<string>('BIZMATCH_BOT_TOKEN');
+  }
+
+  // ─── JSON extraction helper ─────────────────────────────────────────────────
+
+  private extractJSON(text: string): string {
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    return match ? match[1].trim() : text.trim();
   }
 
   // ─── Profile helpers ────────────────────────────────────────────────────────
@@ -228,17 +225,16 @@ export class BizMatchBotService extends BaseTelegrafBotService {
     candidates: SearchCandidate[],
     searchQuery: string,
   ): Promise<MatchResult[]> {
-    if (!this.openai || candidates.length === 0) {
+    if (!this.anthropic || candidates.length === 0) {
       return candidates.map((c) => ({
         candidate: c,
         totalScore: 50,
         breakdown: { location: 50, language: 50, skills: 50, interests: 50, activity: 50, trust: 50 },
-        summary: 'AI scoring unavailable. Configure OPENAI_API_KEY for detailed analysis.',
+        summary: 'AI scoring unavailable. Configure ANTHROPIC_API_KEY for detailed analysis.',
       }));
     }
 
-    const prompt = `
-You are an expert talent-matching AI. Score each candidate (0-100) on how well they match the user.
+    const prompt = `You are an expert talent-matching AI. Score each candidate (0-100) on how well they match the user.
 
 USER PROFILE:
 Name: ${myProfile.name}
@@ -260,28 +256,18 @@ Bio: ${c.bio ?? ''}
 Source: ${c.source}
 `).join('\n')}
 
-Return a JSON array with one object per candidate:
-{
-  "index": 0,
-  "location": <0-100>,
-  "language": <0-100>,
-  "skills": <0-100>,
-  "interests": <0-100>,
-  "activity": <0-100>,
-  "trust": <0-100>,
-  "summary": "<2-sentence match reason in English>"
-}`;
+Return ONLY a valid JSON array (no markdown, no explanation) with one object per candidate:
+[{"index":0,"location":<0-100>,"language":<0-100>,"skills":<0-100>,"interests":<0-100>,"activity":<0-100>,"trust":<0-100>,"summary":"<2-sentence match reason in English>"}]`;
 
     try {
-      const resp = await this.openai.chat.completions.create({
+      const resp = await this.anthropic.messages.create({
         model: this.model,
+        max_tokens: 2048,
         messages: [{ role: 'user', content: prompt }],
-        response_format: { type: 'json_object' },
-        temperature: 0.3,
       });
 
-      const raw = JSON.parse(resp.choices[0].message.content ?? '{"results":[]}');
-      const scores: Record<string, number>[] = Array.isArray(raw) ? raw : (raw.results ?? []);
+      const text = resp.content[0].type === 'text' ? resp.content[0].text : '[]';
+      const scores: Record<string, number>[] = JSON.parse(this.extractJSON(text));
 
       return candidates.map((c, i) => {
         const s = scores.find((x) => x.index === i) ?? {} as Record<string, number>;
@@ -304,7 +290,7 @@ Return a JSON array with one object per candidate:
         return { candidate: c, totalScore, breakdown, summary: String(s.summary ?? '') };
       });
     } catch (err) {
-      this.logger.error('OpenAI scoring failed', err);
+      this.logger.error('Claude scoring failed', err);
       return candidates.map((c) => ({
         candidate: c,
         totalScore: 50,
@@ -315,10 +301,11 @@ Return a JSON array with one object per candidate:
   }
 
   private async generateSearchQuery(myProfile: BizMatchProfile, description: string): Promise<string> {
-    if (!this.openai) return description;
+    if (!this.anthropic) return description;
     try {
-      const resp = await this.openai.chat.completions.create({
+      const resp = await this.anthropic.messages.create({
         model: this.model,
+        max_tokens: 200,
         messages: [{
           role: 'user',
           content: `Generate a web search query to find professionals matching:
@@ -327,10 +314,8 @@ Searcher skills: ${myProfile.skills}
 Searcher location: ${myProfile.location}
 Return only the search query, no explanation.`,
         }],
-        max_tokens: 100,
-        temperature: 0.3,
       });
-      return resp.choices[0].message.content?.trim() ?? description;
+      return resp.content[0].type === 'text' ? resp.content[0].text.trim() : description;
     } catch {
       return description;
     }
@@ -786,7 +771,7 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
 
       let candidates = rawResults;
 
-      if (candidates.length === 0 && this.openai) {
+      if (candidates.length === 0 && this.anthropic) {
         candidates = await this.synthesizeCandidates(profile, description);
       }
 
@@ -802,7 +787,6 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
       const scored = await this.scoreWithAI(profile, top5, description);
       scored.sort((a, b) => b.totalScore - a.totalScore);
 
-      // Store results in memory so save_fav can access full data
       this.lastMatchResults.set(userId, scored);
 
       await this.incrementMatchCount(profile);
@@ -829,23 +813,25 @@ _(e.g., "Looking for a React developer in Seoul with startup experience" or "Nee
   }
 
   private async synthesizeCandidates(profile: BizMatchProfile, description: string): Promise<SearchCandidate[]> {
-    if (!this.openai) return [];
+    if (!this.anthropic) return [];
     try {
-      const resp = await this.openai.chat.completions.create({
+      const resp = await this.anthropic.messages.create({
         model: this.model,
+        max_tokens: 2048,
         messages: [{
           role: 'user',
           content: `Generate 5 realistic professional profiles that match: "${description}"
 User searching: ${profile.skills} in ${profile.location}
 
-Return JSON array:
+Return ONLY a valid JSON array (no markdown, no explanation):
 [{"name":"...","role":"...","skills":"...","location":"...","languages":"...","bio":"...","profileUrl":"https://linkedin.com/in/example","source":"linkedin"}]`,
         }],
-        response_format: { type: 'json_object' },
-        temperature: 0.7,
       });
-      const raw = JSON.parse(resp.choices[0].message.content ?? '[]');
-      const arr: unknown[] = Array.isArray(raw) ? raw : (raw.profiles ?? raw.results ?? []);
+      const text = resp.content[0].type === 'text' ? resp.content[0].text : '[]';
+      const raw: unknown = JSON.parse(this.extractJSON(text));
+      const arr: unknown[] = Array.isArray(raw)
+        ? raw
+        : ((raw as Record<string, unknown>).profiles as unknown[] ?? (raw as Record<string, unknown>).results as unknown[] ?? []);
       return arr.map((item) => {
         const r = item as Record<string, unknown>;
         return {

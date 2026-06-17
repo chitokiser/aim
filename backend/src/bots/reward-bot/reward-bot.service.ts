@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { GroupJoinsService } from '../../group-joins/group-joins.service';
 import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
+import { Markup } from 'telegraf';
 
 @Injectable()
 export class RewardBotService extends BaseTelegrafBotService {
@@ -48,8 +49,14 @@ export class RewardBotService extends BaseTelegrafBotService {
         const chatId = ctx.chat.id;
         await ctx.telegram.sendMessage(
           chatId,
-          `✅ *AI119 Reward Bot 활성화*\n\n이 그룹의 회원 가입/퇴장을 모니터링합니다.\n광고주 미션의 그룹 ID: \`${chatId}\`\n\n이 ID를 AI119 광고주 페이지 → 그룹 가입 미션 → "그룹 ID" 항목에 입력하세요.`,
-          { parse_mode: 'Markdown' },
+          `✅ *AI119 Reward Bot 활성화*\n\n이 그룹의 회원 가입/퇴장을 모니터링합니다.\n광고주 미션의 그룹 ID: \`${chatId}\`\n\n이 ID를 AI119 광고주 페이지 → 그룹 가입 미션 → "그룹 ID" 항목에 입력하세요.\n\n아래 버튼으로 미션을 확인하세요 👇`,
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.url('🎯 AI119 미션 보기', 'https://ai119.netlify.app/missions')],
+              [Markup.button.url('🌐 AI119 커뮤니티', 'https://t.me/ai119')],
+            ]),
+          },
         ).catch(() => {});
       }
     });
