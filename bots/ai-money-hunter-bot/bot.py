@@ -50,6 +50,17 @@ async def post_init(app: Application):
     logger.info("Database initialized.")
     await app.bot.set_my_commands(BOT_COMMANDS)
     logger.info("Bot commands registered.")
+    scheduler = setup_scheduler(app.bot)
+    scheduler.start()
+    app.bot_data["scheduler"] = scheduler
+    logger.info("Scheduler started.")
+
+
+async def post_shutdown(app: Application):
+    scheduler = app.bot_data.get("scheduler")
+    if scheduler and scheduler.running:
+        scheduler.shutdown(wait=False)
+        logger.info("Scheduler stopped.")
 
 
 def main():
@@ -59,6 +70,7 @@ def main():
         .token(BOT_TOKEN)
         .request(request)
         .post_init(post_init)
+        .post_shutdown(post_shutdown)
         .build()
     )
 
@@ -80,11 +92,6 @@ def main():
 
     # Inline keyboard callbacks
     app.add_handler(CallbackQueryHandler(callback_refresh))
-
-    # Scheduler
-    scheduler = setup_scheduler(app.bot)
-    scheduler.start()
-    logger.info("Scheduler started.")
 
     logger.info("AI Money Hunter Bot is running...")
     app.run_polling(drop_pending_updates=True)

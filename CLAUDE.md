@@ -257,6 +257,67 @@ After creating the bot, add its token to Railway environment variables:
 
 ---
 
+## Railway Deployment Map (CRITICAL — read before deploying any bot)
+
+All bots deploy to the **`ai119-bot`** Railway project. Each bot is a separate **service** within that project.
+
+### Service → Directory mapping
+
+| Railway Service Name | Local Directory | Status |
+|---|---|---|
+| `ai119-bot` | `bots/ai-money-hunter-bot/` | deployed |
+| `football-predictor` | `bots/football-predictor/` | deployed |
+
+> **Warning:** Railway CLI tracks which service a directory is linked to. If you `railway up` from the wrong directory, you overwrite the wrong service. Always verify with `railway status` before deploying.
+
+### Deployment checklist for each bot
+
+**Step 1 — Navigate to the bot's directory:**
+```powershell
+cd bots/<bot-name>/
+```
+
+**Step 2 — Link to the correct service (run once per machine/clone):**
+```powershell
+railway service "<service-name>"
+# e.g. railway service "football-predictor"
+```
+
+**Step 3 — Verify linkage:**
+```powershell
+railway status
+# Must show: Service: <service-name>  ← check this before deploying!
+```
+
+**Step 4 — Deploy:**
+```powershell
+railway up --detach
+```
+
+**Step 5 — Set env vars (first deploy only, or when adding new keys):**
+```powershell
+Get-Content .env | Where-Object { $_ -match '^\s*\w+\s*=' -and $_ -notmatch '^\s*#' } | ForEach-Object { railway variables set "$_" }
+```
+
+### Required files in every Python bot directory
+
+- `Procfile` → `worker: python bot.py`
+- `railway.json` → see below
+
+```json
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": { "builder": "NIXPACKS" },
+  "deploy": {
+    "startCommand": "python bot.py",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 10
+  }
+}
+```
+
+---
+
 ## Mandatory Bot Requirements (CRITICAL — applies to ALL bots in this project)
 
 Every bot developed in this project — whether NestJS (Telegraf) or Python (python-telegram-bot) — MUST include both of the following features without exception.
@@ -320,3 +381,62 @@ ctx.reply('Welcome to AIM!', {
 ```
 
 Both buttons MUST appear together — the login button and the community group button — on every `/start` response in private DMs.
+
+---
+
+## Python Bot — APScheduler Pattern (CRITICAL — prevents bot from dying)
+
+### Root cause of "bot keeps dying"
+
+Using `AsyncIOScheduler` from APScheduler **before** `app.run_polling()` causes an event loop conflict:
+
+```python
+# WRONG — scheduler binds to the wrong event loop
+scheduler = setup_scheduler(app.bot)
+scheduler.start()
+app.run_polling(...)  # creates its OWN event loop via asyncio.run()
+```
+
+`app.run_polling()` internally calls `asyncio.run()`, creating a new event loop. The scheduler was started on a different (or non-running) loop, so when scheduled jobs fire, they raise `RuntimeError: Event loop is closed` and crash the bot.
+
+### Correct pattern — always start scheduler inside `post_init`
+
+```python
+async def post_init(app: Application):
+    await init_db()
+    scheduler = setup_scheduler(app.bot)
+    scheduler.start()
+    app.bot_data["scheduler"] = scheduler   # store for graceful shutdown
+
+async def post_shutdown(app: Application):
+    scheduler = app.bot_data.get("scheduler")
+    if scheduler and scheduler.running:
+        scheduler.shutdown(wait=False)
+
+def main():
+    app = (
+        Application.builder()
+        .token(BOT_TOKEN)
+        .post_init(post_init)
+        .post_shutdown(post_shutdown)   # ← required for clean exit
+        .build()
+    )
+    # Do NOT call scheduler.start() here
+    app.run_polling(drop_pending_updates=True)
+```
+
+`post_init` runs inside the event loop that `run_polling` manages, so the scheduler and telegram handlers share the same loop. This is the **only** correct way to use APScheduler with python-telegram-bot v20+.
+
+### Railway deployment files for Python bots
+
+Every Python bot under `bots/` needs both:
+- `Procfile` → `worker: python bot.py`
+- `railway.json` → `{ "deploy": { "startCommand": "python bot.py", "restartPolicyType": "ON_FAILURE" } }`
+
+Deploy to the existing `ai119-bot` Railway project as a new service:
+```bash
+cd bots/<bot-name>
+railway up --service "<bot-name>" --detach
+# Then set env vars:
+Get-Content .env | Where-Object { $_ -match '=' } | ForEach-Object { railway variables set "$_" --service "<bot-name>" }
+```

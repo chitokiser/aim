@@ -1,14 +1,17 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from config import AI119_COMMUNITY_URL, BOT_USERNAME
-
-AI119_BTN = InlineKeyboardButton("🤖 AI119 커뮤니티", url=AI119_COMMUNITY_URL)
-
-
-def community_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[AI119_BTN]])
+from config import AIM_SITE_URL, BOT_USERNAME
+from i18n import t
 
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
+def _site_btn(lang: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(t(lang, "site_btn"), url=AIM_SITE_URL)
+
+
+def community_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([[_site_btn(lang)]])
+
+
+def main_menu_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton("💰 Funding", callback_data="cmd_funding"),
@@ -42,45 +45,45 @@ def main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📅 Calendar", callback_data="cmd_calendar"),
             InlineKeyboardButton("⭐ Pro/VIP", callback_data="cmd_subscribe"),
         ],
-        [AI119_BTN],
+        [_site_btn(lang)],
     ])
 
 
-def category_keyboard(category: str) -> InlineKeyboardMarkup:
+def category_keyboard(category: str, lang: str = "en") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 새로고침", callback_data=f"cmd_{category}")],
-        [InlineKeyboardButton("🎯 Top 5", callback_data="cmd_top")],
-        [InlineKeyboardButton("🏠 메인 메뉴", callback_data="cmd_menu")],
-        [AI119_BTN],
+        [InlineKeyboardButton(t(lang, "refresh_btn"), callback_data=f"cmd_{category}")],
+        [InlineKeyboardButton(t(lang, "top5_btn"), callback_data="cmd_top")],
+        [InlineKeyboardButton(t(lang, "main_menu_btn"), callback_data="cmd_menu")],
+        [_site_btn(lang)],
     ])
 
 
-def subscription_keyboard() -> InlineKeyboardMarkup:
+def subscription_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⭐ Pro - $9.99/월", callback_data="sub_pro")],
-        [InlineKeyboardButton("👑 VIP - $29.99/월", callback_data="sub_vip")],
-        [InlineKeyboardButton("📊 내 구독 현황", callback_data="sub_status")],
-        [AI119_BTN],
+        [InlineKeyboardButton(t(lang, "pro_monthly_btn"), callback_data="sub_pro")],
+        [InlineKeyboardButton(t(lang, "vip_monthly_btn"), callback_data="sub_vip")],
+        [InlineKeyboardButton(t(lang, "my_sub_btn"), callback_data="sub_status")],
+        [_site_btn(lang)],
     ])
 
 
-def back_keyboard() -> InlineKeyboardMarkup:
+def back_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 메인 메뉴", callback_data="cmd_menu")],
-        [AI119_BTN],
+        [InlineKeyboardButton(t(lang, "main_menu_btn"), callback_data="cmd_menu")],
+        [_site_btn(lang)],
     ])
 
 
-def pro_feature_keyboard() -> InlineKeyboardMarkup:
+def pro_feature_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⭐ Pro/VIP 업그레이드", callback_data="cmd_subscribe")],
-        [AI119_BTN],
+        [InlineKeyboardButton(t(lang, "pro_upgrade_btn"), callback_data="cmd_subscribe")],
+        [_site_btn(lang)],
     ])
 
 
-def group_broadcast_keyboard() -> InlineKeyboardMarkup:
+def group_broadcast_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
     """Group-safe keyboard: url buttons only (web_app is forbidden in groups)."""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🤖 개인 분석 받기", url=f"https://t.me/{BOT_USERNAME}?start=group")],
-        [AI119_BTN],
+        [InlineKeyboardButton(t(lang, "get_analysis_btn"), url=f"https://t.me/{BOT_USERNAME}?start=group")],
+        [_site_btn(lang)],
     ])
