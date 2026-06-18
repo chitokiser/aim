@@ -252,7 +252,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "analysis_generating": "⏳ AI 분석 중... 잠시 기다려 주세요.",
         "analysis_unavailable": "❌ 현재 AI 분석을 이용할 수 없습니다.",
         "btn_daily": "📅 일일 보상",
-        "btn_predict": "⚽ 예측하기",
+        "btn_predict": "⚽ 배팅하기",
         "btn_ranking": "🏆 랭킹",
         "btn_profile": "👤 내 프로필",
         "btn_help": "❓ 도움말",

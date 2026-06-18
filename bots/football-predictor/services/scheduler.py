@@ -184,7 +184,7 @@ async def broadcast_pre_match_alert(app: Application) -> None:
 
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("⚽ 예측하기 / Predict Now", url=predict_url),
+                InlineKeyboardButton("⚽ 배팅하기 / Bet Now", url=predict_url),
                 InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
             ],
             [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
@@ -280,7 +280,7 @@ async def broadcast_live_update(app: Application) -> None:
 
         keyboard = InlineKeyboardMarkup([
             [
-                InlineKeyboardButton("⚽ 예측 참여 / Join Prediction", url=predict_url),
+                InlineKeyboardButton("⚽ 배팅 참여 / Join Bet", url=predict_url),
                 InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
             ],
             [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
@@ -345,7 +345,7 @@ async def broadcast_settlement_result(
 
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("⚽ 다음 경기 예측 / Next Match", url=predict_url),
+            InlineKeyboardButton("⚽ 다음 경기 배팅 / Next Match Bet", url=predict_url),
             InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
         ],
         [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
