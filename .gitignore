@@ -43,3 +43,6 @@ coverage/
 
 # Local Netlify folder
 .netlify
+
+# Railway CLI local auth token (global, not per-project)
+# .railway/config.json is intentionally committed — contains only project/service IDs, no secrets

@@ -259,16 +259,19 @@ After creating the bot, add its token to Railway environment variables:
 
 ## Railway Deployment Map (CRITICAL — read before deploying any bot)
 
-All bots deploy to the **`ai119-bot`** Railway project. Each bot is a separate **service** within that project.
+All bots deploy to the **`ai119-bot`** Railway project (project ID: `b848e338-3996-499f-a00c-20552a80bddc`). Each bot is a separate **service** within that project.
 
 ### Service → Directory mapping
 
-| Railway Service Name | Local Directory | Status |
-|---|---|---|
-| `ai119-bot` | `bots/ai-money-hunter-bot/` | deployed |
-| `football-predictor` | `bots/football-predictor/` | deployed |
+| Railway Service Name | Service ID | Local Directory | Status |
+|---|---|---|---|
+| `ai-money-hunter-bot` | `c6997810-ab00-401d-bd04-6c3d9a166ca2` | `bots/ai-money-hunter-bot/` | deployed |
+| `football-bot` | `65d9d6e8-dbe9-4958-b938-a7909589b17a` | `bots/football-predictor/` | deployed |
+| `ai119-bot` | `e8b90957-f2b0-4e48-ac07-c322e87f006c` | `backend/` (NestJS) | deployed |
 
-> **Warning:** Railway CLI tracks which service a directory is linked to. If you `railway up` from the wrong directory, you overwrite the wrong service. Always verify with `railway status` before deploying.
+> **CRITICAL:** `ai119-bot` is the **NestJS backend**, NOT the AI Money Hunter Bot. Never `railway up` from a bot directory while linked to `ai119-bot`.
+
+> **Service link is auto-fixed:** Each bot directory has a `.railway/config.json` that hard-codes the correct `serviceId`. The Railway CLI reads this automatically — `railway status` must confirm the correct service before any deploy.
 
 ### Deployment checklist for each bot
 
@@ -277,16 +280,18 @@ All bots deploy to the **`ai119-bot`** Railway project. Each bot is a separate *
 cd bots/<bot-name>/
 ```
 
-**Step 2 — Link to the correct service (run once per machine/clone):**
+**Step 2 — Verify `.railway/config.json` exists (it should — it's committed).**
+If missing, re-link manually (run once):
 ```powershell
 railway service "<service-name>"
-# e.g. railway service "football-predictor"
+# ai-money-hunter-bot → "ai-money-hunter-bot"
+# football-predictor  → "football-bot"
 ```
 
-**Step 3 — Verify linkage:**
+**Step 3 — Verify linkage (MANDATORY before every deploy):**
 ```powershell
 railway status
-# Must show: Service: <service-name>  ← check this before deploying!
+# Must show: Service: <exact-service-name>  ← stop if wrong!
 ```
 
 **Step 4 — Deploy:**
