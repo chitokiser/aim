@@ -131,12 +131,12 @@ export class GroupJoinsService {
     const snap = await this.firebase
       .collection('group_joins')
       .where('status', '==', 'pending')
-      .where('rewardAfter', '<=', now)
       .get();
 
-    this.logger.log(`Checking ${snap.size} matured join(s)`);
+    const matured = snap.docs.filter(doc => (doc.data().rewardAfter as string) <= now);
+    this.logger.log(`Checking ${matured.length} matured join(s)`);
 
-    for (const doc of snap.docs) {
+    for (const doc of matured) {
       await this.processMatureJoin(doc);
     }
   }
