@@ -47,7 +47,7 @@ async def broadcast_morning(bot: Bot):
                 chat_id=sub.chat_id,
                 text=text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=with_partner(),
+                reply_markup=with_partner("ko"),
             )
             success += 1
             await asyncio.sleep(0.05)  # Avoid hitting rate limits
@@ -77,7 +77,7 @@ async def broadcast_evening(bot: Bot):
                 chat_id=sub.chat_id,
                 text=text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=with_partner(),
+                reply_markup=with_partner("ko"),
             )
             success += 1
             await asyncio.sleep(0.05)
@@ -117,7 +117,7 @@ async def check_spikes(bot: Bot):
                             chat_id=sub.chat_id,
                             text=text,
                             parse_mode=ParseMode.MARKDOWN,
-                            reply_markup=with_partner(),
+                            reply_markup=with_partner("ko"),
                         )
                         await asyncio.sleep(0.05)
                     except Exception:

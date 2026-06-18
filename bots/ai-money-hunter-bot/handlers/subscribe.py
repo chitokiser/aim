@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
 from database import upsert_subscriber, set_subscribed, get_subscriber
+from i18n import detect_lang, t
 from utils.keyboards import with_partner
 
 
@@ -12,6 +13,7 @@ async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
     is_group = chat.type in ("group", "supergroup")
+    lang = detect_lang(user.language_code if user else None)
 
     await upsert_subscriber(
         chat_id=chat.id,
@@ -23,28 +25,25 @@ async def cmd_subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     sub = await get_subscriber(chat.id)
     if sub and sub.subscribed:
         await update.message.reply_text(
-            "✅ 이미 알림을 구독 중입니다!\n\n"
-            "⏰ 매일 오전 9시 돈벌이 아이디어 + 오후 6시 시장 브리핑을 받으실 거예요.",
-            reply_markup=with_partner(),
+            t(lang, "subscribe_already"),
+            reply_markup=with_partner(lang),
         )
         return
 
     await set_subscribed(chat.id, True)
     await update.message.reply_text(
-        "🔔 *알림 구독 완료!*\n\n"
-        "⏰ 매일 받게 될 정보:\n"
-        "• 오전 9시: 오늘의 돈벌이 아이디어\n"
-        "• 오후 6시: 글로벌 시장 브리핑\n\n"
-        "알림을 끄려면 /unsubscribe 를 사용하세요.",
+        t(lang, "subscribe_success"),
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=with_partner(),
+        reply_markup=with_partner(lang),
     )
 
 
 async def cmd_unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
+    user = update.effective_user
+    lang = detect_lang(user.language_code if user else None)
     await set_subscribed(chat.id, False)
     await update.message.reply_text(
-        "🔕 알림이 해제되었습니다.\n\n다시 구독하려면 /subscribe 를 사용하세요.",
-        reply_markup=with_partner(),
+        t(lang, "unsubscribe_success"),
+        reply_markup=with_partner(lang),
     )

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 _STRINGS: dict[str, dict[str, str]] = {
     "en": {
+        "subscribe_already": "✅ You're already subscribed!\n\n⏰ You'll receive a daily hustle idea at 9 AM and a market briefing at 6 PM.",
+        "subscribe_success": "🔔 *Subscribed!*\n\n⏰ You'll receive daily:\n• 9 AM: Today's opportunity\n• 6 PM: Global market briefing\n\nTo unsubscribe: /unsubscribe",
+        "unsubscribe_success": "🔕 Notifications disabled.\n\nTo re-subscribe: /subscribe",
         "welcome_user": (
             "💰 *AI Money Hunter Bot*\n\n"
             "Welcome, *{name}*!\n\n"
@@ -51,6 +54,9 @@ _STRINGS: dict[str, dict[str, str]] = {
         "btn_community": "💬 AI119 Community",
     },
     "ko": {
+        "subscribe_already": "✅ 이미 알림을 구독 중입니다!\n\n⏰ 매일 오전 9시 돈벌이 아이디어 + 오후 6시 시장 브리핑을 받으실 거예요.",
+        "subscribe_success": "🔔 *알림 구독 완료!*\n\n⏰ 매일 받게 될 정보:\n• 오전 9시: 오늘의 돈벌이 아이디어\n• 오후 6시: 글로벌 시장 브리핑\n\n알림을 끄려면 /unsubscribe 를 사용하세요.",
+        "unsubscribe_success": "🔕 알림이 해제되었습니다.\n\n다시 구독하려면 /subscribe 를 사용하세요.",
         "welcome_user": (
             "💰 *AI Money Hunter Bot*에 오신 것을 환영합니다, *{name}*님!\n\n"
             "🤖 저는 AI가 분석한 최신 돈벌이 기회와 글로벌 시장 정보를 매일 제공합니다.\n\n"
@@ -98,6 +104,9 @@ _STRINGS: dict[str, dict[str, str]] = {
         "btn_community": "💬 AI119 커뮤니티",
     },
     "vi": {
+        "subscribe_already": "✅ Bạn đã đăng ký thông báo rồi!\n\n⏰ Bạn sẽ nhận ý tưởng kiếm tiền lúc 9 SA và bản tin thị trường lúc 6 CH hàng ngày.",
+        "subscribe_success": "🔔 *Đăng ký thành công!*\n\n⏰ Hàng ngày bạn sẽ nhận:\n• 9 SA: Cơ hội hôm nay\n• 6 CH: Bản tin thị trường\n\nHủy đăng ký: /unsubscribe",
+        "unsubscribe_success": "🔕 Đã tắt thông báo.\n\nĐăng ký lại: /subscribe",
         "welcome_user": (
             "💰 *AI Money Hunter Bot*\n\n"
             "Chào mừng, *{name}*!\n\n"

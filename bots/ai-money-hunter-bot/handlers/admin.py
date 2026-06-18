@@ -67,7 +67,7 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=sub.chat_id,
                 text=text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=with_partner(),
+                reply_markup=with_partner("ko"),
             )
             success += 1
         except Exception:
