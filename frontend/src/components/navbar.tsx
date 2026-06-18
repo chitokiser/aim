@@ -14,7 +14,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Coins, Trophy, Target, Home, LayoutDashboard, Megaphone, Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel } from "lucide-react";
+import {
+  Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
+  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
@@ -26,22 +29,39 @@ const LANG_OPTIONS: { code: Lang; label: string }[] = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, logout } = useAuthStore();
+  const { user, logout, token, setUser } = useAuthStore();
   const { lang, setLang, t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const navLinks = [
+  // Refresh AP balance from Firestore on mount so nav always shows live value
+  useEffect(() => {
+    if (!token) return;
+    const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+    fetch(`${API}/api/users/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (data) setUser(data); })
+      .catch(() => {});
+  }, [token, setUser]);
+
+  const primaryLinks = [
     { href: "/", label: t.nav.home, icon: Home },
     { href: "/missions", label: t.nav.missions, icon: Target },
+    { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
+    { href: "/topup", label: t.nav.topup, icon: Zap },
+  ];
+
+  const serviceLinks = [
     { href: "/advertiser", label: t.nav.advertiser, icon: Megaphone },
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
     { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
     { href: "/auction", label: t.nav.auction, icon: Gavel },
-    { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
-    { href: "/topup", label: t.nav.topup, icon: Zap },
   ];
+
+  const isServiceActive = serviceLinks.some((l) => pathname === l.href);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -60,7 +80,7 @@ export function Navbar() {
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex items-center gap-1">
-          {navLinks.map(({ href, label, icon: Icon }) => (
+          {primaryLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -73,6 +93,31 @@ export function Navbar() {
               {label}
             </Link>
           ))}
+
+          {/* Services dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                  isServiceActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                )}
+              >
+                {t.nav.services}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {serviceLinks.map(({ href, label, icon: Icon }) => (
+                <DropdownMenuItem key={href} asChild>
+                  <Link href={href} className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </nav>
 
         {/* Right side */}
@@ -198,7 +243,7 @@ export function Navbar() {
       {/* Mobile Nav */}
       {mobileOpen && (
         <div className="md:hidden border-t bg-background px-4 py-3 space-y-1">
-          {navLinks.map(({ href, label, icon: Icon }) => (
+          {primaryLinks.map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
               href={href}
@@ -212,6 +257,22 @@ export function Navbar() {
               {label}
             </Link>
           ))}
+          <div className="pt-1 border-t mt-1">
+            {serviceLinks.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent",
+                  pathname === href ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </div>
           {(mounted && user) && (
             <div className="pt-2 border-t mt-2 space-y-1">
               <div className="flex items-center gap-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 px-3 py-1.5 w-fit mb-2">
@@ -237,38 +298,6 @@ export function Navbar() {
                   {t.nav.admin}
                 </Link>
               )}
-              <Link
-                href="/marketplace"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-green-600 hover:bg-accent transition-colors"
-              >
-                <Store className="h-4 w-4" />
-                {t.nav.marketplace}
-              </Link>
-              <Link
-                href="/creative-market"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-pink-600 hover:bg-accent transition-colors"
-              >
-                <Sparkles className="h-4 w-4" />
-                {t.nav.creativeMarket}
-              </Link>
-              <Link
-                href="/auction"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-amber-600 hover:bg-accent transition-colors"
-              >
-                <Gavel className="h-4 w-4" />
-                {t.nav.auction}
-              </Link>
-              <Link
-                href="/advertiser"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-cyan-600 hover:bg-accent transition-colors"
-              >
-                <Megaphone className="h-4 w-4" />
-                {t.nav.advertiser}
-              </Link>
               <button
                 onClick={() => { logout(); setMobileOpen(false); }}
                 className="flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
