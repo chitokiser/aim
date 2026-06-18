@@ -122,8 +122,11 @@ async def fetch_live_score(external_id: int) -> dict | None:
     home_score = full_time.get("home") or 0
     away_score = full_time.get("away") or 0
 
+    elapsed = data.get("minute")  # minute elapsed (int or None)
+
     return {
         "home_score": home_score,
         "away_score": away_score,
         "status": status,
+        "elapsed": elapsed,
     }

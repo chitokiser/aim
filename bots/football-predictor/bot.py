@@ -125,9 +125,9 @@ def main() -> None:
         job_queue.run_repeating(
             _pre_match_alert_job, interval=300, first=60, name="pre_match_alert"
         )
-        # Live update: broadcast score to group every 10 minutes
+        # Live update: broadcast score briefing to group every 15 minutes
         job_queue.run_repeating(
-            _live_update_job, interval=600, first=180, name="live_update"
+            _live_update_job, interval=900, first=180, name="live_update"
         )
 
     logger.info("⚽ AI119 Football Predictor starting...")

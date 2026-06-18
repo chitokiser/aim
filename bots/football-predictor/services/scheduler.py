@@ -6,13 +6,14 @@ from datetime import datetime, timedelta, timezone
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application
 
-from config import DAILY_AP, GROUP_CHAT_ID, SITE_URL
+from config import GROUP_CHAT_ID, SITE_URL
 from database import AsyncSessionLocal, Match, count_predictions_for_match, get_all_user_telegram_ids
 
 logger = logging.getLogger(__name__)
 
-# Tracks match IDs that already received a 1-hour pre-match alert (resets on restart)
-_pre_alert_sent: set[int] = set()
+# Tracks (match_id, hours_before) pairs that already received a pre-match alert.
+# Hours 1–12 are broadcast once per hour starting 12h before kick-off.
+_pre_alert_sent: set[tuple[int, int]] = set()
 
 
 async def sync_api_matches() -> None:
@@ -86,7 +87,7 @@ async def auto_settle_finished(app: Application | None = None) -> None:
 
 
 async def daily_reminder(app: Application) -> None:
-    """Send a reminder to all users to claim their daily AP."""
+    """Send a reminder to all users to claim their daily P points."""
     async with AsyncSessionLocal() as session:
         telegram_ids = await get_all_user_telegram_ids(session)
 
@@ -108,29 +109,45 @@ async def daily_reminder(app: Application) -> None:
 
 
 async def broadcast_pre_match_alert(app: Application) -> None:
-    """Send 1-hour pre-match alert to GROUP_CHAT_ID for upcoming matches."""
+    """Broadcast hourly pre-match marketing to GROUP_CHAT_ID for 12 hours before kick-off.
+
+    Each match gets one broadcast per hour: 12h, 11h, 10h, ... 1h before kick-off.
+    The job runs every 5 minutes; we fire when we're within ±5 min of the target slot.
+    """
     if not GROUP_CHAT_ID:
         return
 
     from sqlalchemy import select
 
     now_utc = datetime.now(timezone.utc)
-    # Window: matches kicking off 55–65 minutes from now
-    window_start = (now_utc + timedelta(minutes=55)).replace(tzinfo=None)
-    window_end = (now_utc + timedelta(minutes=65)).replace(tzinfo=None)
+    now_naive = now_utc.replace(tzinfo=None)
+    # Look ahead 12.5 hours to catch the 12h slot
+    window_end = (now_utc + timedelta(hours=12, minutes=30)).replace(tzinfo=None)
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(
             select(Match).where(
                 Match.status == "scheduled",
-                Match.match_time >= window_start,
+                Match.match_time > now_naive,
                 Match.match_time <= window_end,
             )
         )
         upcoming = list(result.scalars().all())
 
     for match in upcoming:
-        if match.id in _pre_alert_sent:
+        minutes_remaining = (match.match_time - now_naive).total_seconds() / 60
+
+        # Determine which hourly slot (1–12 h before kick-off)
+        hours_before = round(minutes_remaining / 60)
+        if hours_before < 1 or hours_before > 12:
+            continue
+
+        # Only send within a ±5-minute window around the target slot
+        target_minutes = hours_before * 60
+        if abs(minutes_remaining - target_minutes) > 5:
+            continue
+
+        if (match.id, hours_before) in _pre_alert_sent:
             continue
 
         bot_username = app.bot.username or ""
@@ -140,15 +157,29 @@ async def broadcast_pre_match_alert(app: Application) -> None:
             else "https://t.me/ai119"
         )
 
+        if hours_before == 1:
+            countdown_ko = "⏰ 킥오프까지 *1시간* 남았습니다!"
+            countdown_en = "⏰ *1 hour* until kick-off!"
+            countdown_vi = "⏰ Còn *1 giờ* nữa là kick-off!"
+        else:
+            countdown_ko = f"⏰ 킥오프까지 *{hours_before}시간* 남았습니다!"
+            countdown_en = f"⏰ *{hours_before} hours* until kick-off!"
+            countdown_vi = f"⏰ Còn *{hours_before} giờ* nữa là kick-off!"
+
         text = (
-            f"⚽ *경기 예고! / Match Alert!*\n\n"
+            f"🔥 *경기 예고! / Match Countdown!*\n\n"
             f"🏆 {match.league}\n"
             f"🆚 *{match.home_team}* vs *{match.away_team}*\n"
-            f"⏰ 약 1시간 후 킥오프! / Kick-off in ~1 hour!\n\n"
-            f"🎯 무료 P로 승무패를 예측하고 포인트를 획득하세요!\n"
-            f"🎯 Predict 1X2 with free daily P and win points!\n"
-            f"🎯 Dự đoán 1X2 bằng P miễn phí để nhận thưởng!\n\n"
-            f"🎟️ 매일 *10,000 P* 무료 지급 / *10,000 P* free every day!"
+            f"{countdown_ko}\n"
+            f"{countdown_en}\n"
+            f"{countdown_vi}\n\n"
+            f"🎯 무료 *P포인트*로 승무패를 맞춰보세요!\n"
+            f"🎯 Predict 1X2 using your free *P points* and win!\n"
+            f"🎯 Dùng *P miễn phí* để dự đoán kết quả!\n\n"
+            f"💡 P포인트로 AI119 유료 서비스 이용 가능!\n"
+            f"💡 Use P points for AI119 premium services!\n"
+            f"💡 Dùng điểm P để trải nghiệm dịch vụ trả phí AI119!\n\n"
+            f"🎟️ 매일 *10,000 P* 무료! /daily 로 수령하세요"
         )
 
         keyboard = InlineKeyboardMarkup([
@@ -156,7 +187,7 @@ async def broadcast_pre_match_alert(app: Application) -> None:
                 InlineKeyboardButton("⚽ 예측하기 / Predict Now", url=predict_url),
                 InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
             ],
-            [InlineKeyboardButton("💎 스폰서 / Sponsor — AI119", url=SITE_URL)],
+            [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
         ])
 
         try:
@@ -166,17 +197,17 @@ async def broadcast_pre_match_alert(app: Application) -> None:
                 parse_mode="Markdown",
                 reply_markup=keyboard,
             )
-            _pre_alert_sent.add(match.id)
+            _pre_alert_sent.add((match.id, hours_before))
             logger.info(
-                "Pre-match alert sent for match %d (%s vs %s)",
-                match.id, match.home_team, match.away_team,
+                "Pre-match alert sent for match %d (%s vs %s) — %dh before",
+                match.id, match.home_team, match.away_team, hours_before,
             )
         except Exception as exc:
             logger.error("Failed to send pre-match alert: %s", exc)
 
 
 async def broadcast_live_update(app: Application) -> None:
-    """Send live score update to GROUP_CHAT_ID every 10 minutes for ongoing matches."""
+    """Send live score briefing to GROUP_CHAT_ID every 15 minutes for ongoing matches."""
     if not GROUP_CHAT_ID:
         return
 
@@ -184,6 +215,7 @@ async def broadcast_live_update(app: Application) -> None:
     from sqlalchemy import select
 
     now_utc = datetime.now(timezone.utc)
+    # Matches started up to 3 hours ago (covers 90 min + extra time)
     cutoff = (now_utc - timedelta(hours=3)).replace(tzinfo=None)
     now_naive = now_utc.replace(tzinfo=None)
 
@@ -212,6 +244,7 @@ async def broadcast_live_update(app: Application) -> None:
             pred_count = await count_predictions_for_match(session, match.id)
 
         score_line = f"*{match.home_team}* vs *{match.away_team}* — 경기 진행 중 / In Progress"
+        elapsed_label = ""
 
         if match.external_id:
             live_data = await fetch_live_score(match.external_id)
@@ -225,23 +258,32 @@ async def broadcast_live_update(app: Application) -> None:
                 }
                 status_label = status_map.get(live_data["status"], live_data["status"])
                 score_line = (
-                    f"*{match.home_team}* {hs} - {aws} *{match.away_team}*\n"
+                    f"*{match.home_team}* {hs} — {aws} *{match.away_team}*\n"
                     f"🔴 {status_label}"
                 )
+                elapsed_min = live_data.get("elapsed")
+                if elapsed_min:
+                    elapsed_label = f"⏱ {elapsed_min}분 경과 / {elapsed_min} min elapsed\n"
 
         text = (
-            f"📡 *경기 중계 / Live Update*\n\n"
+            f"📡 *경기 중계 / Live Briefing*\n\n"
             f"🏆 {match.league}\n"
-            f"⚽ {score_line}\n\n"
+            f"⚽ {score_line}\n"
+            f"{elapsed_label}\n"
             f"👥 예측 참여자: *{pred_count}명* / Predictors: *{pred_count}*\n\n"
             f"🎯 아직 예측하지 않았다면 지금 참여하세요!\n"
             f"🎯 Haven't predicted yet? Join now!\n"
-            f"🎯 Chưa dự đoán? Tham gia ngay!"
+            f"🎯 Chưa dự đoán? Tham gia ngay!\n\n"
+            f"💡 P포인트로 AI119 유료 서비스 이용 가능!\n"
+            f"💡 Use P points for AI119 premium services!"
         )
 
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("⚽ 예측 참여 / Join Prediction", url=predict_url)],
-            [InlineKeyboardButton("💎 스폰서 / Sponsor — AI119", url=SITE_URL)],
+            [
+                InlineKeyboardButton("⚽ 예측 참여 / Join Prediction", url=predict_url),
+                InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
+            ],
+            [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
         ])
 
         try:
@@ -252,11 +294,11 @@ async def broadcast_live_update(app: Application) -> None:
                 reply_markup=keyboard,
             )
             logger.info(
-                "Live update sent for match %d (%s vs %s)",
+                "Live briefing sent for match %d (%s vs %s)",
                 match.id, match.home_team, match.away_team,
             )
         except Exception as exc:
-            logger.error("Failed to send live update: %s", exc)
+            logger.error("Failed to send live briefing: %s", exc)
 
 
 async def broadcast_settlement_result(
@@ -281,14 +323,17 @@ async def broadcast_settlement_result(
     text = (
         f"✅ *경기 종료! / Full Time!*\n\n"
         f"🏆 {match.league}\n"
-        f"⚽ *{match.home_team}* {home_score} - {away_score} *{match.away_team}*\n\n"
+        f"⚽ *{match.home_team}* {home_score} — {away_score} *{match.away_team}*\n\n"
         f"{result_text}\n\n"
         f"📊 *정산 결과 / Settlement Results*\n"
         f"👥 승리자: *{winners}명* / Winners: *{winners}*\n"
-        f"💰 총 지급 AP: *{payout:,} AP*\n\n"
-        f"🎯 다음 경기를 예측하고 더 많은 AP를 획득하세요!\n"
-        f"🎯 Predict the next match and win more AP!\n"
-        f"🎯 Dự đoán trận tiếp theo để nhận thêm AP!"
+        f"💰 총 지급: *{payout:,} AP* (예측 적중 보상)\n\n"
+        f"🎟️ P포인트는 AI119 유료 서비스에 사용할 수 있습니다!\n"
+        f"🎟️ Use your P points for AI119 premium services!\n"
+        f"🎟️ Dùng điểm P để trải nghiệm dịch vụ AI119!\n\n"
+        f"🎯 다음 경기를 예측하고 AP를 획득하세요!\n"
+        f"🎯 Predict the next match and win AP!\n"
+        f"🎯 Dự đoán trận tiếp theo để nhận AP!"
     )
 
     bot_username = app.bot.username or ""
@@ -303,7 +348,7 @@ async def broadcast_settlement_result(
             InlineKeyboardButton("⚽ 다음 경기 예측 / Next Match", url=predict_url),
             InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
         ],
-        [InlineKeyboardButton("💎 스폰서 / Sponsor — AI119", url=SITE_URL)],
+        [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
     ])
 
     try:
