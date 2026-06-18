@@ -384,6 +384,20 @@ def _evaluate_prediction(
     return False
 
 
+async def get_user_predictions_with_matches(
+    session: AsyncSession, user_id: int, limit: int = 20
+) -> list[tuple[Prediction, Match]]:
+    """Return recent predictions joined with match data, newest first."""
+    result = await session.execute(
+        select(Prediction, Match)
+        .join(Match, Prediction.match_id == Match.id)
+        .where(Prediction.user_id == user_id)
+        .order_by(Prediction.created_at.desc())
+        .limit(limit)
+    )
+    return [(row.Prediction, row.Match) for row in result.all()]
+
+
 # ---------------------------------------------------------------------------
 # Ranking helpers
 # ---------------------------------------------------------------------------

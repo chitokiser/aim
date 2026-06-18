@@ -6,8 +6,22 @@ from groq import AsyncGroq
 from tavily import TavilyClient
 from config import GROQ_API_KEY, GROQ_MODEL, TAVILY_API_KEY
 
-groq_client = AsyncGroq(api_key=GROQ_API_KEY)
-tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+_groq_client: AsyncGroq | None = None
+_tavily_client: TavilyClient | None = None
+
+
+def _groq() -> AsyncGroq:
+    global _groq_client
+    if _groq_client is None:
+        _groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+    return _groq_client
+
+
+def _tavily() -> TavilyClient:
+    global _tavily_client
+    if _tavily_client is None:
+        _tavily_client = TavilyClient(api_key=TAVILY_API_KEY)
+    return _tavily_client
 
 HUSTLE_SYSTEM = """You are an AI money opportunity analyst.
 You analyze current internet trends and generate actionable side hustle ideas.
@@ -35,7 +49,7 @@ Write in Korean. Be concise and actionable. Use bullet points."""
 
 async def _search_trends(query: str) -> str:
     def _run():
-        result = tavily_client.search(
+        result = _tavily().search(
             query=query,
             search_depth="advanced",
             max_results=5,
@@ -56,7 +70,7 @@ async def generate_hustle_idea() -> dict:
         "best AI side hustle opportunities 2025 make money online trending now"
     )
 
-    response = await groq_client.chat.completions.create(
+    response = await _groq().chat.completions.create(
         model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": HUSTLE_SYSTEM},
@@ -135,7 +149,7 @@ async def analyze_trends() -> str:
 
     combined = "\n\n---\n\n".join(contexts)
 
-    response = await groq_client.chat.completions.create(
+    response = await _groq().chat.completions.create(
         model=GROQ_MODEL,
         messages=[
             {"role": "system", "content": TREND_SYSTEM},

@@ -185,7 +185,7 @@ async def broadcast_pre_match_alert(app: Application) -> None:
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("⚽ 배팅하기 / Bet Now", url=predict_url),
-                InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
+                InlineKeyboardButton("⚽ Football Community", url="https://t.me/globalSoccer_b"),
             ],
             [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
         ])
@@ -281,7 +281,7 @@ async def broadcast_live_update(app: Application) -> None:
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("⚽ 배팅 참여 / Join Bet", url=predict_url),
-                InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
+                InlineKeyboardButton("⚽ Football Community", url="https://t.me/globalSoccer_b"),
             ],
             [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
         ])
@@ -327,13 +327,13 @@ async def broadcast_settlement_result(
         f"{result_text}\n\n"
         f"📊 *정산 결과 / Settlement Results*\n"
         f"👥 승리자: *{winners}명* / Winners: *{winners}*\n"
-        f"💰 총 지급: *{payout:,} AP* (예측 적중 보상)\n\n"
-        f"🎟️ P포인트는 AI119 유료 서비스에 사용할 수 있습니다!\n"
+        f"🏅 승리자 총 지급: *{payout:,} P*\n\n"
+        f"🎟️ P포인트로 AI119 유료 서비스를 이용하세요!\n"
         f"🎟️ Use your P points for AI119 premium services!\n"
         f"🎟️ Dùng điểm P để trải nghiệm dịch vụ AI119!\n\n"
-        f"🎯 다음 경기를 예측하고 AP를 획득하세요!\n"
-        f"🎯 Predict the next match and win AP!\n"
-        f"🎯 Dự đoán trận tiếp theo để nhận AP!"
+        f"🎯 다음 경기를 예측하고 P 포인트를 획득하세요!\n"
+        f"🎯 Predict the next match and earn more P!\n"
+        f"🎯 Dự đoán trận tiếp theo để nhận thêm P!"
     )
 
     bot_username = app.bot.username or ""
@@ -346,7 +346,7 @@ async def broadcast_settlement_result(
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("⚽ 다음 경기 배팅 / Next Match Bet", url=predict_url),
-            InlineKeyboardButton("💬 AIM Community", url="https://t.me/ai119"),
+            InlineKeyboardButton("⚽ Football Community", url="https://t.me/globalSoccer_b"),
         ],
         [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
     ])

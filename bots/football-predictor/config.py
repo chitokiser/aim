@@ -14,7 +14,7 @@ WELCOME_BONUS_P = int(os.getenv("WELCOME_BONUS_P", "10000"))
 GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "")
 
 SITE_URL = "https://ai119.netlify.app"
-COMMUNITY_URL = "https://t.me/ai119"
+COMMUNITY_URL = "https://t.me/globalSoccer_b"
 
 # Payout multipliers per prediction type
 MULTIPLIERS = {

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytz
 
-from database import Match, User
+from database import Match, Prediction, User
 from i18n import t
 
 KST = pytz.timezone("Asia/Seoul")
@@ -63,6 +63,64 @@ def format_profile(user: User, lang: str) -> str:
         streak=user.streak_days,
         achievements=achievements,
     )
+
+
+def format_bet_history(
+    preds_with_matches: list[tuple[Prediction, Match]],
+    user: User,
+    lang: str,
+) -> str:
+    name = user.first_name or user.username or "User"
+    rate = 0
+    if user.total_predicted > 0:
+        rate = round(user.correct_predictions / user.total_predicted * 100, 1)
+
+    stats_line = t(
+        lang,
+        "bets_stats",
+        total=user.total_predicted,
+        correct=user.correct_predictions,
+        rate=rate,
+    )
+
+    active: list[str] = []
+    past: list[str] = []
+
+    for pred, match in preds_with_matches:
+        type_label = get_type_label(lang, pred.pred_type)
+        value_label = get_value_label(lang, pred.pred_type, pred.pred_value)
+        currency = pred.stake_currency.upper()
+        match_line = f"⚽ {match.home_team} vs {match.away_team}"
+        stake_line = f"{currency} {pred.stake_ap:,} → {currency} {pred.payout_ap:,}"
+        pred_line = f"📊 {type_label}: *{value_label}*"
+
+        if pred.status == "pending":
+            time_str = format_time(match.match_time)
+            active.append(
+                f"• {match_line}\n  {pred_line}\n  💸 {stake_line}\n  🕐 {time_str}"
+            )
+        elif pred.status == "won":
+            past.append(f"• ✅ {match_line} — {value_label} (+{pred.payout_ap:,} {currency})")
+        elif pred.status == "lost":
+            past.append(f"• ❌ {match_line} — {value_label} (−{pred.stake_ap:,} {currency})")
+        elif pred.status == "cancelled":
+            past.append(f"• 🚫 {match_line} — {value_label} (refunded)")
+
+    parts: list[str] = [f"*{name}* — {t(lang, 'bets_title')}", "", stats_line, ""]
+
+    if active:
+        parts.append(t(lang, "bets_active"))
+        parts.extend(active)
+        parts.append("")
+
+    if past:
+        parts.append(t(lang, "bets_past"))
+        parts.extend(past[:15])
+
+    if not active and not past:
+        parts.append(t(lang, "bets_empty"))
+
+    return "\n".join(parts)
 
 
 def get_value_label(lang: str, pred_type: str, pred_value: str) -> str:

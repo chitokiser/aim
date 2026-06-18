@@ -7,10 +7,12 @@ import pytz
 from telegram import Update
 from telegram.ext import ContextTypes
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
 from config import DAILY_P, WELCOME_BONUS_P, COMMUNITY_URL, SITE_URL
-from database import AsyncSessionLocal, claim_daily, get_or_create_user, get_user
+from database import AsyncSessionLocal, claim_daily, get_or_create_user, get_user, get_user_predictions_with_matches
 from i18n import detect_lang, t
-from utils.formatters import format_profile
+from utils.formatters import format_bet_history, format_profile
 from utils.keyboards import main_menu
 
 logger = logging.getLogger(__name__)
@@ -23,8 +25,31 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     tg_user = update.effective_user
+    chat = update.effective_chat
     lang = detect_lang(tg_user.language_code)
 
+    # In group/supergroup: redirect users to private DM
+    if chat and chat.type in ("group", "supergroup"):
+        bot_username = context.bot.username or ""
+        dm_url = f"https://t.me/{bot_username}?start=hello"
+        group_keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🤖 봇 DM 시작 / Start Bot", url=dm_url),
+                InlineKeyboardButton("⚽ Football Community", url=COMMUNITY_URL),
+            ],
+            [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
+        ])
+        await update.message.reply_text(
+            "⚽ *AI119 Football Predictor*\n\n"
+            "📩 아래 버튼을 눌러 봇과 1:1 대화를 시작하세요!\n"
+            "📩 Tap the button below to start the bot in private!\n"
+            "📩 Nhấn nút bên dưới để bắt đầu bot riêng tư!",
+            parse_mode="Markdown",
+            reply_markup=group_keyboard,
+        )
+        return
+
+    # Private chat: full onboarding
     async with AsyncSessionLocal() as session:
         user, is_new = await get_or_create_user(
             session,
@@ -34,7 +59,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             language=lang,
             welcome_p=WELCOME_BONUS_P,
         )
-        ap_balance = user.ap_balance
         p_balance = user.p_balance
 
     name = tg_user.first_name or tg_user.username or "User"
@@ -47,7 +71,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     else:
         text = (
             f"*{t(lang, 'welcome_title')}*\n\n"
-            + t(lang, "welcome_back", name=name, ap=ap_balance, p=p_balance)
+            + t(lang, "welcome_back", name=name, p=p_balance)
         )
 
     await update.message.reply_text(
@@ -94,10 +118,11 @@ async def cmd_my(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             await update.message.reply_text("Please use /start first.")
             return
         lang = user.language
-        profile_text = format_profile(user, lang)
+        preds = await get_user_predictions_with_matches(session, user.id)
+        history_text = format_bet_history(preds, user, lang)
 
     await update.message.reply_text(
-        f"*{t(lang, 'profile_title')}*\n\n{profile_text}",
+        history_text,
         parse_mode="Markdown",
         reply_markup=main_menu(lang),
     )
@@ -207,9 +232,10 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             if not user:
                 return
             lang = user.language
-            profile_text = format_profile(user, lang)
+            preds = await get_user_predictions_with_matches(session, user.id)
+            history_text = format_bet_history(preds, user, lang)
         await query.edit_message_text(
-            f"*{t(lang, 'profile_title')}*\n\n{profile_text}",
+            history_text,
             parse_mode="Markdown",
             reply_markup=main_menu(lang),
         )
