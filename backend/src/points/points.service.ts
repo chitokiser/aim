@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 
 @Injectable()
@@ -34,6 +34,11 @@ export class PointsService {
   }
 
   async deduct(userId: string, amount: number, description: string) {
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    const current = (userSnap.data()?.points as number) ?? 0;
+    if (current < amount) {
+      throw new BadRequestException(`Insufficient AP. Required: ${amount}, balance: ${current}`);
+    }
     return this.award(userId, -amount, 'withdrawal', description);
   }
 

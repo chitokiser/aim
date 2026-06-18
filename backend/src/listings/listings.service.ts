@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 
@@ -65,6 +65,12 @@ export class ListingsService {
 
     const data = snap.data()!;
     if (data.userId !== userId) throw new NotFoundException('Not your listing');
+
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    const balance = (userSnap.data()?.points as number) ?? 0;
+    if (balance < BANNER_COST_AP) {
+      throw new BadRequestException(`Insufficient AP. Required: ${BANNER_COST_AP} AP, current balance: ${balance} AP`);
+    }
 
     await this.points.deduct(userId, BANNER_COST_AP, `배너 광고 등록: ${data.title as string}`);
 
