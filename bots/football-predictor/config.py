@@ -9,9 +9,8 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 FOOTBALL_API_KEY = os.getenv("FOOTBALL_API_KEY", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///football_predictor.db")
 TIMEZONE = os.getenv("TIMEZONE", "Asia/Seoul")
-DAILY_AP = int(os.getenv("DAILY_AP", "10000"))
-DAILY_P = int(os.getenv("DAILY_P", "5000"))
-WELCOME_BONUS_AP = int(os.getenv("WELCOME_BONUS_AP", "10000"))
+DAILY_P = int(os.getenv("DAILY_P", "10000"))
+WELCOME_BONUS_P = int(os.getenv("WELCOME_BONUS_P", "10000"))
 GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "")
 
 SITE_URL = "https://ai119.netlify.app"

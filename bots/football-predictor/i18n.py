@@ -6,20 +6,19 @@ STRINGS: dict[str, dict[str, str]] = {
         "welcome_title": "⚽ AI119 Global Football Predictor",
         "welcome_new": (
             "Welcome, {name}! 🎉\n\n"
-            "You received *{ap:,} AP* as a welcome bonus.\n\n"
-            "Predict football match results, earn AP, and rise to the top of the global leaderboard!\n\n"
+            "You received *{p:,} P* (free points) as a welcome bonus.\n\n"
+            "Predict football match results and rise to the top of the global leaderboard!\n\n"
             "📌 *How to play:*\n"
-            "1️⃣ Earn 10,000 AP daily via /daily\n"
+            "1️⃣ Claim 10,000 P daily via /daily\n"
             "2️⃣ Browse matches with /predict\n"
-            "3️⃣ Place your prediction\n"
-            "4️⃣ Win AP when you're right!"
+            "3️⃣ Place your prediction with P (free) or AP (real value)\n"
+            "4️⃣ Win big when you're right!"
         ),
-        "welcome_back": "Welcome back, {name}! 👋\nBalance: *{ap:,} AP*",
+        "welcome_back": "Welcome back, {name}! 👋\nAP: *{ap:,}* | P: *{p:,}*",
         # Daily
         "daily_title": "📅 Daily Reward",
-        "daily_claimed": "✅ You claimed *{ap:,} AP* today!\nStreak: *{streak} days* 🔥\nBalance: *{balance:,} AP*",
-        "daily_p_also": "\n🎟️ Also received *{p:,} P* (daily free betting points)!\nP Balance: *{p_balance:,} P*",
-        "daily_already": "⏳ You already claimed today's reward.\nCome back tomorrow! Balance: *{balance:,} AP*",
+        "daily_claimed": "✅ You claimed *{p:,} P* today!\nStreak: *{streak} days* 🔥\nP Balance: *{p_balance:,} P*",
+        "daily_already": "⏳ You already claimed today's reward.\nCome back tomorrow! P Balance: *{p_balance:,} P*",
         # Profile
         "profile_title": "👤 My Profile",
         "profile_body": (
@@ -147,7 +146,7 @@ STRINGS: dict[str, dict[str, str]] = {
             "⚽ *AI119 Football Predictor — Help*\n\n"
             "/start — Register / Home menu\n"
             "/predict — Browse upcoming matches\n"
-            "/daily — Claim daily 10,000 AP\n"
+            "/daily — Claim daily 10,000 P (free points)\n"
             "/my — View your profile & stats\n"
             "/ranking — Global leaderboard\n"
             "/help — This message\n\n"
@@ -158,26 +157,26 @@ STRINGS: dict[str, dict[str, str]] = {
             "• Over/Under 2.5 — ×1.85\n"
             "• First Scoring Team — ×2.2\n"
             "• Handicap (Home −1) — ×1.85\n\n"
-            "10,000 AP = $1 USD within AI119 ecosystem."
+            "💰 AP = real value (10,000 AP = $1). Earned from winning AP predictions.\n"
+            "🎟️ P = free daily points. Use /daily to claim."
         ),
     },
     "ko": {
         "welcome_title": "⚽ AI119 글로벌 축구 예측봇",
         "welcome_new": (
             "{name}님 환영합니다! 🎉\n\n"
-            "가입 보너스로 *{ap:,} AP*를 받았습니다.\n\n"
-            "축구 경기 결과를 예측하고 AP를 획득해 글로벌 랭킹 1위에 도전하세요!\n\n"
+            "가입 보너스로 *{p:,} P* (무료 포인트)를 받았습니다.\n\n"
+            "축구 경기 결과를 예측하고 글로벌 랭킹 1위에 도전하세요!\n\n"
             "📌 *이용 방법:*\n"
-            "1️⃣ /daily로 매일 10,000 AP 획득\n"
+            "1️⃣ /daily로 매일 10,000 P 무료 획득\n"
             "2️⃣ /predict로 경기 목록 확인\n"
-            "3️⃣ 예측 배팅\n"
-            "4️⃣ 적중 시 AP 획득!"
+            "3️⃣ P(무료) 또는 AP(실질 가치)로 예측 배팅\n"
+            "4️⃣ 적중 시 보상 획득!"
         ),
-        "welcome_back": "돌아오셨군요, {name}님! 👋\n잔액: *{ap:,} AP*",
+        "welcome_back": "돌아오셨군요, {name}님! 👋\nAP: *{ap:,}* | P: *{p:,}*",
         "daily_title": "📅 일일 보상",
-        "daily_claimed": "✅ 오늘 *{ap:,} AP*를 받았습니다!\n연속 출석: *{streak}일* 🔥\n잔액: *{balance:,} AP*",
-        "daily_p_also": "\n🎟️ *{p:,} P*도 받았습니다 (매일 무료 배팅 포인트)!\nP 잔액: *{p_balance:,} P*",
-        "daily_already": "⏳ 오늘 보상은 이미 받았습니다.\n내일 다시 와주세요! 잔액: *{balance:,} AP*",
+        "daily_claimed": "✅ 오늘 *{p:,} P*를 받았습니다!\n연속 출석: *{streak}일* 🔥\nP 잔액: *{p_balance:,} P*",
+        "daily_already": "⏳ 오늘 보상은 이미 받았습니다.\n내일 다시 와주세요! P 잔액: *{p_balance:,} P*",
         "profile_title": "👤 내 프로필",
         "profile_body": (
             "👤 *{name}*\n\n"
@@ -296,7 +295,7 @@ STRINGS: dict[str, dict[str, str]] = {
             "⚽ *AI119 축구 예측봇 — 도움말*\n\n"
             "/start — 등록 / 홈 메뉴\n"
             "/predict — 예정 경기 보기\n"
-            "/daily — 매일 10,000 AP 받기\n"
+            "/daily — 매일 10,000 P 무료 받기\n"
             "/my — 내 프로필 & 통계\n"
             "/ranking — 글로벌 랭킹\n"
             "/help — 이 메시지\n\n"
@@ -307,26 +306,26 @@ STRINGS: dict[str, dict[str, str]] = {
             "• 오버/언더 2.5 — ×1.85\n"
             "• 첫 득점 팀 — ×2.2\n"
             "• 핸디캡 (홈 −1) — ×1.85\n\n"
-            "10,000 AP = 1 USD (AI119 생태계 내)"
+            "💰 AP = 실질 가치 (10,000 AP = $1). AP 예측 적중 시 획득.\n"
+            "🎟️ P = 무료 포인트. /daily로 매일 수령."
         ),
     },
     "vi": {
         "welcome_title": "⚽ AI119 Dự Đoán Bóng Đá Toàn Cầu",
         "welcome_new": (
             "Chào mừng, {name}! 🎉\n\n"
-            "Bạn nhận được *{ap:,} AP* làm thưởng chào mừng.\n\n"
-            "Dự đoán kết quả bóng đá, kiếm AP và leo lên bảng xếp hạng toàn cầu!\n\n"
+            "Bạn nhận được *{p:,} P* (điểm miễn phí) làm thưởng chào mừng.\n\n"
+            "Dự đoán kết quả bóng đá và leo lên bảng xếp hạng toàn cầu!\n\n"
             "📌 *Cách chơi:*\n"
-            "1️⃣ Nhận 10,000 AP mỗi ngày qua /daily\n"
+            "1️⃣ Nhận 10,000 P mỗi ngày qua /daily\n"
             "2️⃣ Xem trận đấu với /predict\n"
-            "3️⃣ Đặt dự đoán\n"
-            "4️⃣ Thắng AP khi đoán đúng!"
+            "3️⃣ Đặt cược bằng P (miễn phí) hoặc AP (có giá trị thực)\n"
+            "4️⃣ Thắng lớn khi đoán đúng!"
         ),
-        "welcome_back": "Chào mừng trở lại, {name}! 👋\nSố dư: *{ap:,} AP*",
+        "welcome_back": "Chào mừng trở lại, {name}! 👋\nAP: *{ap:,}* | P: *{p:,}*",
         "daily_title": "📅 Phần Thưởng Hàng Ngày",
-        "daily_claimed": "✅ Bạn đã nhận *{ap:,} AP* hôm nay!\nChuỗi: *{streak} ngày* 🔥\nSố dư: *{balance:,} AP*",
-        "daily_p_also": "\n🎟️ Cũng nhận được *{p:,} P* (điểm đặt cược miễn phí hàng ngày)!\nSố dư P: *{p_balance:,} P*",
-        "daily_already": "⏳ Bạn đã nhận thưởng hôm nay rồi.\nQuay lại vào ngày mai! Số dư: *{balance:,} AP*",
+        "daily_claimed": "✅ Bạn đã nhận *{p:,} P* hôm nay!\nChuỗi: *{streak} ngày* 🔥\nSố dư P: *{p_balance:,} P*",
+        "daily_already": "⏳ Bạn đã nhận thưởng hôm nay rồi.\nQuay lại vào ngày mai! Số dư P: *{p_balance:,} P*",
         "profile_title": "👤 Hồ Sơ Của Tôi",
         "profile_body": (
             "👤 *{name}*\n\n"
@@ -445,7 +444,7 @@ STRINGS: dict[str, dict[str, str]] = {
             "⚽ *AI119 Dự Đoán Bóng Đá — Trợ Giúp*\n\n"
             "/start — Đăng ký / Menu chính\n"
             "/predict — Xem trận sắp tới\n"
-            "/daily — Nhận 10,000 AP mỗi ngày\n"
+            "/daily — Nhận 10,000 P miễn phí mỗi ngày\n"
             "/my — Hồ sơ & thống kê\n"
             "/ranking — Bảng xếp hạng\n"
             "/help — Tin nhắn này\n\n"
@@ -456,7 +455,8 @@ STRINGS: dict[str, dict[str, str]] = {
             "• Trên/Dưới 2.5 — ×1.85\n"
             "• Đội ghi bàn trước — ×2.2\n"
             "• Chấp bóng (Chủ −1) — ×1.85\n\n"
-            "10,000 AP = 1 USD trong hệ sinh thái AI119."
+            "💰 AP = giá trị thực (10,000 AP = $1). Kiếm AP khi thắng dự đoán.\n"
+            "🎟️ P = điểm miễn phí. Nhận hàng ngày qua /daily."
         ),
     },
 }

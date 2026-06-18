@@ -7,7 +7,7 @@ import pytz
 from telegram import Update
 from telegram.ext import ContextTypes
 
-from config import DAILY_AP, DAILY_P, WELCOME_BONUS_AP, COMMUNITY_URL, SITE_URL
+from config import DAILY_P, WELCOME_BONUS_P, COMMUNITY_URL, SITE_URL
 from database import AsyncSessionLocal, claim_daily, get_or_create_user, get_user
 from i18n import detect_lang, t
 from utils.formatters import format_profile
@@ -32,21 +32,22 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             username=tg_user.username,
             first_name=tg_user.first_name,
             language=lang,
-            welcome_ap=WELCOME_BONUS_AP,
+            welcome_p=WELCOME_BONUS_P,
         )
-        balance = user.ap_balance
+        ap_balance = user.ap_balance
+        p_balance = user.p_balance
 
     name = tg_user.first_name or tg_user.username or "User"
 
     if is_new:
         text = (
             f"*{t(lang, 'welcome_title')}*\n\n"
-            + t(lang, "welcome_new", name=name, ap=WELCOME_BONUS_AP)
+            + t(lang, "welcome_new", name=name, p=WELCOME_BONUS_P)
         )
     else:
         text = (
             f"*{t(lang, 'welcome_title')}*\n\n"
-            + t(lang, "welcome_back", name=name, ap=balance)
+            + t(lang, "welcome_back", name=name, ap=ap_balance, p=p_balance)
         )
 
     await update.message.reply_text(
@@ -70,16 +71,14 @@ async def cmd_daily(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         lang = user.language
-        claimed = await claim_daily(session, user, DAILY_AP, today, daily_p=DAILY_P)
-        balance = user.ap_balance
+        claimed = await claim_daily(session, user, today, daily_p=DAILY_P)
         p_balance = user.p_balance
         streak = user.streak_days
 
     if claimed:
-        text = t(lang, "daily_claimed", ap=DAILY_AP, streak=streak, balance=balance)
-        text += "\n" + t(lang, "daily_p_also", p=DAILY_P, p_balance=p_balance)
+        text = t(lang, "daily_claimed", p=DAILY_P, streak=streak, p_balance=p_balance)
     else:
-        text = t(lang, "daily_already", balance=balance)
+        text = t(lang, "daily_already", p_balance=p_balance)
 
     await update.message.reply_text(text, parse_mode="Markdown")
 
@@ -184,16 +183,14 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             if not user:
                 return
             lang = user.language
-            claimed = await claim_daily(session, user, DAILY_AP, today, daily_p=DAILY_P)
-            balance = user.ap_balance
+            claimed = await claim_daily(session, user, today, daily_p=DAILY_P)
             p_balance = user.p_balance
             streak = user.streak_days
 
         if claimed:
-            text = t(lang, "daily_claimed", ap=DAILY_AP, streak=streak, balance=balance)
-            text += "\n" + t(lang, "daily_p_also", p=DAILY_P, p_balance=p_balance)
+            text = t(lang, "daily_claimed", p=DAILY_P, streak=streak, p_balance=p_balance)
         else:
-            text = t(lang, "daily_already", balance=balance)
+            text = t(lang, "daily_already", p_balance=p_balance)
         await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu(lang))
 
     elif action == "predict":

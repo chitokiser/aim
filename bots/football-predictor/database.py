@@ -109,9 +109,9 @@ async def get_or_create_user(
     username: str | None,
     first_name: str | None,
     language: str,
-    welcome_ap: int = 0,
+    welcome_p: int = 0,
 ) -> tuple[User, bool]:
-    """Return (user, is_new). Awards welcome_ap only when is_new=True."""
+    """Return (user, is_new). Awards welcome_p (free points) only when is_new=True."""
     result = await session.execute(select(User).where(User.telegram_id == telegram_id))
     user = result.scalar_one_or_none()
     if user:
@@ -126,7 +126,7 @@ async def get_or_create_user(
         username=username,
         first_name=first_name,
         language=language,
-        ap_balance=welcome_ap,
+        p_balance=welcome_p,
     )
     session.add(user)
     await session.commit()
@@ -147,16 +147,15 @@ async def set_user_language(session: AsyncSession, telegram_id: int, lang: str) 
 
 
 async def claim_daily(
-    session: AsyncSession, user: User, daily_ap: int, today: str, daily_p: int = 0
+    session: AsyncSession, user: User, today: str, daily_p: int = 0
 ) -> bool:
-    """Award daily AP (and optional P). Returns True if claimed, False if already claimed today."""
+    """Award daily P points. Returns True if claimed, False if already claimed today."""
     if user.last_daily_date == today:
         return False
 
     yesterday = _yesterday(today)
     new_streak = (user.streak_days + 1) if user.last_daily_date == yesterday else 1
 
-    user.ap_balance += daily_ap
     user.p_balance += daily_p
     user.streak_days = new_streak
     user.last_daily_date = today

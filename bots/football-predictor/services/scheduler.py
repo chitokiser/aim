@@ -96,7 +96,7 @@ async def daily_reminder(app: Application) -> None:
                 chat_id=tid,
                 text=(
                     "⚽ *AI119 Football Predictor*\n\n"
-                    "📅 Your daily *10,000 AP* is ready!\n"
+                    "📅 Your daily *10,000 P* is ready!\n"
                     "Type /daily to claim it."
                 ),
                 parse_mode="Markdown",
@@ -145,10 +145,10 @@ async def broadcast_pre_match_alert(app: Application) -> None:
             f"🏆 {match.league}\n"
             f"🆚 *{match.home_team}* vs *{match.away_team}*\n"
             f"⏰ 약 1시간 후 킥오프! / Kick-off in ~1 hour!\n\n"
-            f"🎯 무료 AP로 승무패를 예측하고 포인트를 획득하세요!\n"
-            f"🎯 Predict 1X2 with free daily AP and win points!\n"
-            f"🎯 Dự đoán 1X2 bằng AP miễn phí để nhận thưởng!\n\n"
-            f"💰 매일 *10,000 AP* 무료 지급 / *10,000 AP* free every day!"
+            f"🎯 무료 P로 승무패를 예측하고 포인트를 획득하세요!\n"
+            f"🎯 Predict 1X2 with free daily P and win points!\n"
+            f"🎯 Dự đoán 1X2 bằng P miễn phí để nhận thưởng!\n\n"
+            f"🎟️ 매일 *10,000 P* 무료 지급 / *10,000 P* free every day!"
         )
 
         keyboard = InlineKeyboardMarkup([
