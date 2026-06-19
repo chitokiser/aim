@@ -6,7 +6,12 @@ from config import MULTIPLIERS, SITE_URL, COMMUNITY_URL
 from i18n import t
 
 
-def main_menu(lang: str) -> InlineKeyboardMarkup:
+def main_menu(lang: str, login_url: str | None = None) -> InlineKeyboardMarkup:
+    platform_btn = (
+        InlineKeyboardButton(t(lang, "btn_platform"), web_app=WebAppInfo(url=login_url))
+        if login_url
+        else InlineKeyboardButton(t(lang, "btn_platform"), url=SITE_URL)
+    )
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(t(lang, "btn_daily"), callback_data="cmd:daily"),
@@ -16,9 +21,7 @@ def main_menu(lang: str) -> InlineKeyboardMarkup:
             InlineKeyboardButton(t(lang, "btn_ranking"), callback_data="cmd:ranking"),
             InlineKeyboardButton(t(lang, "btn_profile"), callback_data="cmd:profile"),
         ],
-        [
-            InlineKeyboardButton(t(lang, "btn_platform"), url=SITE_URL),
-        ],
+        [platform_btn],
         [
             InlineKeyboardButton(t(lang, "btn_community"), url=COMMUNITY_URL),
         ],

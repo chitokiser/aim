@@ -8,6 +8,7 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 FOOTBALL_API_KEY = os.getenv("FOOTBALL_API_KEY", "")
 ODDS_API_KEY = os.getenv("ODDS_API_KEY", "")
+JWT_SECRET = os.getenv("JWT_SECRET", "")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///football_predictor.db")
 TIMEZONE = os.getenv("TIMEZONE", "Asia/Seoul")
 DAILY_P = int(os.getenv("DAILY_P", "10000"))

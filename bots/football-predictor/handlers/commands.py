@@ -12,6 +12,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from config import DAILY_P, WELCOME_BONUS_P, COMMUNITY_URL, SITE_URL
 from database import AsyncSessionLocal, claim_daily, get_or_create_user, get_user, get_user_predictions_with_matches
 from i18n import detect_lang, t
+from utils.auth import create_bot_login_url
 from utils.formatters import format_bet_history, format_profile
 from utils.keyboards import main_menu
 
@@ -62,6 +63,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         p_balance = user.p_balance
 
     name = tg_user.first_name or tg_user.username or "User"
+    login_url = create_bot_login_url(tg_user.id, tg_user.first_name or "", tg_user.username or "")
 
     if is_new:
         text = (
@@ -77,7 +79,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         text,
         parse_mode="Markdown",
-        reply_markup=main_menu(lang),
+        reply_markup=main_menu(lang, login_url=login_url),
     )
 
 
@@ -212,11 +214,12 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             p_balance = user.p_balance
             streak = user.streak_days
 
+        login_url = create_bot_login_url(tg_user.id, tg_user.first_name or "", tg_user.username or "")
         if claimed:
             text = t(lang, "daily_claimed", p=DAILY_P, streak=streak, p_balance=p_balance)
         else:
             text = t(lang, "daily_already", p_balance=p_balance)
-        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu(lang))
+        await query.edit_message_text(text, parse_mode="Markdown", reply_markup=main_menu(lang, login_url=login_url))
 
     elif action == "predict":
         from handlers.predict import show_match_list
@@ -227,6 +230,7 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await show_ranking(update, context)
 
     elif action == "profile":
+        login_url = create_bot_login_url(tg_user.id, tg_user.first_name or "", tg_user.username or "")
         async with AsyncSessionLocal() as session:
             user = await get_user(session, tg_user.id)
             if not user:
@@ -237,5 +241,5 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await query.edit_message_text(
             history_text,
             parse_mode="Markdown",
-            reply_markup=main_menu(lang),
+            reply_markup=main_menu(lang, login_url=login_url),
         )
