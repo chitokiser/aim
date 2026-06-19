@@ -197,6 +197,8 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=keyboard,
         )
+        from services.twitter import post_tweet
+        await post_tweet(text)
     except Exception as e:
         logger.error("Failed to send group announcement: %s", e)
 

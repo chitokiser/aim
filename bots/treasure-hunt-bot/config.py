@@ -10,6 +10,11 @@ ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 
+TWITTER_API_KEY = os.getenv("TWITTER_API_KEY", "")
+TWITTER_API_SECRET = os.getenv("TWITTER_API_SECRET", "")
+TWITTER_ACCESS_TOKEN = os.getenv("TWITTER_ACCESS_TOKEN", "")
+TWITTER_ACCESS_TOKEN_SECRET = os.getenv("TWITTER_ACCESS_TOKEN_SECRET", "")
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./treasurehunt.db")
 
 HINT_COSTS = {1: 100, 2: 300, 3: 500}
