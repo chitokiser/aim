@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from config import COMMUNITY_URL, JUMPWORLD_URL, STARTING_P
+from config import JUMPWORLD_URL, PLATFORM_URL, STARTING_P
 from database import get_active_treasures, get_attempt, get_gp, get_lang, set_lang, question_count
 from utils.i18n import t, detect_lang, SUPPORTED_LANGS
 from utils.keyboards import (
@@ -60,7 +60,7 @@ async def cmd_treasures(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             t("no_treasures_available", lang),
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(t("btn_jumpworld", lang), url=JUMPWORLD_URL)],
-                [InlineKeyboardButton(t("btn_community", lang), url=COMMUNITY_URL)],
+                [InlineKeyboardButton(t("btn_community", lang), url=PLATFORM_URL)],
             ]),
         )
         return

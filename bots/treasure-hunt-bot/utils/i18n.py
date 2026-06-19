@@ -38,7 +38,10 @@ STRINGS: dict[str, dict[str, str]] = {
         # game
         "already_failed": "💀 Already failed. Try another treasure!",
         "already_completed_body": (
-            "✅ Already completed!\n\n📍 {clue}\n\n"
+            "✅ Already completed!\n\n"
+            "📍 *Full Coordinates (copy & paste):*\n"
+            "`{lat:.6f},{lon:.6f}`\n\n"
+            "🏪 Enter above coordinates in Jumpworld to claim your prize!\n"
             "🌍 https://maps.google.com/?q={lat},{lon}"
         ),
         "game_ended": "❌ This game has already ended.",
@@ -54,8 +57,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "victory": (
             "🎉 *Treasure Found! Congratulations!*\n\n"
             "🏆 All {total} questions answered correctly!\n\n"
-            "📍 *Full Coordinates:*\n"
-            "```\nLatitude: {lat:.6f}\nLongitude: {lon:.6f}\n```\n\n"
+            "📍 *Full Coordinates (copy & paste):*\n"
+            "`{lat:.6f},{lon:.6f}`\n\n"
+            "🏪 Enter above coordinates in Jumpworld to claim your prize!\n"
             "🌍 https://maps.google.com/?q={lat},{lon}\n\n"
             "🎁 Prize: *{prize:,} P*\n{description}"
         ),
@@ -79,7 +83,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # keyboards
         "btn_treasure_list": "🗺 View Treasure List",
         "btn_jumpworld": "🏪 Treasure Hunt on Jumpworld",
-        "btn_community": "💬 AIM Community",
+        "btn_community": "🌐 ai119",
         "btn_completed": "✅ Completed",
         "btn_continue": "▶️ Continue",
         "btn_start_challenge": "🎯 Start Challenge!",
@@ -168,7 +172,10 @@ STRINGS: dict[str, dict[str, str]] = {
         # game
         "already_failed": "💀 이미 실패한 보물입니다. 다른 보물에 도전하세요!",
         "already_completed_body": (
-            "✅ 이미 완료한 보물입니다!\n\n📍 {clue}\n\n"
+            "✅ 이미 완료한 보물입니다!\n\n"
+            "📍 *전체 좌표 (복사 후 붙여넣기):*\n"
+            "`{lat:.6f},{lon:.6f}`\n\n"
+            "🏪 위 좌표를 Jumpworld에 입력하면 보물을 획득할 수 있습니다!\n"
             "🌍 https://maps.google.com/?q={lat},{lon}"
         ),
         "game_ended": "❌ 이미 종료된 게임입니다.",
@@ -184,8 +191,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "victory": (
             "🎉 *보물 발견! 축하합니다!*\n\n"
             "🏆 {total}문제를 모두 맞히셨습니다!\n\n"
-            "📍 *전체 좌표 공개:*\n"
-            "```\n위도: {lat:.6f}\n경도: {lon:.6f}\n```\n\n"
+            "📍 *전체 좌표 (복사 후 붙여넣기):*\n"
+            "`{lat:.6f},{lon:.6f}`\n\n"
+            "🏪 위 좌표를 Jumpworld에 입력하면 보물을 획득할 수 있습니다!\n"
             "🌍 https://maps.google.com/?q={lat},{lon}\n\n"
             "🎁 상금: *{prize:,} P*\n{description}"
         ),
@@ -209,7 +217,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # keyboards
         "btn_treasure_list": "🗺 보물 목록 보기",
         "btn_jumpworld": "🏪 Jumpworld 보물찾으러 가기",
-        "btn_community": "💬 AIM 커뮤니티",
+        "btn_community": "🌐 ai119",
         "btn_completed": "✅ 완료됨",
         "btn_continue": "▶️ 이어서 도전",
         "btn_start_challenge": "🎯 도전 시작!",
@@ -298,7 +306,10 @@ STRINGS: dict[str, dict[str, str]] = {
         # game
         "already_failed": "💀 Đã thất bại với kho báu này. Hãy thử kho báu khác!",
         "already_completed_body": (
-            "✅ Đã hoàn thành!\n\n📍 {clue}\n\n"
+            "✅ Đã hoàn thành!\n\n"
+            "📍 *Tọa độ đầy đủ (sao chép & dán):*\n"
+            "`{lat:.6f},{lon:.6f}`\n\n"
+            "🏪 Nhập tọa độ trên vào Jumpworld để nhận kho báu!\n"
             "🌍 https://maps.google.com/?q={lat},{lon}"
         ),
         "game_ended": "❌ Trò chơi này đã kết thúc.",
@@ -314,8 +325,9 @@ STRINGS: dict[str, dict[str, str]] = {
         "victory": (
             "🎉 *Tìm thấy Kho Báu! Chúc mừng!*\n\n"
             "🏆 Trả lời đúng tất cả {total} câu!\n\n"
-            "📍 *Tọa độ đầy đủ:*\n"
-            "```\nVĩ độ: {lat:.6f}\nKinh độ: {lon:.6f}\n```\n\n"
+            "📍 *Tọa độ đầy đủ (sao chép & dán):*\n"
+            "`{lat:.6f},{lon:.6f}`\n\n"
+            "🏪 Nhập tọa độ trên vào Jumpworld để nhận kho báu!\n"
             "🌍 https://maps.google.com/?q={lat},{lon}\n\n"
             "🎁 Phần thưởng: *{prize:,} P*\n{description}"
         ),
@@ -339,7 +351,7 @@ STRINGS: dict[str, dict[str, str]] = {
         # keyboards
         "btn_treasure_list": "🗺 Xem Danh sách Kho Báu",
         "btn_jumpworld": "🏪 Tìm Kho Báu trên Jumpworld",
-        "btn_community": "💬 Cộng đồng AIM",
+        "btn_community": "🌐 ai119",
         "btn_completed": "✅ Đã hoàn thành",
         "btn_continue": "▶️ Tiếp tục",
         "btn_start_challenge": "🎯 Bắt đầu!",

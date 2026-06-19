@@ -13,6 +13,27 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from config import DATABASE_URL, STARTING_P
 
 engine = create_async_engine(DATABASE_URL, echo=False)
+
+
+def _parse_answer(val) -> int:
+    """Convert AI answer field to 0-indexed int in range 0-3.
+
+    Handles int, string digit ("0"-"3"), letter ("A"-"D"), and out-of-range values.
+    """
+    if isinstance(val, str):
+        v = val.strip().upper()
+        if v in ("A", "B", "C", "D"):
+            return {"A": 0, "B": 1, "C": 2, "D": 3}[v]
+        try:
+            val = int(v)
+        except ValueError:
+            return 0
+    try:
+        return max(0, min(3, int(val)))
+    except (ValueError, TypeError):
+        return 0
+
+
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
 
 
@@ -145,7 +166,7 @@ async def save_questions(treasure_id: int, questions: list[dict]) -> None:
                 option_b=q["options"][1] if len(q.get("options", [])) > 1 else "",
                 option_c=q["options"][2] if len(q.get("options", [])) > 2 else "",
                 option_d=q["options"][3] if len(q.get("options", [])) > 3 else "",
-                correct_option=int(q.get("answer", 0)),
+                correct_option=_parse_answer(q.get("answer", 0)),
                 hint1=hints[0] if len(hints) > 0 else "",
                 hint2=hints[1] if len(hints) > 1 else "",
                 hint3=hints[2] if len(hints) > 2 else "",

@@ -184,10 +184,10 @@ async def cb_treasure_start(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return
 
     if attempt.is_completed:
-        clues = build_coordinate_clues(treasure.latitude, treasure.longitude)
         await query.edit_message_text(
             t("already_completed_body", lang,
-              clue=clues[-1], lat=treasure.latitude, lon=treasure.longitude),
+              lat=treasure.latitude, lon=treasure.longitude),
+            parse_mode=ParseMode.MARKDOWN,
             reply_markup=victory_keyboard(treasure.latitude, treasure.longitude, lang),
         )
         return
@@ -273,7 +273,7 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     is_correct = (chosen == q.correct_option)
 
     if is_correct:
-        clues = build_coordinate_clues(treasure.latitude, treasure.longitude)
+        clues = build_coordinate_clues(treasure.latitude, treasure.longitude, lang)
         clue = clues[order_num - 1]
 
         if order_num >= q_total:
@@ -392,7 +392,8 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     purchased = await get_purchased_hints(user.id, q.id)
     if level in purchased:
-        await query.answer(t("hint_already_purchased", lang, level=level, text=""), show_alert=True)
+        hint_text = {1: q.hint1, 2: q.hint2, 3: q.hint3}[level]
+        await query.answer(t("hint_already_purchased", lang, level=level, text=hint_text[:200]), show_alert=True)
         await _show_question(query, user.id, treasure_id, order_num, lang)
         return
 

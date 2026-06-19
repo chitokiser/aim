@@ -1,7 +1,7 @@
 """Reusable keyboard builders."""
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from config import COMMUNITY_URL, JUMPWORLD_URL, HINT_COSTS
+from config import COMMUNITY_URL, JUMPWORLD_URL, PLATFORM_URL, HINT_COSTS
 from utils.i18n import t
 
 
@@ -19,7 +19,7 @@ def main_menu_keyboard(lang: str = "ko") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t("btn_treasure_list", lang), callback_data="tl")],
         [InlineKeyboardButton(t("btn_jumpworld", lang), url=JUMPWORLD_URL)],
-        [InlineKeyboardButton(t("btn_community", lang), url=COMMUNITY_URL)],
+        [InlineKeyboardButton(t("btn_community", lang), url=PLATFORM_URL)],
     ])
 
 
@@ -122,5 +122,5 @@ def victory_keyboard(lat: float, lon: float, lang: str = "ko") -> InlineKeyboard
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t("btn_google_maps", lang), url=maps_url)],
         [InlineKeyboardButton(t("btn_jumpworld_visit", lang), url=JUMPWORLD_URL)],
-        [InlineKeyboardButton(t("btn_community", lang), url=COMMUNITY_URL)],
+        [InlineKeyboardButton(t("btn_community", lang), url=PLATFORM_URL)],
     ])
