@@ -121,7 +121,7 @@ async def _show_treasure_info(
 
     text = (
         f"🗺 *보물 #{treasure.id}*\n\n"
-        f"📍 위치: {treasure.location_name or '비공개'}\n"
+        f"📍 위치: 🔒 10문제 정답 시 공개\n"
         f"🎁 상금: *{treasure.prize_gp:,} GP*\n"
         f"📝 {treasure.prize_description or '보물의 위치를 찾아보세요!'}\n"
         f"📋 문제 수: {q_total}문제{progress}"

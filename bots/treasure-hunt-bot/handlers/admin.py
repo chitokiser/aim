@@ -197,19 +197,15 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
         return
 
     deeplink = f"https://t.me/{bot_username}?start=treasure_{treasure.id}" if bot_username else ""
-    clues = build_coordinate_clues(treasure.latitude, treasure.longitude)
-    first_clue = clues[0]
-
     text = (
         f"🗺 *새로운 보물이 등장했습니다!* 🎉\n\n"
         f"🔢 보물 번호: *#{treasure.id}*\n"
         f"🎁 상금: *{treasure.prize_gp:,} GP*\n"
         f"📋 총 {q_count}문제 (AI 생성)\n\n"
-        f"🧩 *좌표 힌트 (Q1 정답 시 공개):*\n"
-        f"`{first_clue}`\n\n"
+        f"📝 {treasure.prize_description or '보물의 정확한 위치를 찾아보세요!'}\n\n"
         f"⚠️ 3번 오답 시 도전 불가!\n"
-        f"💡 힌트 구매 가능 (GP 필요)\n\n"
-        f"📝 {treasure.prize_description or '보물의 정확한 위치를 찾아보세요!'}"
+        f"💡 힌트 구매 가능 (GP 필요)\n"
+        f"🔒 좌표는 문제를 풀어야 공개됩니다!"
     )
 
     keyboard_buttons = []
