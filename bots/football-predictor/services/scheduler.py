@@ -245,6 +245,8 @@ async def broadcast_pre_match_alert(app: Application) -> None:
                 "Pre-match alert sent for match %d (%s vs %s) — %dh before",
                 match.id, match.home_team, match.away_team, hours_before,
             )
+            from services.twitter import post_tweet
+            await post_tweet(text)
         except Exception as exc:
             logger.error("Failed to send pre-match alert: %s", exc)
 
@@ -340,6 +342,8 @@ async def broadcast_live_update(app: Application) -> None:
                 "Live briefing sent for match %d (%s vs %s)",
                 match.id, match.home_team, match.away_team,
             )
+            from services.twitter import post_tweet
+            await post_tweet(text)
         except Exception as exc:
             logger.error("Failed to send live briefing: %s", exc)
 
@@ -405,5 +409,7 @@ async def broadcast_settlement_result(
             "Settlement broadcast sent for match %d (%s %d-%d %s): %d winners, %d AP",
             match.id, match.home_team, home_score, away_score, match.away_team, winners, payout,
         )
+        from services.twitter import post_tweet
+        await post_tweet(text)
     except Exception as exc:
         logger.error("Failed to send settlement broadcast: %s", exc)
