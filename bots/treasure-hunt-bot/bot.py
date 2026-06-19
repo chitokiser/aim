@@ -14,7 +14,7 @@ from telegram.request import HTTPXRequest
 
 from config import BOT_TOKEN
 from database import init_db
-from handlers.commands import cmd_start, cmd_treasures, cmd_gp
+from handlers.commands import cmd_start, cmd_treasures, cmd_gp, cmd_lang, cb_set_lang
 from handlers.admin import (
     cmd_newtreasure,
     cmd_admin,
@@ -45,11 +45,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_COMMANDS = [
-    BotCommand("start", "봇 시작 / 메인 메뉴"),
-    BotCommand("treasures", "보물 목록 보기"),
-    BotCommand("gp", "내 P 잔액 확인"),
-    BotCommand("newtreasure", "[관리자] 새 보물 등록"),
-    BotCommand("admin", "[관리자] 관리자 패널"),
+    BotCommand("start", "Start / Main Menu"),
+    BotCommand("treasures", "Treasure list"),
+    BotCommand("gp", "My P balance"),
+    BotCommand("lang", "Change language / 언어 변경 / Đổi ngôn ngữ"),
+    BotCommand("newtreasure", "[Admin] Register new treasure"),
+    BotCommand("admin", "[Admin] Admin panel"),
 ]
 
 
@@ -92,7 +93,11 @@ def main() -> None:
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("treasures", cmd_treasures))
     app.add_handler(CommandHandler("gp", cmd_gp))
+    app.add_handler(CommandHandler("lang", cmd_lang))
     app.add_handler(CommandHandler("admin", cmd_admin))
+
+    # ── Language selection callback ────────────────────────────────────────────
+    app.add_handler(CallbackQueryHandler(cb_set_lang, pattern=r"^lang:(en|ko|vi)$"))
 
     # ── Game callbacks ─────────────────────────────────────────────────────────
     app.add_handler(CallbackQueryHandler(cb_menu,           pattern=r"^menu$"))

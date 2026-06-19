@@ -16,11 +16,13 @@ from database import (
     get_purchased_hints,
     update_attempt,
     get_gp,
+    get_lang,
     deduct_gp,
     record_hint_purchase,
     question_count,
 )
 from services.ai_service import build_coordinate_clues
+from utils.i18n import t
 from utils.keyboards import (
     main_menu_keyboard,
     treasure_list_keyboard,
@@ -46,38 +48,27 @@ async def _build_question_text(
     total: int,
     wrong_count: int,
     purchased_hints: set[int],
+    lang: str = "ko",
 ) -> str:
     q = await get_question_by_order(treasure_id, order_num)
     if not q:
-        return "❌ 문제를 불러오지 못했습니다."
+        return t("question_load_error", lang)
 
     opts = [q.option_a, q.option_b, q.option_c, q.option_d]
-    text = (
-        f"🗺 *보물 #{treasure_id} — Q{order_num}/{total}*\n\n"
-        f"❓ *{q.question_text}*\n\n"
-        f"A) {opts[0]}\n"
-        f"B) {opts[1]}\n"
-        f"C) {opts[2]}\n"
-        f"D) {opts[3]}\n"
-    )
+    text = t("question_header", lang, tid=treasure_id, q=order_num, total=total, question=q.question_text)
+    text += f"A) {opts[0]}\nB) {opts[1]}\nC) {opts[2]}\nD) {opts[3]}\n"
 
-    # Show already-purchased hints inline
     hint_values = {1: q.hint1, 2: q.hint2, 3: q.hint3}
     if purchased_hints:
-        text += "\n💡 *구매한 힌트:*\n"
+        text += t("purchased_hints_header", lang)
         for level in sorted(purchased_hints):
             text += f"  Lv{level}: {hint_values[level]}\n"
 
-    # Wrong count indicator
     if wrong_count > 0:
         crosses = "❌" * wrong_count + "⬜" * (3 - wrong_count)
-        text += f"\n오답 기록: {crosses} ({wrong_count}/3)"
+        text += t("wrong_count_display", lang, crosses=crosses, count=wrong_count)
 
     return text
-
-
-async def _get_question_obj(treasure_id: int, order_num: int):
-    return await get_question_by_order(treasure_id, order_num)
 
 
 # ── Treasure list ─────────────────────────────────────────────────────────────
@@ -89,28 +80,28 @@ async def cb_treasure_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not user:
         return
 
+    lang = await get_lang(user.id)
     treasures = await get_active_treasures(user.id)
     if not treasures:
         await query.edit_message_text(
-            "🗺 현재 도전할 수 있는 보물이 없습니다.\n곧 새로운 보물이 등장할 예정입니다!",
+            t("no_treasures_available", lang),
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🏪 Jumpworld", url=JUMPWORLD_URL)],
-                [InlineKeyboardButton("💬 AIM 커뮤니티", url=COMMUNITY_URL)],
+                [InlineKeyboardButton(t("btn_jumpworld", lang), url=JUMPWORLD_URL)],
+                [InlineKeyboardButton(t("btn_community", lang), url=COMMUNITY_URL)],
             ]),
         )
         return
 
     attempts: dict = {}
-    for t in treasures:
-        a = await get_attempt(user.id, t.id)
+    for tr in treasures:
+        a = await get_attempt(user.id, tr.id)
         if a:
-            attempts[t.id] = a
+            attempts[tr.id] = a
 
-    text = f"🗺 *도전 가능한 보물 목록* ({len(treasures)}개)\n\n✅=완료  ▶️=진행중  🆕=미도전"
     await query.edit_message_text(
-        text,
+        t("treasures_header", lang, count=len(treasures)),
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=treasure_list_keyboard(treasures, attempts),
+        reply_markup=treasure_list_keyboard(treasures, attempts, lang),
     )
 
 
@@ -123,10 +114,11 @@ async def cb_treasure_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not user:
         return
 
+    lang = await get_lang(user.id)
     treasure_id = int(query.data.split(":")[1])
     treasure = await get_treasure(treasure_id)
     if not treasure or not treasure.is_active:
-        await query.edit_message_text("❌ 해당 보물을 찾을 수 없습니다.")
+        await query.edit_message_text(t("treasure_not_found", lang))
         return
 
     attempt = await get_attempt(user.id, treasure_id)
@@ -134,18 +126,20 @@ async def cb_treasure_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     progress = ""
     if attempt and attempt.is_completed:
-        progress = "\n✅ *이미 완료한 보물입니다.*"
+        progress = t("progress_completed", lang)
     elif attempt and attempt.is_failed:
-        progress = "\n💀 *도전에 실패한 보물입니다.*"
+        progress = t("progress_failed", lang)
     elif attempt:
-        progress = f"\n▶️ *진행 중* — {attempt.current_question}/{q_total} 문제 (오답 {attempt.wrong_count}/3)"
+        progress = t("progress_ongoing", lang,
+                     current=attempt.current_question, total=q_total, wrong=attempt.wrong_count)
 
-    text = (
-        f"🗺 *보물 #{treasure.id}*\n\n"
-        f"📍 위치: 🔒 10문제 정답 시 공개\n"
-        f"🎁 상금: *{treasure.prize_gp:,} P*\n"
-        f"📝 {treasure.prize_description or '보물의 위치를 찾아보세요!'}\n"
-        f"📋 문제 수: {q_total}문제{progress}"
+    text = t(
+        "treasure_info", lang,
+        id=treasure.id,
+        prize=treasure.prize_gp,
+        description=treasure.prize_description or t("treasure_default_desc", lang),
+        qtotal=q_total,
+        progress=progress,
     )
 
     is_completed = bool(attempt and attempt.is_completed)
@@ -154,10 +148,10 @@ async def cb_treasure_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     if is_failed:
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📋 다른 보물 도전", callback_data="tl")],
+            [InlineKeyboardButton(t("btn_other_treasures", lang), callback_data="tl")],
         ])
     else:
-        kb = treasure_info_keyboard(treasure_id, has_attempt, is_completed)
+        kb = treasure_info_keyboard(treasure_id, has_attempt, is_completed, lang)
 
     await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=kb)
 
@@ -171,33 +165,34 @@ async def cb_treasure_start(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if not user:
         return
 
+    lang = await get_lang(user.id)
     treasure_id = int(query.data.split(":")[1])
     treasure = await get_treasure(treasure_id)
     if not treasure or not treasure.is_active:
-        await query.edit_message_text("❌ 해당 보물을 찾을 수 없습니다.")
+        await query.edit_message_text(t("treasure_not_found", lang))
         return
 
     attempt = await get_or_create_attempt(user.id, user.username, treasure_id)
 
     if attempt.is_failed:
         await query.edit_message_text(
-            "💀 이미 실패한 보물입니다. 다른 보물에 도전하세요!",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("📋 보물 목록", callback_data="tl")]]),
+            t("already_failed", lang),
+            reply_markup=InlineKeyboardMarkup([[
+                InlineKeyboardButton(t("btn_other_treasures", lang), callback_data="tl")
+            ]]),
         )
         return
 
     if attempt.is_completed:
         clues = build_coordinate_clues(treasure.latitude, treasure.longitude)
         await query.edit_message_text(
-            f"✅ 이미 완료한 보물입니다!\n\n"
-            f"📍 {clues[-1]}\n\n"
-            f"🌍 https://maps.google.com/?q={treasure.latitude},{treasure.longitude}",
-            reply_markup=victory_keyboard(treasure.latitude, treasure.longitude),
+            t("already_completed_body", lang,
+              clue=clues[-1], lat=treasure.latitude, lon=treasure.longitude),
+            reply_markup=victory_keyboard(treasure.latitude, treasure.longitude, lang),
         )
         return
 
-    # Show current question
-    await _show_question(query, user.id, treasure_id, attempt.current_question)
+    await _show_question(query, user.id, treasure_id, attempt.current_question, lang)
 
 
 # ── Show question (internal) ──────────────────────────────────────────────────
@@ -210,22 +205,23 @@ async def cb_show_question(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if not user:
         return
 
+    lang = await get_lang(user.id)
     _, tid_s, q_s = query.data.split(":")
     treasure_id, order_num = int(tid_s), int(q_s)
 
     attempt = await get_attempt(user.id, treasure_id)
     if not attempt or attempt.is_failed or attempt.is_completed:
-        await query.edit_message_text("❌ 이미 종료된 게임입니다.", reply_markup=game_over_keyboard())
+        await query.edit_message_text(t("game_ended", lang), reply_markup=game_over_keyboard(lang))
         return
 
-    await _show_question(query, user.id, treasure_id, order_num)
+    await _show_question(query, user.id, treasure_id, order_num, lang)
 
 
-async def _show_question(query_obj, user_id: int, treasure_id: int, order_num: int) -> None:
+async def _show_question(query_obj, user_id: int, treasure_id: int, order_num: int, lang: str = "ko") -> None:
     q_total = await question_count(treasure_id)
     q = await get_question_by_order(treasure_id, order_num)
     if not q:
-        await query_obj.edit_message_text("❌ 문제를 불러오지 못했습니다.")
+        await query_obj.edit_message_text(t("question_load_error", lang))
         return
 
     attempt = await get_attempt(user_id, treasure_id)
@@ -233,8 +229,8 @@ async def _show_question(query_obj, user_id: int, treasure_id: int, order_num: i
 
     purchased = await get_purchased_hints(user_id, q.id)
 
-    text = await _build_question_text(treasure_id, order_num, q_total, wrong_count, purchased)
-    kb = question_keyboard(treasure_id, order_num, purchased)
+    text = await _build_question_text(treasure_id, order_num, q_total, wrong_count, purchased, lang)
+    kb = question_keyboard(treasure_id, order_num, purchased, lang)
 
     await query_obj.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=kb)
 
@@ -248,28 +244,29 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not user:
         return
 
+    lang = await get_lang(user.id)
+
     # "ans:<tid>:<q>:<opt>"
     parts = query.data.split(":")
     treasure_id, order_num, chosen = int(parts[1]), int(parts[2]), int(parts[3])
 
     attempt = await get_attempt(user.id, treasure_id)
     if not attempt or attempt.is_failed or attempt.is_completed:
-        await query.edit_message_text("❌ 이미 종료된 게임입니다.", reply_markup=game_over_keyboard())
+        await query.edit_message_text(t("game_ended", lang), reply_markup=game_over_keyboard(lang))
         return
 
-    # Guard against replaying a finished question (e.g. double-tap)
     if attempt.current_question != order_num:
-        await query.answer("이미 다음 문제로 진행했습니다.", show_alert=True)
+        await query.answer(t("already_answered", lang), show_alert=True)
         return
 
     q = await get_question_by_order(treasure_id, order_num)
     if not q:
-        await query.edit_message_text("❌ 문제를 찾을 수 없습니다.")
+        await query.edit_message_text(t("question_load_error", lang))
         return
 
     treasure = await get_treasure(treasure_id)
     if not treasure:
-        await query.edit_message_text("❌ 보물을 찾을 수 없습니다.")
+        await query.edit_message_text(t("treasure_load_error", lang))
         return
 
     q_total = await question_count(treasure_id)
@@ -282,33 +279,27 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if order_num >= q_total:
             # ── VICTORY ──────────────────────────────────────────────────────
             await update_attempt(user.id, treasure_id, is_completed=True, completed_at=datetime.now())
-            text = (
-                f"🎉 *보물 발견! 축하합니다!*\n\n"
-                f"🏆 {q_total}문제를 모두 맞히셨습니다!\n\n"
-                f"📍 *전체 좌표 공개:*\n"
-                f"```\n위도: {treasure.latitude:.6f}\n경도: {treasure.longitude:.6f}\n```\n\n"
-                f"🌍 Google Maps:\n"
-                f"https://maps.google.com/?q={treasure.latitude},{treasure.longitude}\n\n"
-                f"🎁 상금: *{treasure.prize_gp:,} P*\n"
-                f"{treasure.prize_description or ''}"
+            text = t(
+                "victory", lang,
+                total=q_total,
+                lat=treasure.latitude,
+                lon=treasure.longitude,
+                prize=treasure.prize_gp,
+                description=treasure.prize_description or "",
             )
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=victory_keyboard(treasure.latitude, treasure.longitude),
+                reply_markup=victory_keyboard(treasure.latitude, treasure.longitude, lang),
             )
         else:
             # ── CORRECT, next question ────────────────────────────────────────
             await update_attempt(user.id, treasure_id, current_question=order_num + 1)
-            text = (
-                f"✅ *정답입니다!* ({order_num}/{q_total})\n\n"
-                f"📍 좌표 단서 공개:\n```\n{clue}\n```\n\n"
-                f"다음 문제로 이동하세요!"
-            )
+            text = t("correct_answer", lang, q=order_num, total=q_total, clue=clue)
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=after_correct_keyboard(treasure_id, order_num + 1),
+                reply_markup=after_correct_keyboard(treasure_id, order_num + 1, lang),
             )
     else:
         # ── WRONG ANSWER ──────────────────────────────────────────────────────
@@ -317,29 +308,21 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if new_wrong >= 3:
             await update_attempt(user.id, treasure_id, wrong_count=new_wrong, is_failed=True)
             correct_label = OPTION_LABELS[q.correct_option]
-            text = (
-                f"💀 *도전 실패!*\n\n"
-                f"3번 오답으로 이 보물에 대한 도전이 종료됩니다.\n\n"
-                f"정답: *{correct_label}) {[q.option_a, q.option_b, q.option_c, q.option_d][q.correct_option]}*\n\n"
-                f"다른 보물에 도전해보세요! 💪"
-            )
+            correct_text = [q.option_a, q.option_b, q.option_c, q.option_d][q.correct_option]
+            text = t("game_over", lang, correct_label=correct_label, correct_text=correct_text)
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=game_over_keyboard(),
+                reply_markup=game_over_keyboard(lang),
             )
         else:
             await update_attempt(user.id, treasure_id, wrong_count=new_wrong)
             remaining = 3 - new_wrong
-            text = (
-                f"❌ *오답입니다!*\n\n"
-                f"남은 기회: *{remaining}번*\n\n"
-                f"다시 도전하세요!"
-            )
+            text = t("wrong_answer", lang, remaining=remaining)
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.MARKDOWN,
-                reply_markup=after_wrong_keyboard(treasure_id, order_num),
+                reply_markup=after_wrong_keyboard(treasure_id, order_num, lang),
             )
 
 
@@ -352,42 +335,38 @@ async def cb_need_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await query.answer()
         return
 
+    lang = await get_lang(user.id)
+
     # "nh:<tid>:<q>:<lv>"
     parts = query.data.split(":")
     treasure_id, order_num, level = int(parts[1]), int(parts[2]), int(parts[3])
 
     q = await get_question_by_order(treasure_id, order_num)
     if not q:
-        await query.answer("❌ 문제를 찾을 수 없습니다.", show_alert=True)
+        await query.answer(t("question_load_error", lang), show_alert=True)
         return
 
-    # Already purchased?
     purchased = await get_purchased_hints(user.id, q.id)
     if level in purchased:
         hint_text = {1: q.hint1, 2: q.hint2, 3: q.hint3}[level]
-        await query.answer(f"💡 Lv{level} 힌트: {hint_text[:200]}", show_alert=True)
+        await query.answer(t("hint_already_purchased", lang, level=level, text=hint_text[:200]), show_alert=True)
         return
 
     cost = HINT_COSTS.get(level, 0)
     gp = await get_gp(user.id, user.username)
 
     await query.answer()
-    await query.edit_message_reply_markup(
-        reply_markup=hint_confirm_keyboard(treasure_id, order_num, level, cost),
-    )
 
-    # Append GP balance info as an alert text via edit_message_text
     q_total = await question_count(treasure_id)
     attempt = await get_attempt(user.id, treasure_id)
     wrong_count = attempt.wrong_count if attempt else 0
-    purchased_before = set(purchased)
-    text = await _build_question_text(treasure_id, order_num, q_total, wrong_count, purchased_before)
-    text += f"\n\n💰 현재 P: *{gp.balance:,}*\n💡 Lv{level} 힌트 구매: *{cost:,} P*"
+    text = await _build_question_text(treasure_id, order_num, q_total, wrong_count, set(purchased), lang)
+    text += t("hint_balance_info", lang, balance=gp.balance, level=level, cost=cost)
 
     await query.edit_message_text(
         text,
         parse_mode=ParseMode.MARKDOWN,
-        reply_markup=hint_confirm_keyboard(treasure_id, order_num, level, cost),
+        reply_markup=hint_confirm_keyboard(treasure_id, order_num, level, cost, lang),
     )
 
 
@@ -400,20 +379,21 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await query.answer()
         return
 
+    lang = await get_lang(user.id)
+
     # "bh:<tid>:<q>:<lv>"
     parts = query.data.split(":")
     treasure_id, order_num, level = int(parts[1]), int(parts[2]), int(parts[3])
 
     q = await get_question_by_order(treasure_id, order_num)
     if not q:
-        await query.answer("❌ 문제를 찾을 수 없습니다.", show_alert=True)
+        await query.answer(t("question_load_error", lang), show_alert=True)
         return
 
-    # Check if already purchased (double-tap guard)
     purchased = await get_purchased_hints(user.id, q.id)
     if level in purchased:
-        await query.answer("이미 구매한 힌트입니다.", show_alert=True)
-        await _show_question(query, user.id, treasure_id, order_num)
+        await query.answer(t("hint_already_purchased", lang, level=level, text=""), show_alert=True)
+        await _show_question(query, user.id, treasure_id, order_num, lang)
         return
 
     cost = HINT_COSTS.get(level, 0)
@@ -422,19 +402,15 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not success:
         gp = await get_gp(user.id, user.username)
         await query.answer(
-            f"❌ P가 부족합니다.\n현재 잔액: {gp.balance:,} P / 필요: {cost:,} P",
+            t("hint_insufficient", lang, balance=gp.balance, cost=cost),
             show_alert=True,
         )
-        # Restore question view
-        await _show_question(query, user.id, treasure_id, order_num)
+        await _show_question(query, user.id, treasure_id, order_num, lang)
         return
 
     await record_hint_purchase(user.id, q.id, level, cost)
-    hint_text = {1: q.hint1, 2: q.hint2, 3: q.hint3}[level]
-
-    await query.answer(f"✅ Lv{level} 힌트 구매 완료! -{cost:,} P", show_alert=True)
-    # Refresh question display with new hint visible
-    await _show_question(query, user.id, treasure_id, order_num)
+    await query.answer(t("hint_bought", lang, level=level, cost=cost), show_alert=True)
+    await _show_question(query, user.id, treasure_id, order_num, lang)
 
 
 # ── Menu callback ─────────────────────────────────────────────────────────────
@@ -442,13 +418,13 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cb_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    text = (
-        "🗺 *AI 보물찾기*\n\n"
-        "보물의 좌표를 AI 문제로 찾아보세요!\n\n"
-        "💡 힌트: Lv1=100 P / Lv2=300 P / Lv3=500 P\n"
-        "⚠️ 3번 오답 시 해당 보물 도전 불가"
+    user = update.effective_user
+    lang = await get_lang(user.id) if user else "ko"
+    await query.edit_message_text(
+        t("menu_text", lang),
+        parse_mode=ParseMode.MARKDOWN,
+        reply_markup=main_menu_keyboard(lang),
     )
-    await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())
 
 
 async def cb_noop(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

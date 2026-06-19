@@ -5,12 +5,12 @@ from typing import Optional
 
 from sqlalchemy import (
     BigInteger, Boolean, DateTime, Float, ForeignKey,
-    Integer, String, Text, func, and_, select,
+    Integer, String, Text, func, and_, select, text,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
-from config import DATABASE_URL, STARTING_GP
+from config import DATABASE_URL, STARTING_P
 
 engine = create_async_engine(DATABASE_URL, echo=False)
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
@@ -89,7 +89,8 @@ class UserGP(Base):
 
     user_id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     username: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
-    balance: Mapped[int] = mapped_column(Integer, default=STARTING_GP)
+    balance: Mapped[int] = mapped_column(Integer, default=STARTING_P)
+    lang: Mapped[Optional[str]] = mapped_column(String(8), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
@@ -98,6 +99,11 @@ class UserGP(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Migrate: add lang column if it doesn't exist yet
+        try:
+            await conn.execute(text("ALTER TABLE user_gp ADD COLUMN lang VARCHAR(8)"))
+        except Exception:
+            pass  # Column already exists — ignore
 
 
 # ── Treasure ─────────────────────────────────────────────────────────────────
@@ -236,7 +242,7 @@ async def get_gp(user_id: int, username: Optional[str] = None) -> UserGP:
         result = await session.execute(select(UserGP).where(UserGP.user_id == user_id))
         gp = result.scalar_one_or_none()
         if not gp:
-            gp = UserGP(user_id=user_id, username=username, balance=STARTING_GP)
+            gp = UserGP(user_id=user_id, username=username, balance=STARTING_P)
             session.add(gp)
             await session.commit()
             await session.refresh(gp)
@@ -244,7 +250,7 @@ async def get_gp(user_id: int, username: Optional[str] = None) -> UserGP:
 
 
 async def deduct_gp(user_id: int, amount: int) -> bool:
-    """Deduct GP from user balance. Returns True on success, False if insufficient."""
+    """Deduct P from user balance. Returns True on success, False if insufficient."""
     async with SessionLocal() as session:
         result = await session.execute(select(UserGP).where(UserGP.user_id == user_id))
         gp = result.scalar_one_or_none()
@@ -253,6 +259,27 @@ async def deduct_gp(user_id: int, amount: int) -> bool:
         gp.balance -= amount
         await session.commit()
         return True
+
+
+async def get_lang(user_id: int) -> str:
+    """Return stored language for user, defaulting to 'ko'."""
+    async with SessionLocal() as session:
+        result = await session.execute(select(UserGP.lang).where(UserGP.user_id == user_id))
+        lang = result.scalar_one_or_none()
+        return lang or "ko"
+
+
+async def set_lang(user_id: int, lang: str, username: Optional[str] = None) -> None:
+    """Persist language preference for user."""
+    async with SessionLocal() as session:
+        result = await session.execute(select(UserGP).where(UserGP.user_id == user_id))
+        gp = result.scalar_one_or_none()
+        if not gp:
+            gp = UserGP(user_id=user_id, username=username, balance=STARTING_P, lang=lang)
+            session.add(gp)
+        else:
+            gp.lang = lang
+        await session.commit()
 
 
 # ── HintPurchase ──────────────────────────────────────────────────────────────
