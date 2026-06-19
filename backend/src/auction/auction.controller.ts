@@ -4,10 +4,14 @@ import {
 } from '@nestjs/common';
 import { AuctionService } from './auction.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
+import { UsersService } from '../users/users.service';
 
 @Controller('auction')
 export class AuctionController {
-  constructor(private readonly auctionService: AuctionService) {}
+  constructor(
+    private readonly auctionService: AuctionService,
+    private readonly usersService: UsersService,
+  ) {}
 
   // ─── Public ──────────────────────────────────────────────────────────────────
 
@@ -81,42 +85,42 @@ export class AuctionController {
 
   @Get('admin/all')
   @UseGuards(JwtAuthGuard)
-  adminFindAll(
-    @Request() req: { user: { sub: string; isAdmin?: boolean } },
+  async adminFindAll(
+    @Request() req: { user: { sub: string } },
     @Query('status') status?: string,
   ) {
-    if (!req.user.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.auctionService.adminFindAll(status);
   }
 
   @Post('admin/:id/approve')
   @UseGuards(JwtAuthGuard)
-  adminApprove(
+  async adminApprove(
     @Param('id') id: string,
-    @Request() req: { user: { sub: string; isAdmin?: boolean } },
+    @Request() req: { user: { sub: string } },
   ) {
-    if (!req.user.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.auctionService.adminApprove(id);
   }
 
   @Post('admin/:id/stop')
   @UseGuards(JwtAuthGuard)
-  adminStop(
+  async adminStop(
     @Param('id') id: string,
-    @Request() req: { user: { sub: string; isAdmin?: boolean } },
+    @Request() req: { user: { sub: string } },
   ) {
-    if (!req.user.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.auctionService.adminStop(id);
   }
 
   @Post('admin/:id/resolve')
   @UseGuards(JwtAuthGuard)
-  adminResolveDispute(
+  async adminResolveDispute(
     @Param('id') id: string,
-    @Request() req: { user: { sub: string; isAdmin?: boolean } },
+    @Request() req: { user: { sub: string } },
     @Body() body: { resolution: 'buyer' | 'seller' },
   ) {
-    if (!req.user.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.auctionService.adminResolveDispute(id, body.resolution);
   }
 }
