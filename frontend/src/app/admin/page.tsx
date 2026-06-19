@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
-  Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock,
+  Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -113,6 +113,16 @@ export default function AdminPage() {
   const [tplTags, setTplTags] = useState("");
   const [tplSaving, setTplSaving] = useState(false);
 
+  // Pending auctions state
+  interface PendingAuction {
+    id: string; title: string; category: string; startPrice: number;
+    buyNowPrice?: number; endsAt: string; sellerId: string; createdAt?: string;
+    description?: string; thumbnailUrl?: string;
+  }
+  const [pendingAuctions, setPendingAuctions] = useState<PendingAuction[]>([]);
+  const [auctionsLoading, setAuctionsLoading] = useState(false);
+  const [auctionActioningId, setAuctionActioningId] = useState<string | null>(null);
+
   // Pending missions state
   const [pending, setPending] = useState<PendingMission[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
@@ -179,6 +189,48 @@ export default function AdminPage() {
       setTemplatesLoading(false);
     }
   }, []);
+
+  const loadPendingAuctions = useCallback(async () => {
+    if (!token) return;
+    setAuctionsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/auction/admin/all?status=pending_approval`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setPendingAuctions(await res.json());
+    } catch {
+      toast.error("Failed to load pending auctions");
+    } finally {
+      setAuctionsLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const handleAuctionApprove = async (id: string) => {
+    setAuctionActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/auction/admin/${id}/approve`, { method: "POST", headers: authHeader() });
+      if (!res.ok) throw new Error();
+      toast.success("Auction approved");
+      setPendingAuctions((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      toast.error("Failed to approve auction");
+    } finally {
+      setAuctionActioningId(null);
+    }
+  };
+
+  const handleAuctionStop = async (id: string) => {
+    setAuctionActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/auction/admin/${id}/stop`, { method: "POST", headers: authHeader() });
+      if (!res.ok) throw new Error();
+      toast.success("Auction stopped");
+      setPendingAuctions((prev) => prev.filter((a) => a.id !== id));
+    } catch {
+      toast.error("Failed to stop auction");
+    } finally {
+      setAuctionActioningId(null);
+    }
+  };
 
   const loadPending = useCallback(async () => {
     if (!token) return;
@@ -373,6 +425,10 @@ export default function AdminPage() {
             <LayoutTemplate className="h-3.5 w-3.5 mr-1" />
             {t.admin.tabTemplates}
           </TabsTrigger>
+          <TabsTrigger value="auctions" onClick={loadPendingAuctions}>
+            <Gavel className="h-3.5 w-3.5 mr-1" />
+            경매 승인
+          </TabsTrigger>
           <TabsTrigger value="pending" onClick={loadPending}>
             <Clock className="h-3.5 w-3.5 mr-1" />
             {t.admin.tabPending}
@@ -537,6 +593,73 @@ export default function AdminPage() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        {/* Pending Auction Approvals */}
+        <TabsContent value="auctions">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Gavel className="h-4 w-4 text-amber-500" />
+                경매 승인 대기 {pendingAuctions.length > 0 && `(${pendingAuctions.length})`}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">승인 후 경매 목록에 공개됩니다.</p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {auctionsLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading...</span>
+                </div>
+              ) : pendingAuctions.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">승인 대기 중인 경매가 없습니다.</div>
+              ) : (
+                <div className="divide-y">
+                  {pendingAuctions.map((a) => (
+                    <div key={a.id} className="p-4 flex items-start gap-4 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold truncate">{a.title}</p>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">{a.category}</Badge>
+                          <span className="text-xs text-muted-foreground">시작가: {a.startPrice.toLocaleString()} AP</span>
+                          {a.buyNowPrice && (
+                            <span className="text-xs text-muted-foreground">즉시구매: {a.buyNowPrice.toLocaleString()} AP</span>
+                          )}
+                          <span className="text-xs text-muted-foreground">마감: {new Date(a.endsAt).toLocaleString("ko-KR")}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">판매자 ID: {a.sellerId}</p>
+                        {a.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{a.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-green-500 hover:bg-green-600 text-white"
+                          disabled={auctionActioningId === a.id}
+                          onClick={() => handleAuctionApprove(a.id)}
+                        >
+                          {auctionActioningId === a.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <><CheckCircle className="h-3.5 w-3.5 mr-1" />승인</>
+                          )}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          disabled={auctionActioningId === a.id}
+                          onClick={() => handleAuctionStop(a.id)}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />거절
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Pending Campaign Approvals */}
