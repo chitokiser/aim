@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import sys
 
 from telegram import Update
+from telegram.error import Conflict
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -33,7 +35,6 @@ from handlers.commands import (
 from handlers.predict import (
     cb_analysis,
     cb_confirm,
-    cb_currency,
     cb_match_detail,
     cb_pred_type,
     cb_pred_value,
@@ -101,7 +102,6 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(cb_match_detail, pattern=r"^m:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_pred_type, pattern=r"^pt:"))
     app.add_handler(CallbackQueryHandler(cb_pred_value, pattern=r"^pv:"))
-    app.add_handler(CallbackQueryHandler(cb_currency, pattern=r"^curr:"))
     app.add_handler(CallbackQueryHandler(cb_stake, pattern=r"^stake:"))
     app.add_handler(CallbackQueryHandler(cb_confirm, pattern=r"^confirm:"))
     app.add_handler(CallbackQueryHandler(cb_analysis, pattern=r"^analysis:"))
@@ -136,8 +136,17 @@ def main() -> None:
             _sync_odds_job, interval=43200, first=600, name="sync_odds"
         )
 
+    app.add_error_handler(_error_handler)
+
     logger.info("⚽ AI119 Football Predictor starting...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
+
+
+async def _error_handler(update: object, context) -> None:
+    if isinstance(context.error, Conflict):
+        logger.critical("Conflict: another bot instance is already polling. Exiting.")
+        sys.exit(1)
+    logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
 
 
 async def _dispatch_text_input(update: Update, context) -> None:

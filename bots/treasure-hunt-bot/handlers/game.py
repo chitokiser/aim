@@ -292,6 +292,18 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 parse_mode=ParseMode.MARKDOWN,
                 reply_markup=victory_keyboard(treasure.latitude, treasure.longitude, lang),
             )
+            bot_username = getattr(context.bot, "username", None) or "AITreasureHuntBot"
+            winner_name = user.username or user.first_name or "Someone"
+            tweet = (
+                f"🏆 Treasure Found! / 보물 발견!\n\n"
+                f"@{winner_name} solved Treasure #{treasure_id}! 🎉\n"
+                f"🎁 Prize: {treasure.prize_gp:,} P\n\n"
+                f"⚡ Can you find the next one?\n"
+                f"👉 https://t.me/{bot_username}\n"
+                f"💬 https://t.me/ai119"
+            )
+            from services.threads import post_threads
+            await post_threads(tweet)
         else:
             # ── CORRECT, next question ────────────────────────────────────────
             await update_attempt(user.id, treasure_id, current_question=order_num + 1)
@@ -307,8 +319,9 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         if new_wrong >= 3:
             await update_attempt(user.id, treasure_id, wrong_count=new_wrong, is_failed=True)
-            correct_label = OPTION_LABELS[q.correct_option]
-            correct_text = [q.option_a, q.option_b, q.option_c, q.option_d][q.correct_option]
+            safe_opt = q.correct_option if 0 <= q.correct_option <= 3 else 0
+            correct_label = OPTION_LABELS[safe_opt]
+            correct_text = [q.option_a, q.option_b, q.option_c, q.option_d][safe_opt]
             text = t("game_over", lang, correct_label=correct_label, correct_text=correct_text)
             await query.edit_message_text(
                 text,

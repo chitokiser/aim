@@ -123,4 +123,18 @@ export class AuctionController {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.auctionService.adminResolveDispute(id, body.resolution);
   }
+
+  @Post('admin/seed/run')
+  @UseGuards(JwtAuthGuard)
+  async adminSeed(@Request() req: { user: { sub: string } }) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.auctionService.seedDemoAuctions();
+  }
+
+  @Post('admin/seed/delete')
+  @UseGuards(JwtAuthGuard)
+  async adminDeleteSeed(@Request() req: { user: { sub: string } }) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.auctionService.adminDeleteSeed();
+  }
 }

@@ -51,34 +51,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_first": "Which team scores first?",
         "choose_score": "Enter exact score (e.g. *2-1* for Home 2 - Away 1):",
         "choose_handicap": "Asian Handicap — Home team -1 goal:\n🏠 Home wins by 2+ → Home\n✈️ Otherwise → Away",
-        "choose_currency": (
-            "Choose your bet currency:\n\n"
-            "🎟️ *P* — Free daily points\n"
-            "💰 *AP* — Premium points\n\n"
-            "Your balance — AP: *{ap:,}* | P: *{p:,}*"
-        ),
-        "btn_bet_ap": "💰 Bet with AP ({ap:,})",
-        "btn_bet_p": "🎟️ Bet with P ({p:,})",
-        "choose_stake": "Stake amount? Balance: *{balance:,} AP*\nPotential payout: *{payout:,} AP* (×{mult})",
-        "choose_stake_p": "Stake amount? P Balance: *{balance:,} P*\nPotential payout: *{payout:,} P* (×{mult})",
+        "choose_stake": "Stake amount? P Balance: *{balance:,} P*\nPotential payout: *{payout:,} P* (×{mult})",
         "confirm_pred": (
-            "✅ *Confirm Prediction?*\n\n"
-            "⚽ {home} vs {away}\n"
-            "📊 {type_label}: *{value_label}*\n"
-            "💰 Stake: *{stake:,} AP*\n"
-            "🏆 Payout: *{payout:,} AP* (×{mult})"
-        ),
-        "confirm_pred_p": (
             "✅ *Confirm Prediction?*\n\n"
             "⚽ {home} vs {away}\n"
             "📊 {type_label}: *{value_label}*\n"
             "🎟️ Stake: *{stake:,} P*\n"
             "🏆 Payout: *{payout:,} P* (×{mult})"
         ),
-        "pred_placed": "✅ Prediction placed!\n⚽ {home} vs {away} — *{value_label}*\nStake: *{stake:,} AP* | Win: *{payout:,} AP*",
-        "pred_placed_p": "✅ Prediction placed!\n⚽ {home} vs {away} — *{value_label}*\nStake: *{stake:,} P* | Win: *{payout:,} P*",
+        "pred_placed": "✅ Prediction placed!\n⚽ {home} vs {away} — *{value_label}*\nStake: *{stake:,} P* | Win: *{payout:,} P*",
         "pred_cancelled": "❌ Prediction cancelled.",
-        "insufficient_ap": "❌ Insufficient AP. Balance: *{balance:,} AP*, required: *{stake:,} AP*.",
         "insufficient_p": "❌ Insufficient P. Balance: *{balance:,} P*, required: *{stake:,} P*.",
         "invalid_score": "❌ Invalid format. Use *X-Y* (e.g. 2-1).",
         # Ranking
@@ -213,34 +195,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_first": "첫 번째 득점 팀은?",
         "choose_score": "정확한 스코어를 입력하세요 (예: *2-1* = 홈 2 - 원정 1):",
         "choose_handicap": "핸디캡 — 홈팀 -1골:\n🏠 홈팀 2골 차 이상 승리 → 홈\n✈️ 그 외 → 원정",
-        "choose_currency": (
-            "배팅 포인트를 선택하세요:\n\n"
-            "🎟️ *P* — 매일 무료 포인트\n"
-            "💰 *AP* — 프리미엄 포인트\n\n"
-            "현재 잔액 — AP: *{ap:,}* | P: *{p:,}*"
-        ),
-        "btn_bet_ap": "💰 AP로 배팅 ({ap:,})",
-        "btn_bet_p": "🎟️ P로 배팅 ({p:,})",
-        "choose_stake": "배팅 금액? 잔액: *{balance:,} AP*\n예상 당첨금: *{payout:,} AP* (×{mult})",
-        "choose_stake_p": "배팅 금액? P 잔액: *{balance:,} P*\n예상 당첨금: *{payout:,} P* (×{mult})",
+        "choose_stake": "배팅 금액? P 잔액: *{balance:,} P*\n예상 당첨금: *{payout:,} P* (×{mult})",
         "confirm_pred": (
-            "✅ *예측 확인?*\n\n"
-            "⚽ {home} vs {away}\n"
-            "📊 {type_label}: *{value_label}*\n"
-            "💰 배팅: *{stake:,} AP*\n"
-            "🏆 당첨금: *{payout:,} AP* (×{mult})"
-        ),
-        "confirm_pred_p": (
             "✅ *예측 확인?*\n\n"
             "⚽ {home} vs {away}\n"
             "📊 {type_label}: *{value_label}*\n"
             "🎟️ 배팅: *{stake:,} P*\n"
             "🏆 당첨금: *{payout:,} P* (×{mult})"
         ),
-        "pred_placed": "✅ 예측 완료!\n⚽ {home} vs {away} — *{value_label}*\n배팅: *{stake:,} AP* | 당첨: *{payout:,} AP*",
-        "pred_placed_p": "✅ 예측 완료!\n⚽ {home} vs {away} — *{value_label}*\n배팅: *{stake:,} P* | 당첨: *{payout:,} P*",
+        "pred_placed": "✅ 예측 완료!\n⚽ {home} vs {away} — *{value_label}*\n배팅: *{stake:,} P* | 당첨: *{payout:,} P*",
         "pred_cancelled": "❌ 예측이 취소됐습니다.",
-        "insufficient_ap": "❌ AP 부족. 잔액: *{balance:,} AP*, 필요: *{stake:,} AP*.",
         "insufficient_p": "❌ P 부족. 잔액: *{balance:,} P*, 필요: *{stake:,} P*.",
         "invalid_score": "❌ 잘못된 형식입니다. *X-Y* 형식으로 입력하세요 (예: 2-1).",
         "ranking_title": "🏆 글로벌 랭킹",
@@ -368,34 +332,16 @@ STRINGS: dict[str, dict[str, str]] = {
         "choose_first": "Đội nào ghi bàn trước?",
         "choose_score": "Nhập tỷ số chính xác (ví dụ: *2-1* = Chủ nhà 2 - Khách 1):",
         "choose_handicap": "Chấp bóng — Chủ nhà -1 bàn:\n🏠 Chủ nhà thắng 2+ bàn → Chủ nhà\n✈️ Còn lại → Khách",
-        "choose_currency": (
-            "Chọn điểm để đặt cược:\n\n"
-            "🎟️ *P* — Điểm miễn phí hàng ngày\n"
-            "💰 *AP* — Điểm cao cấp\n\n"
-            "Số dư — AP: *{ap:,}* | P: *{p:,}*"
-        ),
-        "btn_bet_ap": "💰 Cược bằng AP ({ap:,})",
-        "btn_bet_p": "🎟️ Cược bằng P ({p:,})",
-        "choose_stake": "Số AP đặt cược? Số dư: *{balance:,} AP*\nThưởng dự kiến: *{payout:,} AP* (×{mult})",
-        "choose_stake_p": "Số P đặt cược? Số dư P: *{balance:,} P*\nThưởng dự kiến: *{payout:,} P* (×{mult})",
+        "choose_stake": "Số P đặt cược? Số dư P: *{balance:,} P*\nThưởng dự kiến: *{payout:,} P* (×{mult})",
         "confirm_pred": (
-            "✅ *Xác nhận Dự đoán?*\n\n"
-            "⚽ {home} vs {away}\n"
-            "📊 {type_label}: *{value_label}*\n"
-            "💰 Cược: *{stake:,} AP*\n"
-            "🏆 Thưởng: *{payout:,} AP* (×{mult})"
-        ),
-        "confirm_pred_p": (
             "✅ *Xác nhận Dự đoán?*\n\n"
             "⚽ {home} vs {away}\n"
             "📊 {type_label}: *{value_label}*\n"
             "🎟️ Cược: *{stake:,} P*\n"
             "🏆 Thưởng: *{payout:,} P* (×{mult})"
         ),
-        "pred_placed": "✅ Đã đặt dự đoán!\n⚽ {home} vs {away} — *{value_label}*\nCược: *{stake:,} AP* | Thắng: *{payout:,} AP*",
-        "pred_placed_p": "✅ Đã đặt dự đoán!\n⚽ {home} vs {away} — *{value_label}*\nCược: *{stake:,} P* | Thắng: *{payout:,} P*",
+        "pred_placed": "✅ Đã đặt dự đoán!\n⚽ {home} vs {away} — *{value_label}*\nCược: *{stake:,} P* | Thắng: *{payout:,} P*",
         "pred_cancelled": "❌ Đã hủy dự đoán.",
-        "insufficient_ap": "❌ Không đủ AP. Số dư: *{balance:,} AP*, cần: *{stake:,} AP*.",
         "insufficient_p": "❌ Không đủ P. Số dư: *{balance:,} P*, cần: *{stake:,} P*.",
         "invalid_score": "❌ Định dạng không hợp lệ. Dùng *X-Y* (ví dụ: 2-1).",
         "ranking_title": "🏆 Bảng Xếp Hạng Toàn Cầu",

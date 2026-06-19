@@ -116,49 +116,26 @@ def pred_handicap(match_id: int, lang: str) -> InlineKeyboardMarkup:
     ])
 
 
-def currency_selector(
-    match_id: int,
-    pred_type: str,
-    pred_value: str,
-    lang: str,
-    ap_balance: int,
-    p_balance: int,
-) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(
-            t(lang, "btn_bet_ap", ap=ap_balance),
-            callback_data=f"curr:{match_id}:{pred_type}:{pred_value}:ap",
-        )],
-        [InlineKeyboardButton(
-            t(lang, "btn_bet_p", p=p_balance),
-            callback_data=f"curr:{match_id}:{pred_type}:{pred_value}:p",
-        )],
-        [InlineKeyboardButton(t(lang, "btn_back"), callback_data=f"m:{match_id}")],
-    ])
-
-
 def stake_options(
     match_id: int,
     pred_type: str,
     pred_value: str,
     lang: str,
     balance: int,
-    currency: str = "ap",
+    mult: float | None = None,
 ) -> InlineKeyboardMarkup:
-    mult = MULTIPLIERS.get(pred_type, 1.9)
+    mult = mult if mult is not None else MULTIPLIERS.get(pred_type, 1.9)
     amounts = [500, 1_000, 5_000, 10_000, 50_000]
-    unit = "P" if currency == "p" else "AP"
-    # Filter amounts user can afford
     affordable = [a for a in amounts if a <= balance]
     if not affordable:
-        affordable = amounts[:1]  # Always show at least one option
+        affordable = amounts[:1]
 
     rows = []
     row: list[InlineKeyboardButton] = []
     for amount in affordable:
         payout = int(amount * mult)
-        label = f"{amount:,} {unit} → {payout:,}"
-        cb = f"stake:{match_id}:{pred_type}:{pred_value}:{amount}:{currency}"
+        label = f"{amount:,} P → {payout:,} P"
+        cb = f"stake:{match_id}:{pred_type}:{pred_value}:{amount}"
         row.append(InlineKeyboardButton(label, callback_data=cb))
         if len(row) == 2:
             rows.append(row)
@@ -176,13 +153,12 @@ def confirm_bet(
     pred_value: str,
     stake: int,
     lang: str,
-    currency: str = "ap",
 ) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
                 t(lang, "btn_confirm"),
-                callback_data=f"confirm:{match_id}:{pred_type}:{pred_value}:{stake}:{currency}",
+                callback_data=f"confirm:{match_id}:{pred_type}:{pred_value}:{stake}",
             ),
             InlineKeyboardButton(t(lang, "btn_cancel"), callback_data=f"m:{match_id}"),
         ]

@@ -197,10 +197,19 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
             parse_mode=ParseMode.MARKDOWN,
             reply_markup=keyboard,
         )
-        from services.twitter import post_tweet
-        await post_tweet(text)
     except Exception as e:
         logger.error("Failed to send group announcement: %s", e)
+
+    tg_username = context.bot_data.get("username", "AITreasureHuntBot")
+    tweet = (
+        f"🗺 New Treasure Hunt! / 새 보물 등장!\n\n"
+        f"🔢 #{treasure.id}  🎁 {treasure.prize_gp:,} P\n"
+        f"📋 {q_count} questions (AI generated)\n\n"
+        f"👉 https://t.me/{tg_username}?start=treasure_{treasure.id}\n"
+        f"💬 https://t.me/ai119"
+    )
+    from services.threads import post_threads
+    await post_threads(tweet)
 
 
 # ── Cancel ────────────────────────────────────────────────────────────────────

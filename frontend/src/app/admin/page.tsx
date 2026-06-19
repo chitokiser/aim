@@ -122,6 +122,8 @@ export default function AdminPage() {
   const [pendingAuctions, setPendingAuctions] = useState<PendingAuction[]>([]);
   const [auctionsLoading, setAuctionsLoading] = useState(false);
   const [auctionActioningId, setAuctionActioningId] = useState<string | null>(null);
+  const [seedingAuctions, setSeedingAuctions] = useState(false);
+  const [deletingSeed, setDeletingSeed] = useState(false);
 
   // Pending missions state
   const [pending, setPending] = useState<PendingMission[]>([]);
@@ -229,6 +231,39 @@ export default function AdminPage() {
       toast.error("Failed to stop auction");
     } finally {
       setAuctionActioningId(null);
+    }
+  };
+
+  const handleSeedAuctions = async () => {
+    setSeedingAuctions(true);
+    try {
+      const res = await fetch(`${API}/api/auction/admin/seed/run`, { method: "POST", headers: authHeader() });
+      const data = await res.json();
+      if (!res.ok) throw new Error();
+      if (data.skipped) {
+        toast.info("Seed data already exists. Delete first to re-seed.");
+      } else {
+        toast.success(`${data.inserted} demo auctions added!`);
+      }
+    } catch {
+      toast.error("Failed to seed auction data");
+    } finally {
+      setSeedingAuctions(false);
+    }
+  };
+
+  const handleDeleteSeed = async () => {
+    if (!confirm("Delete all seed demo auctions? This cannot be undone.")) return;
+    setDeletingSeed(true);
+    try {
+      const res = await fetch(`${API}/api/auction/admin/seed/delete`, { method: "POST", headers: authHeader() });
+      const data = await res.json();
+      if (!res.ok) throw new Error();
+      toast.success(`${data.deleted} seed auctions deleted.`);
+    } catch {
+      toast.error("Failed to delete seed data");
+    } finally {
+      setDeletingSeed(false);
     }
   };
 
@@ -599,11 +634,37 @@ export default function AdminPage() {
         <TabsContent value="auctions">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Gavel className="h-4 w-4 text-amber-500" />
-                경매 승인 대기 {pendingAuctions.length > 0 && `(${pendingAuctions.length})`}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">승인 후 경매 목록에 공개됩니다.</p>
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Gavel className="h-4 w-4 text-amber-500" />
+                    경매 승인 대기 {pendingAuctions.length > 0 && `(${pendingAuctions.length})`}
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">승인 후 경매 목록에 공개됩니다.</p>
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-amber-400 text-amber-600 hover:bg-amber-50"
+                    disabled={seedingAuctions}
+                    onClick={handleSeedAuctions}
+                  >
+                    {seedingAuctions ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Zap className="h-3.5 w-3.5 mr-1" />}
+                    시드 데이터 삽입 (100개)
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-50"
+                    disabled={deletingSeed}
+                    onClick={handleDeleteSeed}
+                  >
+                    {deletingSeed ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <XCircle className="h-3.5 w-3.5 mr-1" />}
+                    시드 삭제
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {auctionsLoading ? (

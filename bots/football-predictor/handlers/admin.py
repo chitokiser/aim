@@ -130,7 +130,7 @@ async def cmd_cancelbet(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         count = await cancel_match_predictions(session, match)
 
     await update.message.reply_text(
-        f"✅ Cancelled {count} predictions for match {match_id} and refunded AP."
+        f"✅ Cancelled {count} predictions for match {match_id} and refunded P."
     )
 
 

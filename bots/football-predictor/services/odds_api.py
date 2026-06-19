@@ -98,6 +98,30 @@ def _extract_avg_odds(event: dict) -> dict:
     }
 
 
+async def get_active_sport_keys() -> set[str]:
+    """Return sport keys currently in-season according to The Odds API."""
+    if not ODDS_API_KEY:
+        return set()
+
+    url = f"{ODDS_API_BASE}/sports/"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                params={"apiKey": ODDS_API_KEY},
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    active = {s["key"] for s in data if s.get("active")}
+                    logger.info("Odds API active sports: %s", sorted(active))
+                    return active
+                logger.warning("Odds API /sports/ returned %d", resp.status)
+    except Exception as exc:
+        logger.error("Odds API sports list error: %s", exc)
+    return set()
+
+
 async def fetch_odds_for_sport(sport_key: str) -> list[dict]:
     """Fetch upcoming odds for a sport. Returns [] if key missing or request fails."""
     if not ODDS_API_KEY:
@@ -115,7 +139,8 @@ async def fetch_odds_for_sport(sport_key: str) -> list[dict]:
             async with session.get(url, params=params, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                 if resp.status == 200:
                     return await resp.json()
-                logger.warning("Odds API [%s] returned %d", sport_key, resp.status)
+                body = await resp.text()
+                logger.warning("Odds API [%s] returned %d: %s", sport_key, resp.status, body[:300])
     except Exception as exc:
         logger.error("Odds API fetch error [%s]: %s", sport_key, exc)
     return []
@@ -152,8 +177,13 @@ def find_match_odds(
 
 async def fetch_all_sport_odds() -> list[dict]:
     """Fetch odds for all tracked sports and return a flat list of events."""
+    active_keys = await get_active_sport_keys()
+
     all_events: list[dict] = []
     for sport_key in ALL_SPORT_KEYS:
+        if active_keys and sport_key not in active_keys:
+            logger.debug("Odds API [%s] skipped — not in active season", sport_key)
+            continue
         events = await fetch_odds_for_sport(sport_key)
         all_events.extend(events)
         if events:

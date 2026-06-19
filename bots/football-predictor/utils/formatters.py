@@ -54,12 +54,10 @@ def format_profile(user: User, lang: str) -> str:
         lang,
         "profile_body",
         name=name,
-        balance=user.ap_balance,
         p_balance=user.p_balance,
         total=user.total_predicted,
         correct=user.correct_predictions,
         rate=rate,
-        earned=user.total_ap_won,
         streak=user.streak_days,
         achievements=achievements,
     )

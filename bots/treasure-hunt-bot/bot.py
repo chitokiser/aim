@@ -1,7 +1,9 @@
 """AI Treasure Hunt Bot — entry point."""
 
 import logging
-from telegram import BotCommand
+import sys
+from telegram import BotCommand, Update
+from telegram.error import Conflict
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -110,7 +112,16 @@ def main() -> None:
     app.add_handler(CallbackQueryHandler(cb_buy_hint,       pattern=r"^bh:\d+:\d+:\d+$"))
     app.add_handler(CallbackQueryHandler(cb_noop,           pattern=r"^noop$"))
 
+    app.add_error_handler(_error_handler)
+
     app.run_polling(drop_pending_updates=True)
+
+
+async def _error_handler(update: object, context) -> None:
+    if isinstance(context.error, Conflict):
+        logger.critical("Conflict: another instance is already polling. Exiting.")
+        sys.exit(1)
+    logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
 
 
 if __name__ == "__main__":

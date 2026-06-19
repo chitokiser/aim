@@ -22,7 +22,6 @@ from i18n import t
 from utils.formatters import format_time, get_type_label, get_value_label
 from utils.keyboards import (
     confirm_bet,
-    currency_selector,
     match_list,
     pred_1x2,
     pred_btts,
@@ -223,7 +222,7 @@ async def cb_pred_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 # ---------------------------------------------------------------------------
 
 async def cb_pred_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show currency selector (AP vs P) after user picks prediction value."""
+    """Show P stake options after user picks prediction value."""
     query = update.callback_query
     if not query or not query.data:
         return
@@ -238,50 +237,17 @@ async def cb_pred_value(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     async with AsyncSessionLocal() as session:
         user = await get_user(session, tg_user.id)
         lang = user.language if user else "en"
-        ap_balance = user.ap_balance if user else 0
         p_balance = user.p_balance if user else 0
-
-    text = t(lang, "choose_currency", ap=ap_balance, p=p_balance)
-    await query.edit_message_text(
-        text,
-        parse_mode="Markdown",
-        reply_markup=currency_selector(match_id, pred_type, pred_value, lang, ap_balance, p_balance),
-    )
-
-
-# ---------------------------------------------------------------------------
-# Callback: curr:{match_id}:{type}:{value}:{currency}
-# ---------------------------------------------------------------------------
-
-async def cb_currency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show stake options after user picks AP or P currency."""
-    query = update.callback_query
-    if not query or not query.data:
-        return
-    await query.answer()
-
-    parts = query.data.split(":")
-    match_id = int(parts[1])
-    pred_type = parts[2]
-    pred_value = parts[3]
-    currency = parts[4]  # "ap" or "p"
-    tg_user = update.effective_user
-
-    async with AsyncSessionLocal() as session:
-        user = await get_user(session, tg_user.id)
-        lang = user.language if user else "en"
-        balance = (user.p_balance if currency == "p" else user.ap_balance) if user else 0
         match = await get_match(session, match_id)
 
     mult = _get_match_multiplier(match, pred_type, pred_value)
     example_payout = int(500 * mult)
-    stake_key = "choose_stake_p" if currency == "p" else "choose_stake"
 
-    text = t(lang, stake_key, balance=balance, payout=example_payout, mult=mult)
+    text = t(lang, "choose_stake", balance=p_balance, payout=example_payout, mult=mult)
     await query.edit_message_text(
         text,
         parse_mode="Markdown",
-        reply_markup=stake_options(match_id, pred_type, pred_value, lang, balance, currency),
+        reply_markup=stake_options(match_id, pred_type, pred_value, lang, p_balance, mult),
     )
 
 
@@ -300,7 +266,6 @@ async def cb_stake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     pred_type = parts[2]
     pred_value = parts[3]
     stake = int(parts[4])
-    currency = parts[5] if len(parts) > 5 else "ap"
     tg_user = update.effective_user
 
     async with AsyncSessionLocal() as session:
@@ -309,12 +274,11 @@ async def cb_stake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         match = await get_match(session, match_id)
         if not match or not user:
             return
-        balance = user.p_balance if currency == "p" else user.ap_balance
+        balance = user.p_balance
 
     if balance < stake:
-        err_key = "insufficient_p" if currency == "p" else "insufficient_ap"
         await query.edit_message_text(
-            t(lang, err_key, balance=balance, stake=stake),
+            t(lang, "insufficient_p", balance=balance, stake=stake),
             parse_mode="Markdown",
         )
         return
@@ -324,10 +288,9 @@ async def cb_stake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     type_label = get_type_label(lang, pred_type)
     value_label = get_value_label(lang, pred_type, pred_value)
 
-    confirm_key = "confirm_pred_p" if currency == "p" else "confirm_pred"
     text = t(
         lang,
-        confirm_key,
+        "confirm_pred",
         home=match.home_team,
         away=match.away_team,
         type_label=type_label,
@@ -339,7 +302,7 @@ async def cb_stake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await query.edit_message_text(
         text,
         parse_mode="Markdown",
-        reply_markup=confirm_bet(match_id, pred_type, pred_value, stake, lang, currency),
+        reply_markup=confirm_bet(match_id, pred_type, pred_value, stake, lang),
     )
 
 
@@ -358,7 +321,6 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     pred_type = parts[2]
     pred_value = parts[3]
     stake = int(parts[4])
-    currency = parts[5] if len(parts) > 5 else "ap"
     tg_user = update.effective_user
 
     async with AsyncSessionLocal() as session:
@@ -385,11 +347,9 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await query.edit_message_text(t(lang, "already_predicted"), parse_mode="Markdown")
             return
 
-        balance = user.p_balance if currency == "p" else user.ap_balance
-        if balance < stake:
-            err_key = "insufficient_p" if currency == "p" else "insufficient_ap"
+        if user.p_balance < stake:
             await query.edit_message_text(
-                t(lang, err_key, balance=balance, stake=stake),
+                t(lang, "insufficient_p", balance=user.p_balance, stake=stake),
                 parse_mode="Markdown",
             )
             return
@@ -397,14 +357,13 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         mult = _get_match_multiplier(match, pred_type, pred_value)
         payout = int(stake * mult)
 
-        await place_prediction(session, user, match_id, pred_type, pred_value, stake, payout, currency)
+        await place_prediction(session, user, match_id, pred_type, pred_value, stake, payout, "p")
         value_label = get_value_label(lang, pred_type, pred_value)
 
-    placed_key = "pred_placed_p" if currency == "p" else "pred_placed"
     await query.edit_message_text(
         t(
             lang,
-            placed_key,
+            "pred_placed",
             home=match.home_team,
             away=match.away_team,
             value_label=value_label,
@@ -498,14 +457,17 @@ async def handle_score_input(update: Update, context: ContextTypes.DEFAULT_TYPE)
     async with AsyncSessionLocal() as session:
         user = await get_user(session, tg_user.id)
         lang = user.language if user else "en"
-        ap_balance = user.ap_balance if user else 0
         p_balance = user.p_balance if user else 0
         match = await get_match(session, match_id)
         if not match:
             return
 
+    from config import MULTIPLIERS
+    mult = MULTIPLIERS.get("score", 8.0)
+    example_payout = int(500 * mult)
+
     await update.message.reply_text(
-        t(lang, "choose_currency", ap=ap_balance, p=p_balance),
+        t(lang, "choose_stake", balance=p_balance, payout=example_payout, mult=mult),
         parse_mode="Markdown",
-        reply_markup=currency_selector(match_id, "score", pred_value, lang, ap_balance, p_balance),
+        reply_markup=stake_options(match_id, "score", pred_value, lang, p_balance, mult),
     )
