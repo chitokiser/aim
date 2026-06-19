@@ -8,7 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Gavel, Clock, Eye, TrendingUp, ArrowLeft } from "lucide-react";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "https://aim-backend.up.railway.app";
+const API = `${process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app"}/api`;
 
 interface Auction {
   id: string;

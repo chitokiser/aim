@@ -1,6 +1,6 @@
 import AuctionDetailClient from "./AuctionDetailClient";
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? "https://aim-backend.up.railway.app";
+const API = `${process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app"}/api`;
 
 export async function generateStaticParams() {
   try {
