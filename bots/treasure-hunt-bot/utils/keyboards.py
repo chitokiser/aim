@@ -26,7 +26,7 @@ def treasure_list_keyboard(treasures: list, user_attempts: dict) -> InlineKeyboa
             icon = "▶️"
         else:
             icon = "🆕"
-        label = f"{icon} 보물 #{t.id} — {t.prize_gp:,} GP"
+        label = f"{icon} 보물 #{t.id} — {t.prize_gp:,} P"
         buttons.append([InlineKeyboardButton(label, callback_data=f"ti:{t.id}")])
 
     buttons.append([InlineKeyboardButton("🔙 메인 메뉴", callback_data="menu")])
@@ -65,7 +65,7 @@ def question_keyboard(
         if level not in purchased_hints:
             buttons.append([
                 InlineKeyboardButton(
-                    f"💡 힌트 Lv{level} ({cost:,} GP)",
+                    f"💡 힌트 Lv{level} ({cost:,} P)",
                     callback_data=f"nh:{tid}:{q}:{level}",
                 )
             ])
@@ -76,7 +76,7 @@ def hint_confirm_keyboard(treasure_id: int, order_num: int, level: int, cost: in
     return InlineKeyboardMarkup([
         [
             InlineKeyboardButton(
-                f"✅ {cost:,} GP 사용하고 힌트 보기",
+                f"✅ {cost:,} P 사용하고 힌트 보기",
                 callback_data=f"bh:{treasure_id}:{order_num}:{level}",
             )
         ],

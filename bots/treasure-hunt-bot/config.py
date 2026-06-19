@@ -13,7 +13,7 @@ GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./treasurehunt.db")
 
 HINT_COSTS = {1: 100, 2: 300, 3: 500}
-STARTING_GP = 1000
+STARTING_P = 1000
 
 COMMUNITY_URL = "https://t.me/ai119"
 JUMPWORLD_URL = "https://jump22.netlify.app/merchants"
