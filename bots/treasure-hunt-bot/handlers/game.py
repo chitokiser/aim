@@ -143,7 +143,7 @@ async def cb_treasure_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     text = (
         f"🗺 *보물 #{treasure.id}*\n\n"
         f"📍 위치: 🔒 10문제 정답 시 공개\n"
-        f"🎁 상금: *{treasure.prize_gp:,} GP*\n"
+        f"🎁 상금: *{treasure.prize_gp:,} P*\n"
         f"📝 {treasure.prize_description or '보물의 위치를 찾아보세요!'}\n"
         f"📋 문제 수: {q_total}문제{progress}"
     )
@@ -289,7 +289,7 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"```\n위도: {treasure.latitude:.6f}\n경도: {treasure.longitude:.6f}\n```\n\n"
                 f"🌍 Google Maps:\n"
                 f"https://maps.google.com/?q={treasure.latitude},{treasure.longitude}\n\n"
-                f"🎁 상금: *{treasure.prize_gp:,} GP*\n"
+                f"🎁 상금: *{treasure.prize_gp:,} P*\n"
                 f"{treasure.prize_description or ''}"
             )
             await query.edit_message_text(
@@ -382,7 +382,7 @@ async def cb_need_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     wrong_count = attempt.wrong_count if attempt else 0
     purchased_before = set(purchased)
     text = await _build_question_text(treasure_id, order_num, q_total, wrong_count, purchased_before)
-    text += f"\n\n💰 현재 GP: *{gp.balance:,}*\n💡 Lv{level} 힌트 구매: *{cost:,} GP*"
+    text += f"\n\n💰 현재 P: *{gp.balance:,}*\n💡 Lv{level} 힌트 구매: *{cost:,} P*"
 
     await query.edit_message_text(
         text,
@@ -422,7 +422,7 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not success:
         gp = await get_gp(user.id, user.username)
         await query.answer(
-            f"❌ GP가 부족합니다.\n현재 잔액: {gp.balance:,} GP / 필요: {cost:,} GP",
+            f"❌ P가 부족합니다.\n현재 잔액: {gp.balance:,} P / 필요: {cost:,} P",
             show_alert=True,
         )
         # Restore question view
@@ -432,7 +432,7 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     await record_hint_purchase(user.id, q.id, level, cost)
     hint_text = {1: q.hint1, 2: q.hint2, 3: q.hint3}[level]
 
-    await query.answer(f"✅ Lv{level} 힌트 구매 완료! -{cost:,} GP", show_alert=True)
+    await query.answer(f"✅ Lv{level} 힌트 구매 완료! -{cost:,} P", show_alert=True)
     # Refresh question display with new hint visible
     await _show_question(query, user.id, treasure_id, order_num)
 
@@ -442,11 +442,10 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def cb_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
-    from config import STARTING_GP
     text = (
         "🗺 *AI 보물찾기*\n\n"
         "보물의 좌표를 AI 문제로 찾아보세요!\n\n"
-        f"💡 힌트: Lv1=100 GP / Lv2=300 GP / Lv3=500 GP\n"
+        "💡 힌트: Lv1=100 P / Lv2=300 P / Lv3=500 P\n"
         "⚠️ 3번 오답 시 해당 보물 도전 불가"
     )
     await query.edit_message_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=main_menu_keyboard())

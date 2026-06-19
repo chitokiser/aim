@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from config import COMMUNITY_URL, JUMPWORLD_URL, STARTING_GP
+from config import COMMUNITY_URL, JUMPWORLD_URL, STARTING_P
 from database import get_active_treasures, get_attempt, get_gp
 from utils.keyboards import main_menu_keyboard, treasure_list_keyboard, treasure_info_keyboard
 
@@ -35,8 +35,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "🗺 *AI 보물찾기 게임에 오신 걸 환영합니다!*\n\n"
         "운영자가 숨겨놓은 보물의 좌표를 찾아보세요.\n"
         "AI가 만든 10개의 문제를 맞히면 정확한 좌표가 공개됩니다!\n\n"
-        f"🎁 신규 참가자에게 *{STARTING_GP:,} GP* 지급!\n"
-        "💡 힌트: Lv1=100 GP / Lv2=300 GP / Lv3=500 GP\n"
+        f"🎁 신규 참가자에게 *{STARTING_P:,} P* 지급!\n"
+        "💡 힌트: Lv1=100 P / Lv2=300 P / Lv3=500 P\n"
         "⚠️ 3번 오답 시 해당 보물 도전 불가\n\n"
         "아래 버튼으로 시작하세요 👇"
     )
@@ -84,9 +84,9 @@ async def cmd_gp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     gp = await get_gp(user.id, user.username)
     await update.message.reply_text(
-        f"💰 *내 GP 잔액*\n\n현재 잔액: *{gp.balance:,} GP*\n\n"
-        "GP는 힌트 구매 시 사용됩니다.\n"
-        "• Lv1 힌트: 100 GP\n• Lv2 힌트: 300 GP\n• Lv3 힌트: 500 GP",
+        f"💰 *내 P 잔액*\n\n현재 잔액: *{gp.balance:,} P*\n\n"
+        "P는 힌트 구매 시 사용됩니다.\n"
+        "• Lv1 힌트: 100 P\n• Lv2 힌트: 300 P\n• Lv3 힌트: 500 P",
         parse_mode=ParseMode.MARKDOWN,
     )
 
@@ -122,7 +122,7 @@ async def _show_treasure_info(
     text = (
         f"🗺 *보물 #{treasure.id}*\n\n"
         f"📍 위치: 🔒 10문제 정답 시 공개\n"
-        f"🎁 상금: *{treasure.prize_gp:,} GP*\n"
+        f"🎁 상금: *{treasure.prize_gp:,} P*\n"
         f"📝 {treasure.prize_description or '보물의 위치를 찾아보세요!'}\n"
         f"📋 문제 수: {q_total}문제{progress}"
     )

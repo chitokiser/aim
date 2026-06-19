@@ -47,7 +47,7 @@ logger = logging.getLogger(__name__)
 BOT_COMMANDS = [
     BotCommand("start", "봇 시작 / 메인 메뉴"),
     BotCommand("treasures", "보물 목록 보기"),
-    BotCommand("gp", "내 GP 잔액 확인"),
+    BotCommand("gp", "내 P 잔액 확인"),
     BotCommand("newtreasure", "[관리자] 새 보물 등록"),
     BotCommand("admin", "[관리자] 관리자 패널"),
 ]

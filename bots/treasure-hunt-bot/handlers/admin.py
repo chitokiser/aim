@@ -78,8 +78,8 @@ async def handle_coords(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     await update.message.reply_text(
         f"✅ 좌표 확인: `{lat:.6f}, {lon:.6f}`\n\n"
-        "상금액을 GP 단위로 입력해주세요.\n"
-        "예시: `5000` (5,000 GP)",
+        "상금액을 P 단위로 입력해주세요.\n"
+        "예시: `5000` (5,000 P)",
         parse_mode=ParseMode.MARKDOWN,
     )
     return ASK_PRIZE
@@ -103,7 +103,7 @@ async def handle_prize(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     context.user_data["prize"] = prize
 
     await update.message.reply_text(
-        f"✅ 상금: *{prize:,} GP*\n\n"
+        f"✅ 상금: *{prize:,} P*\n\n"
         "보물 설명을 입력해주세요.\n"
         "예: `서울 명동 근처에 숨겨진 특별한 보물`\n\n"
         "(설명 없이 기본값 사용하려면 `-` 입력)",
@@ -165,7 +165,7 @@ async def handle_desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         await progress_msg.edit_text(
             f"✅ 보물 #{treasure.id} 생성 완료!\n"
             f"📍 {location_name[:100]}\n"
-            f"🎁 {prize:,} GP\n"
+            f"🎁 {prize:,} P\n"
             f"📋 {len(questions)}문제 생성됨\n\n"
             "그룹에 공지 중..."
         )
@@ -177,7 +177,7 @@ async def handle_desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         await progress_msg.edit_text(
             f"✅ 보물 #{treasure.id} 등록 및 그룹 공지 완료!\n"
             f"📍 위치: {location_name[:100]}\n"
-            f"🎁 상금: {prize:,} GP\n"
+            f"🎁 상금: {prize:,} P\n"
             f"📋 문제: {len(questions)}개"
         )
 
@@ -200,11 +200,11 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
     text = (
         f"🗺 *새로운 보물이 등장했습니다!* 🎉\n\n"
         f"🔢 보물 번호: *#{treasure.id}*\n"
-        f"🎁 상금: *{treasure.prize_gp:,} GP*\n"
+        f"🎁 상금: *{treasure.prize_gp:,} P*\n"
         f"📋 총 {q_count}문제 (AI 생성)\n\n"
         f"📝 {treasure.prize_description or '보물의 정확한 위치를 찾아보세요!'}\n\n"
         f"⚠️ 3번 오답 시 도전 불가!\n"
-        f"💡 힌트 구매 가능 (GP 필요)\n"
+        f"💡 힌트 구매 가능 (P 필요)\n"
         f"🔒 좌표는 문제를 풀어야 공개됩니다!"
     )
 
