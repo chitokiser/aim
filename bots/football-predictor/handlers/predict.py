@@ -11,6 +11,7 @@ from telegram.ext import ContextTypes
 from config import BET_CUTOFF_MINUTES, MULTIPLIERS
 from database import (
     AsyncSessionLocal,
+    Match,
     get_match,
     get_upcoming_matches,
     get_user,
@@ -35,6 +36,29 @@ from utils.keyboards import (
 logger = logging.getLogger(__name__)
 
 KST = pytz.timezone("Asia/Seoul")
+
+
+def _get_match_multiplier(match: Match | None, pred_type: str, pred_value: str) -> float:
+    """Return real bookmaker odds for this prediction, falling back to MULTIPLIERS."""
+    if match:
+        if pred_type == "1x2":
+            if pred_value == "home" and match.odds_home:
+                return float(match.odds_home)
+            if pred_value == "draw" and match.odds_draw:
+                return float(match.odds_draw)
+            if pred_value == "away" and match.odds_away:
+                return float(match.odds_away)
+        elif pred_type == "btts":
+            if pred_value == "yes" and match.odds_btts_yes:
+                return float(match.odds_btts_yes)
+            if pred_value == "no" and match.odds_btts_no:
+                return float(match.odds_btts_no)
+        elif pred_type == "ou":
+            if pred_value == "over" and match.odds_over25:
+                return float(match.odds_over25)
+            if pred_value == "under" and match.odds_under25:
+                return float(match.odds_under25)
+    return MULTIPLIERS.get(pred_type, 1.9)
 
 
 async def cmd_predict(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -247,8 +271,9 @@ async def cb_currency(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         user = await get_user(session, tg_user.id)
         lang = user.language if user else "en"
         balance = (user.p_balance if currency == "p" else user.ap_balance) if user else 0
+        match = await get_match(session, match_id)
 
-    mult = MULTIPLIERS.get(pred_type, 1.9)
+    mult = _get_match_multiplier(match, pred_type, pred_value)
     example_payout = int(500 * mult)
     stake_key = "choose_stake_p" if currency == "p" else "choose_stake"
 
@@ -294,7 +319,7 @@ async def cb_stake(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         return
 
-    mult = MULTIPLIERS.get(pred_type, 1.9)
+    mult = _get_match_multiplier(match, pred_type, pred_value)
     payout = int(stake * mult)
     type_label = get_type_label(lang, pred_type)
     value_label = get_value_label(lang, pred_type, pred_value)
@@ -369,7 +394,7 @@ async def cb_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             )
             return
 
-        mult = MULTIPLIERS.get(pred_type, 1.9)
+        mult = _get_match_multiplier(match, pred_type, pred_value)
         payout = int(stake * mult)
 
         await place_prediction(session, user, match_id, pred_type, pred_value, stake, payout, currency)

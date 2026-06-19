@@ -5,6 +5,7 @@ from datetime import datetime, date
 from sqlalchemy import (
     BigInteger,
     DateTime,
+    Float,
     ForeignKey,
     Integer,
     String,
@@ -57,6 +58,14 @@ class Match(Base):
     away_score: Mapped[int | None] = mapped_column(Integer)
     external_id: Mapped[int | None] = mapped_column(BigInteger)  # football-data.org ID
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # Bookmaker odds from The Odds API (null = not yet fetched or unavailable)
+    odds_home: Mapped[float | None] = mapped_column(Float, nullable=True)
+    odds_draw: Mapped[float | None] = mapped_column(Float, nullable=True)
+    odds_away: Mapped[float | None] = mapped_column(Float, nullable=True)
+    odds_btts_yes: Mapped[float | None] = mapped_column(Float, nullable=True)
+    odds_btts_no: Mapped[float | None] = mapped_column(Float, nullable=True)
+    odds_over25: Mapped[float | None] = mapped_column(Float, nullable=True)
+    odds_under25: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 
 class Prediction(Base):
@@ -92,6 +101,13 @@ async def init_db() -> None:
         for sql in (
             "ALTER TABLE users ADD COLUMN p_balance BIGINT DEFAULT 0",
             "ALTER TABLE predictions ADD COLUMN stake_currency VARCHAR(4) DEFAULT 'ap'",
+            "ALTER TABLE matches ADD COLUMN odds_home REAL",
+            "ALTER TABLE matches ADD COLUMN odds_draw REAL",
+            "ALTER TABLE matches ADD COLUMN odds_away REAL",
+            "ALTER TABLE matches ADD COLUMN odds_btts_yes REAL",
+            "ALTER TABLE matches ADD COLUMN odds_btts_no REAL",
+            "ALTER TABLE matches ADD COLUMN odds_over25 REAL",
+            "ALTER TABLE matches ADD COLUMN odds_under25 REAL",
         ):
             try:
                 await conn.execute(text(sql))
@@ -186,6 +202,12 @@ async def get_upcoming_matches(session: AsyncSession, limit: int = 20) -> list[M
 
 async def get_match(session: AsyncSession, match_id: int) -> Match | None:
     return await session.get(Match, match_id)
+
+
+async def update_match_odds(session: AsyncSession, match_id: int, **odds: float | None) -> None:
+    """Persist bookmaker odds on a match row."""
+    await session.execute(update(Match).where(Match.id == match_id).values(**odds))
+    await session.commit()
 
 
 async def add_match(

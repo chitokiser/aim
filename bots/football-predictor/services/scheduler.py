@@ -51,6 +51,49 @@ async def sync_api_matches() -> None:
     logger.info("Synced %d matches from football-data.org", len(matches))
 
 
+async def sync_odds() -> None:
+    """Fetch real bookmaker odds and update all scheduled matches in DB."""
+    from services.odds_api import fetch_all_sport_odds, find_match_odds
+    from database import update_match_odds
+    from sqlalchemy import select
+
+    all_events = await fetch_all_sport_odds()
+    if not all_events:
+        logger.info("No odds data returned — skipping odds sync")
+        return
+
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+    cutoff = (datetime.now(timezone.utc) + timedelta(days=4)).replace(tzinfo=None)
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            select(Match).where(
+                Match.status == "scheduled",
+                Match.match_time > now_naive,
+                Match.match_time <= cutoff,
+            )
+        )
+        matches = list(result.scalars().all())
+
+    updated = 0
+    for match in matches:
+        odds = find_match_odds(all_events, match.home_team, match.away_team, match.match_time)
+        if odds and any(v is not None for v in odds.values()):
+            async with AsyncSessionLocal() as session:
+                await update_match_odds(session, match.id, **odds)
+            updated += 1
+            logger.info(
+                "Odds synced: %s vs %s — H:%.2f D:%.2f A:%.2f",
+                match.home_team,
+                match.away_team,
+                odds.get("odds_home") or 0,
+                odds.get("odds_draw") or 0,
+                odds.get("odds_away") or 0,
+            )
+
+    logger.info("Odds sync complete: %d/%d matches updated", updated, len(matches))
+
+
 async def auto_settle_finished(app: Application | None = None) -> None:
     """Check live matches from football-data.org and auto-settle finished ones."""
     from services.football_api import fetch_match_result

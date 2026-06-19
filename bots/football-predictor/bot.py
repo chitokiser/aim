@@ -47,6 +47,7 @@ from services.scheduler import (
     broadcast_live_update,
     broadcast_pre_match_alert,
     sync_api_matches,
+    sync_odds,
 )
 
 logging.basicConfig(
@@ -62,6 +63,7 @@ async def post_init(app: Application) -> None:
 
     # Seed matches from football-data.org on startup
     await sync_api_matches()
+    await sync_odds()
 
 
 def main() -> None:
@@ -129,6 +131,10 @@ def main() -> None:
         job_queue.run_repeating(
             _live_update_job, interval=900, first=180, name="live_update"
         )
+        # Sync odds from The Odds API every 12 hours (~360 API calls/month, within free tier)
+        job_queue.run_repeating(
+            _sync_odds_job, interval=43200, first=600, name="sync_odds"
+        )
 
     logger.info("⚽ AI119 Football Predictor starting...")
     app.run_polling(allowed_updates=Update.ALL_TYPES)
@@ -159,6 +165,10 @@ async def _pre_match_alert_job(context) -> None:
 
 async def _live_update_job(context) -> None:
     await broadcast_live_update(context.application)
+
+
+async def _sync_odds_job(context) -> None:
+    await sync_odds()
 
 
 if __name__ == "__main__":
