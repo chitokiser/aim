@@ -7,7 +7,20 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application
 
 from config import GROUP_CHAT_ID, SITE_URL
-from database import AsyncSessionLocal, Match, count_predictions_for_match, get_all_user_telegram_ids
+from database import (
+    AsyncSessionLocal,
+    Match,
+    add_match,
+    count_predictions_for_match,
+    get_all_user_telegram_ids,
+    get_match,
+    get_match_by_external_id,
+    get_live_matches_in_window,
+    get_past_active_matches_with_external_id,
+    get_scheduled_matches_in_window,
+    settle_match,
+    update_match_odds,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,43 +32,34 @@ _pre_alert_sent: set[tuple[int, int]] = set()
 async def sync_api_matches() -> None:
     """Fetch upcoming matches from football-data.org and upsert into the DB."""
     from services.football_api import fetch_upcoming_matches
-    from database import add_match
-    from sqlalchemy import select
 
     matches = await fetch_upcoming_matches(days_ahead=3)
     if not matches:
         return
 
-    async with AsyncSessionLocal() as session:
-        for m in matches:
-            ext_id = m["external_id"]
-            if ext_id:
-                existing = await session.execute(
-                    select(Match).where(Match.external_id == ext_id)
-                )
-                if existing.scalar_one_or_none():
-                    continue
+    for m in matches:
+        ext_id = m["external_id"]
+        if ext_id and await get_match_by_external_id(ext_id):
+            continue
 
-            match_time = m["match_time"]
-            if match_time.tzinfo is not None:
-                match_time = match_time.astimezone(timezone.utc).replace(tzinfo=None)
+        match_time = m["match_time"]
+        if match_time.tzinfo is not None:
+            match_time = match_time.astimezone(timezone.utc).replace(tzinfo=None)
 
-            await add_match(
-                session,
-                home_team=m["home_team"],
-                away_team=m["away_team"],
-                league=m["league"],
-                match_time=match_time,
-                external_id=ext_id,
-            )
+        await add_match(
+            None,
+            home_team=m["home_team"],
+            away_team=m["away_team"],
+            league=m["league"],
+            match_time=match_time,
+            external_id=ext_id,
+        )
     logger.info("Synced %d matches from football-data.org", len(matches))
 
 
 async def sync_odds() -> None:
     """Fetch real bookmaker odds and update all scheduled matches in DB."""
     from services.odds_api import fetch_all_sport_odds, find_match_odds
-    from database import update_match_odds
-    from sqlalchemy import select
 
     all_events = await fetch_all_sport_odds()
     if not all_events:
@@ -65,22 +69,13 @@ async def sync_odds() -> None:
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     cutoff = (datetime.now(timezone.utc) + timedelta(days=4)).replace(tzinfo=None)
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Match).where(
-                Match.status == "scheduled",
-                Match.match_time > now_naive,
-                Match.match_time <= cutoff,
-            )
-        )
-        matches = list(result.scalars().all())
+    matches = await get_scheduled_matches_in_window(now_naive, cutoff)
 
     updated = 0
     for match in matches:
         odds = find_match_odds(all_events, match.home_team, match.away_team, match.match_time)
         if odds and any(v is not None for v in odds.values()):
-            async with AsyncSessionLocal() as session:
-                await update_match_odds(session, match.id, **odds)
+            await update_match_odds(None, match.id, **odds)
             updated += 1
             logger.info(
                 "Odds synced: %s vs %s — H:%.2f D:%.2f A:%.2f",
@@ -97,32 +92,21 @@ async def sync_odds() -> None:
 async def auto_settle_finished(app: Application | None = None) -> None:
     """Check live matches from football-data.org and auto-settle finished ones."""
     from services.football_api import fetch_match_result
-    from database import settle_match
-    from sqlalchemy import select
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Match).where(
-                Match.status.in_(["scheduled", "live"]),
-                Match.external_id.is_not(None),
-                Match.match_time <= datetime.utcnow(),
-            )
-        )
-        candidates = list(result.scalars().all())
+    candidates = await get_past_active_matches_with_external_id(datetime.utcnow())
 
     for match in candidates:
         data = await fetch_match_result(match.external_id)
         if not data:
             continue
-        async with AsyncSessionLocal() as session:
-            m = await session.get(Match, match.id)
-            if not m or m.status == "finished":
-                continue
-            winners, payout = await settle_match(session, m, data["home_score"], data["away_score"])
-            logger.info(
-                "Auto-settled match %d (%s vs %s): %d winners, %d AP paid",
-                match.id, match.home_team, match.away_team, winners, payout,
-            )
+        m = await get_match(None, match.id)
+        if not m or m.status == "finished":
+            continue
+        winners, payout = await settle_match(None, m, data["home_score"], data["away_score"])
+        logger.info(
+            "Auto-settled match %d (%s vs %s): %d winners, %d AP paid",
+            match.id, match.home_team, match.away_team, winners, payout,
+        )
         if app and GROUP_CHAT_ID:
             await broadcast_settlement_result(
                 app, match, data["home_score"], data["away_score"], winners, payout
@@ -160,22 +144,12 @@ async def broadcast_pre_match_alert(app: Application) -> None:
     if not GROUP_CHAT_ID:
         return
 
-    from sqlalchemy import select
-
     now_utc = datetime.now(timezone.utc)
     now_naive = now_utc.replace(tzinfo=None)
     # Look ahead 12.5 hours to catch the 12h slot
     window_end = (now_utc + timedelta(hours=12, minutes=30)).replace(tzinfo=None)
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Match).where(
-                Match.status == "scheduled",
-                Match.match_time > now_naive,
-                Match.match_time <= window_end,
-            )
-        )
-        upcoming = list(result.scalars().all())
+    upcoming = await get_scheduled_matches_in_window(now_naive, window_end)
 
     for match in upcoming:
         minutes_remaining = (match.match_time - now_naive).total_seconds() / 60
@@ -245,8 +219,11 @@ async def broadcast_pre_match_alert(app: Application) -> None:
                 "Pre-match alert sent for match %d (%s vs %s) — %dh before",
                 match.id, match.home_team, match.away_team, hours_before,
             )
-            from services.twitter import post_tweet
-            await post_tweet(text)
+            from services.blogger import post_blogger
+            await post_blogger(
+                f"⚽ {match.home_team} vs {match.away_team} — {hours_before}h Preview",
+                text,
+            )
         except Exception as exc:
             logger.error("Failed to send pre-match alert: %s", exc)
 
@@ -257,22 +234,13 @@ async def broadcast_live_update(app: Application) -> None:
         return
 
     from services.football_api import fetch_live_score
-    from sqlalchemy import select
 
     now_utc = datetime.now(timezone.utc)
     # Matches started up to 3 hours ago (covers 90 min + extra time)
     cutoff = (now_utc - timedelta(hours=3)).replace(tzinfo=None)
     now_naive = now_utc.replace(tzinfo=None)
 
-    async with AsyncSessionLocal() as session:
-        result = await session.execute(
-            select(Match).where(
-                Match.status.in_(["scheduled", "live"]),
-                Match.match_time <= now_naive,
-                Match.match_time >= cutoff,
-            )
-        )
-        live_matches = list(result.scalars().all())
+    live_matches = await get_live_matches_in_window(cutoff, now_naive)
 
     if not live_matches:
         return
@@ -285,8 +253,7 @@ async def broadcast_live_update(app: Application) -> None:
     )
 
     for match in live_matches:
-        async with AsyncSessionLocal() as session:
-            pred_count = await count_predictions_for_match(session, match.id)
+        pred_count = await count_predictions_for_match(None, match.id)
 
         score_line = f"*{match.home_team}* vs *{match.away_team}* — 경기 진행 중 / In Progress"
         elapsed_label = ""
@@ -342,8 +309,11 @@ async def broadcast_live_update(app: Application) -> None:
                 "Live briefing sent for match %d (%s vs %s)",
                 match.id, match.home_team, match.away_team,
             )
-            from services.twitter import post_tweet
-            await post_tweet(text)
+            from services.blogger import post_blogger
+            await post_blogger(
+                f"📡 Live: {match.home_team} vs {match.away_team}",
+                text,
+            )
         except Exception as exc:
             logger.error("Failed to send live briefing: %s", exc)
 
@@ -409,7 +379,10 @@ async def broadcast_settlement_result(
             "Settlement broadcast sent for match %d (%s %d-%d %s): %d winners, %d AP",
             match.id, match.home_team, home_score, away_score, match.away_team, winners, payout,
         )
-        from services.twitter import post_tweet
-        await post_tweet(text)
+        from services.blogger import post_blogger
+        await post_blogger(
+            f"✅ Result: {match.home_team} {home_score}–{away_score} {match.away_team}",
+            text,
+        )
     except Exception as exc:
         logger.error("Failed to send settlement broadcast: %s", exc)
