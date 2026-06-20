@@ -206,7 +206,7 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
         f"🔢 #{treasure.id}  🎁 {treasure.prize_gp:,} P\n"
         f"📋 {q_count} questions (AI generated)\n\n"
         f"👉 https://t.me/{tg_username}?start=treasure_{treasure.id}\n"
-        f"💬 https://t.me/ai119"
+        f"💬 https://t.me/ai119link"
     )
     from services.threads import post_threads
     from services.blogger import post_blogger

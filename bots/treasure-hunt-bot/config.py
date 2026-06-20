@@ -25,6 +25,6 @@ FIREBASE_PRIVATE_KEY = os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n"
 HINT_COSTS = {1: 100, 2: 300, 3: 500}
 STARTING_P = 1000
 
-COMMUNITY_URL = "https://t.me/ai119"
+COMMUNITY_URL = "https://t.me/ai119link"
 JUMPWORLD_URL = "https://jump22.netlify.app/merchants"
 PLATFORM_URL = "https://ai119.netlify.app"

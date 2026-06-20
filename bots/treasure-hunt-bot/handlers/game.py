@@ -300,7 +300,7 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"🎁 Prize: {treasure.prize_gp:,} P\n\n"
                 f"⚡ Can you find the next one?\n"
                 f"👉 https://t.me/{bot_username}\n"
-                f"💬 https://t.me/ai119"
+                f"💬 https://t.me/ai119link"
             )
             from services.threads import post_threads
             from services.blogger import post_blogger
