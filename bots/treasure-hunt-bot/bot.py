@@ -63,6 +63,9 @@ async def post_init(app: Application) -> None:
     await app.bot.set_my_commands(BOT_COMMANDS)
     logger.info("Treasure Hunt Bot started. @%s", me.username)
 
+    from services.blogger import check_connection as check_blogger
+    await check_blogger()
+
 
 def main() -> None:
     if not BOT_TOKEN:

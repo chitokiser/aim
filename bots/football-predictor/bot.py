@@ -62,6 +62,9 @@ async def post_init(app: Application) -> None:
     await init_db()
     logger.info("Database initialized")
 
+    from services.blogger import check_connection as check_blogger
+    await check_blogger()
+
     # Seed matches from football-data.org on startup
     await sync_api_matches()
     await sync_odds()

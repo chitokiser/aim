@@ -39,6 +39,27 @@ async def _get_access_token() -> str | None:
             return data.get("access_token")
 
 
+async def check_connection() -> bool:
+    """Test Blogger credentials at startup. Logs OK or the exact failure reason."""
+    if not all([BLOGGER_CLIENT_ID, BLOGGER_CLIENT_SECRET, BLOGGER_REFRESH_TOKEN]):
+        logger.warning("Blogger SKIP — BLOGGER_CLIENT_ID/SECRET/REFRESH_TOKEN not set")
+        return False
+    if not BLOGGER_BLOG_ID:
+        logger.warning("Blogger SKIP — BLOGGER_BLOG_ID not set")
+        return False
+    token = await _get_access_token()
+    if token:
+        logger.info("Blogger OK — blog ID %s", BLOGGER_BLOG_ID)
+        return True
+    logger.error(
+        "Blogger FAIL — token refresh failed. Likely cause: "
+        "Google OAuth app is in 'testing' mode (tokens expire every 7 days). "
+        "Fix: go to Google Cloud Console → OAuth consent screen → publish to 'Production', "
+        "then re-run bots/setup_blogger_auth.py to get a new refresh token."
+    )
+    return False
+
+
 async def post_blogger(title: str, content: str, *, is_html: bool = False) -> bool:
     """Post to Google Blogger. content is Telegram Markdown unless is_html=True."""
     if not BLOGGER_BLOG_ID:
@@ -58,7 +79,7 @@ async def post_blogger(title: str, content: str, *, is_html: bool = False) -> bo
             headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
             json={"kind": "blogger#post", "title": title, "content": html_body},
         ) as resp:
-            if resp.status == 200:
+            if resp.status in (200, 201):
                 logger.info("Blogger post published: %s", title)
                 return True
             logger.error("Blogger post failed (%s): %s", resp.status, await resp.text())
