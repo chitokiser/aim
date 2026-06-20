@@ -341,7 +341,7 @@ async def get_match(session, match_id: int) -> Optional[Match]:
     return _to_match(doc.to_dict(), doc.id)
 
 
-async def get_upcoming_matches(session) -> List[Match]:
+async def get_upcoming_matches(session, limit: int = 50) -> List[Match]:
     now = datetime.utcnow()
     matches = []
     async for doc in db.collection("fp_matches").stream():
@@ -350,7 +350,7 @@ async def get_upcoming_matches(session) -> List[Match]:
         if mt and mt > now and data.get("status") == "scheduled":
             matches.append(_to_match(data, doc.id))
     matches.sort(key=lambda m: m.match_time)
-    return matches
+    return matches[:limit]
 
 
 async def get_all_matches(session) -> List[Match]:
@@ -572,3 +572,48 @@ async def cancel_match_predictions(session, match: Match) -> int:
         count += 1
     await update_match_status(session, match.id, "cancelled")
     return count
+
+
+async def set_user_language(session, telegram_id: int, lang: str) -> None:
+    await db.collection("fp_users").document(str(telegram_id)).update({"language": lang})
+
+
+async def get_user_rank(session, telegram_id: int) -> int:
+    users = []
+    async for doc in db.collection("fp_users").stream():
+        users.append(doc.to_dict())
+    users.sort(key=lambda u: u.get("correct_predictions", 0), reverse=True)
+    for i, u in enumerate(users, start=1):
+        if u.get("telegram_id") == telegram_id:
+            return i
+    return 0
+
+
+async def has_predicted(session, telegram_id: int, match_id: int) -> bool:
+    async for doc in db.collection("fp_predictions").stream():
+        data = doc.to_dict()
+        if data.get("user_id") == telegram_id and data.get("match_id") == match_id and data.get("status") == "pending":
+            return True
+    return False
+
+
+async def place_prediction(
+    session,
+    user: User,
+    match_id: int,
+    pred_type: str,
+    pred_value: str,
+    stake_ap: int,
+    payout_ap: int,
+    stake_currency: str = "p",
+) -> Prediction:
+    return await create_prediction(session, user, match_id, pred_type, pred_value, stake_ap, payout_ap, stake_currency)
+
+
+async def get_user_predictions_with_matches(session, telegram_id: int) -> list[tuple[Prediction, Optional[Match]]]:
+    preds = await get_user_predictions(session, telegram_id)
+    result = []
+    for pred in preds:
+        match = await get_match(session, pred.match_id)
+        result.append((pred, match))
+    return result
