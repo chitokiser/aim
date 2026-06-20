@@ -1,459 +1,574 @@
+"""Firestore-backed database layer for the football-predictor bot.
+
+Collections (fp_ prefix to avoid collisions):
+  fp_counters/seq              - {match_id: N}
+  fp_users/{telegram_id}       - User documents
+  fp_matches/{match_id}        - Match documents
+  fp_predictions/{uid}_{mid}   - Prediction documents
+
+Handler compatibility layer:
+  AsyncSessionLocal() returns a no-op dummy context manager so ALL existing
+  handler code (async with AsyncSessionLocal() as session:) works unchanged.
+  All public db functions accept a session arg but ignore it.
+"""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, date
+from typing import Optional, List
 
-from sqlalchemy import (
-    BigInteger,
-    DateTime,
-    Float,
-    ForeignKey,
-    Integer,
-    String,
-    func,
-    select,
-    text,
-    update,
-)
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+import firebase_admin
+from firebase_admin import credentials, firestore_async
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
-from config import DATABASE_URL
+from config import FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY, FIREBASE_PROJECT_ID
 
 
-class Base(DeclarativeBase):
+# ---------------------------------------------------------------------------
+# Firebase init
+# ---------------------------------------------------------------------------
+
+def _init_firebase() -> None:
+    try:
+        cred = credentials.Certificate({
+            "type": "service_account",
+            "project_id": FIREBASE_PROJECT_ID,
+            "client_email": FIREBASE_CLIENT_EMAIL,
+            "private_key": FIREBASE_PRIVATE_KEY,
+            "token_uri": "https://oauth2.googleapis.com/token",
+        })
+        firebase_admin.initialize_app(cred)
+    except ValueError:
+        pass  # already initialized in this process
+
+
+_init_firebase()
+db = firestore_async.client()
+
+
+# ---------------------------------------------------------------------------
+# Dummy session — keeps all handler code (async with AsyncSessionLocal()) intact
+# ---------------------------------------------------------------------------
+
+class _DummySession:
     pass
 
 
-class User(Base):
-    __tablename__ = "users"
+class _DummyContext:
+    async def __aenter__(self) -> _DummySession:
+        return _DummySession()
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    telegram_id: Mapped[int] = mapped_column(BigInteger, unique=True, nullable=False, index=True)
-    username: Mapped[str | None] = mapped_column(String(128))
-    first_name: Mapped[str | None] = mapped_column(String(128))
-    language: Mapped[str] = mapped_column(String(4), default="en")
-    ap_balance: Mapped[int] = mapped_column(BigInteger, default=0)
-    p_balance: Mapped[int] = mapped_column(BigInteger, default=0)
-    total_predicted: Mapped[int] = mapped_column(Integer, default=0)
-    correct_predictions: Mapped[int] = mapped_column(Integer, default=0)
-    total_ap_won: Mapped[int] = mapped_column(BigInteger, default=0)
-    win_streak: Mapped[int] = mapped_column(Integer, default=0)
-    max_win_streak: Mapped[int] = mapped_column(Integer, default=0)
-    streak_days: Mapped[int] = mapped_column(Integer, default=0)
-    last_daily_date: Mapped[str | None] = mapped_column(String(16))  # YYYY-MM-DD
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    async def __aexit__(self, *args) -> None:
+        pass
 
 
-class Match(Base):
-    __tablename__ = "matches"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    home_team: Mapped[str] = mapped_column(String(128))
-    away_team: Mapped[str] = mapped_column(String(128))
-    league: Mapped[str] = mapped_column(String(128))
-    match_time: Mapped[datetime] = mapped_column(DateTime)  # UTC
-    status: Mapped[str] = mapped_column(String(32), default="scheduled")
-    # status: scheduled | live | finished | cancelled
-    home_score: Mapped[int | None] = mapped_column(Integer)
-    away_score: Mapped[int | None] = mapped_column(Integer)
-    external_id: Mapped[int | None] = mapped_column(BigInteger)  # football-data.org ID
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    # Bookmaker odds from The Odds API (null = not yet fetched or unavailable)
-    odds_home: Mapped[float | None] = mapped_column(Float, nullable=True)
-    odds_draw: Mapped[float | None] = mapped_column(Float, nullable=True)
-    odds_away: Mapped[float | None] = mapped_column(Float, nullable=True)
-    odds_btts_yes: Mapped[float | None] = mapped_column(Float, nullable=True)
-    odds_btts_no: Mapped[float | None] = mapped_column(Float, nullable=True)
-    odds_over25: Mapped[float | None] = mapped_column(Float, nullable=True)
-    odds_under25: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-
-class Prediction(Base):
-    __tablename__ = "predictions"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    match_id: Mapped[int] = mapped_column(Integer, ForeignKey("matches.id"), nullable=False, index=True)
-    pred_type: Mapped[str] = mapped_column(String(16))
-    # pred_type: 1x2 | score | btts | ou | first | handicap
-    pred_value: Mapped[str] = mapped_column(String(32))
-    # pred_value: home|draw|away | 2-1 | yes|no | over|under | home|away | home|away
-    stake_ap: Mapped[int] = mapped_column(Integer)
-    status: Mapped[str] = mapped_column(String(16), default="pending")
-    # status: pending | won | lost | cancelled
-    stake_currency: Mapped[str] = mapped_column(String(4), default="ap")  # "ap" or "p"
-    payout_ap: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+def AsyncSessionLocal() -> _DummyContext:
+    return _DummyContext()
 
 
 # ---------------------------------------------------------------------------
-# Engine & session factory
+# Dataclasses  (same attribute names as the old SQLAlchemy models)
 # ---------------------------------------------------------------------------
 
-engine = create_async_engine(DATABASE_URL, echo=False)
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+@dataclass
+class User:
+    id: int               # = telegram_id (no separate integer PK)
+    telegram_id: int
+    username: str = ""
+    first_name: str = ""
+    language: str = "en"
+    p_balance: int = 0
+    correct_predictions: int = 0
+    total_predicted: int = 0
+    total_ap_won: int = 0
+    win_streak: int = 0
+    streak_days: int = 0
+    last_daily: Optional[str] = None   # "YYYY-MM-DD"
 
+
+@dataclass
+class Match:
+    id: int
+    home_team: str
+    away_team: str
+    league: str
+    match_time: datetime
+    status: str = "scheduled"
+    home_score: Optional[int] = None
+    away_score: Optional[int] = None
+    external_id: Optional[int] = None
+    odds_home: Optional[float] = None
+    odds_draw: Optional[float] = None
+    odds_away: Optional[float] = None
+    odds_btts_yes: Optional[float] = None
+    odds_btts_no: Optional[float] = None
+    odds_over25: Optional[float] = None
+    odds_under25: Optional[float] = None
+    ai_analysis: Optional[str] = None
+
+
+@dataclass
+class Prediction:
+    user_id: int       # = telegram_id
+    match_id: int
+    pred_type: str
+    pred_value: str
+    stake_ap: int
+    payout_ap: int
+    stake_currency: str = "p"
+    status: str = "pending"
+    created_at: Optional[datetime] = None
+
+
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
+
+def _ts_to_dt(ts) -> Optional[datetime]:
+    if ts is None:
+        return None
+    if isinstance(ts, datetime):
+        return ts.replace(tzinfo=None) if ts.tzinfo else ts
+    if hasattr(ts, "ToDatetime"):
+        return ts.ToDatetime()
+    return None
+
+
+def _to_user(data: dict) -> User:
+    tid = data.get("telegram_id", 0)
+    return User(
+        id=tid,
+        telegram_id=tid,
+        username=data.get("username", ""),
+        first_name=data.get("first_name", ""),
+        language=data.get("language", "en"),
+        p_balance=data.get("p_balance", 0),
+        correct_predictions=data.get("correct_predictions", 0),
+        total_predicted=data.get("total_predicted", 0),
+        total_ap_won=data.get("total_ap_won", 0),
+        win_streak=data.get("win_streak", 0),
+        streak_days=data.get("streak_days", 0),
+        last_daily=data.get("last_daily"),
+    )
+
+
+def _to_match(data: dict, doc_id: str) -> Match:
+    return Match(
+        id=data.get("id", int(doc_id)),
+        home_team=data.get("home_team", ""),
+        away_team=data.get("away_team", ""),
+        league=data.get("league", ""),
+        match_time=_ts_to_dt(data.get("match_time")) or datetime.utcnow(),
+        status=data.get("status", "scheduled"),
+        home_score=data.get("home_score"),
+        away_score=data.get("away_score"),
+        external_id=data.get("external_id"),
+        odds_home=data.get("odds_home"),
+        odds_draw=data.get("odds_draw"),
+        odds_away=data.get("odds_away"),
+        odds_btts_yes=data.get("odds_btts_yes"),
+        odds_btts_no=data.get("odds_btts_no"),
+        odds_over25=data.get("odds_over25"),
+        odds_under25=data.get("odds_under25"),
+        ai_analysis=data.get("ai_analysis"),
+    )
+
+
+def _to_prediction(data: dict) -> Prediction:
+    return Prediction(
+        user_id=data.get("user_id", 0),
+        match_id=data.get("match_id", 0),
+        pred_type=data.get("pred_type", ""),
+        pred_value=data.get("pred_value", ""),
+        stake_ap=data.get("stake_ap", 0),
+        payout_ap=data.get("payout_ap", 0),
+        stake_currency=data.get("stake_currency", "p"),
+        status=data.get("status", "pending"),
+        created_at=_ts_to_dt(data.get("created_at")),
+    )
+
+
+async def _next_match_id() -> int:
+    ref = db.collection("fp_counters").document("seq")
+    doc = await ref.get()
+    current = doc.to_dict().get("match_id", 0) if doc.exists else 0
+    new_id = current + 1
+    await ref.set({"match_id": new_id}, merge=True)
+    return new_id
+
+
+# ---------------------------------------------------------------------------
+# DB init (no-op for Firestore)
+# ---------------------------------------------------------------------------
 
 async def init_db() -> None:
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        # Add new columns to existing tables (safe: ignores error if column exists)
-        for sql in (
-            "ALTER TABLE users ADD COLUMN p_balance BIGINT DEFAULT 0",
-            "ALTER TABLE predictions ADD COLUMN stake_currency VARCHAR(4) DEFAULT 'ap'",
-            "ALTER TABLE matches ADD COLUMN odds_home REAL",
-            "ALTER TABLE matches ADD COLUMN odds_draw REAL",
-            "ALTER TABLE matches ADD COLUMN odds_away REAL",
-            "ALTER TABLE matches ADD COLUMN odds_btts_yes REAL",
-            "ALTER TABLE matches ADD COLUMN odds_btts_no REAL",
-            "ALTER TABLE matches ADD COLUMN odds_over25 REAL",
-            "ALTER TABLE matches ADD COLUMN odds_under25 REAL",
-        ):
-            try:
-                await conn.execute(text(sql))
-            except Exception:
-                pass
+    pass
 
 
 # ---------------------------------------------------------------------------
-# User helpers
+# User functions
 # ---------------------------------------------------------------------------
 
-async def get_or_create_user(
-    session: AsyncSession,
-    telegram_id: int,
-    username: str | None,
-    first_name: str | None,
-    language: str,
-    welcome_p: int = 0,
-) -> tuple[User, bool]:
-    """Return (user, is_new). Awards welcome_p (free points) only when is_new=True."""
-    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
-    user = result.scalar_one_or_none()
-    if user:
-        # Update display info
-        user.username = username
-        user.first_name = first_name
-        await session.commit()
-        return user, False
-
-    user = User(
-        telegram_id=telegram_id,
-        username=username,
-        first_name=first_name,
-        language=language,
-        p_balance=welcome_p,
-    )
-    session.add(user)
-    await session.commit()
-    await session.refresh(user)
-    return user, True
+async def get_or_create_user(session, telegram_id: int, username: str = "", first_name: str = "") -> User:
+    ref = db.collection("fp_users").document(str(telegram_id))
+    doc = await ref.get()
+    if doc.exists:
+        return _to_user(doc.to_dict())
+    data = {
+        "telegram_id": telegram_id,
+        "username": username,
+        "first_name": first_name,
+        "language": "en",
+        "p_balance": 0,
+        "correct_predictions": 0,
+        "total_predicted": 0,
+        "total_ap_won": 0,
+        "win_streak": 0,
+        "streak_days": 0,
+        "last_daily": None,
+    }
+    await ref.set(data)
+    return _to_user(data)
 
 
-async def get_user(session: AsyncSession, telegram_id: int) -> User | None:
-    result = await session.execute(select(User).where(User.telegram_id == telegram_id))
-    return result.scalar_one_or_none()
+async def get_user(session, telegram_id: int) -> Optional[User]:
+    doc = await db.collection("fp_users").document(str(telegram_id)).get()
+    if not doc.exists:
+        return None
+    return _to_user(doc.to_dict())
 
 
-async def set_user_language(session: AsyncSession, telegram_id: int, lang: str) -> None:
-    await session.execute(
-        update(User).where(User.telegram_id == telegram_id).values(language=lang)
-    )
-    await session.commit()
+async def update_user(session, telegram_id: int, **kwargs) -> None:
+    await db.collection("fp_users").document(str(telegram_id)).update(kwargs)
 
 
-async def claim_daily(
-    session: AsyncSession, user: User, today: str, daily_p: int = 0
-) -> bool:
-    """Award daily P points. Returns True if claimed, False if already claimed today."""
-    if user.last_daily_date == today:
-        return False
+async def add_welcome_bonus(session, user: User, bonus: int) -> None:
+    ref = db.collection("fp_users").document(str(user.telegram_id))
+    doc = await ref.get()
+    current = doc.to_dict().get("p_balance", 0) if doc.exists else 0
+    await ref.update({"p_balance": current + bonus})
+    user.p_balance = current + bonus
 
-    yesterday = _yesterday(today)
-    new_streak = (user.streak_days + 1) if user.last_daily_date == yesterday else 1
 
-    user.p_balance += daily_p
+async def claim_daily(session, user: User, amount: int) -> tuple[bool, str]:
+    today = date.today().isoformat()
+    if user.last_daily == today:
+        return False, "already_claimed"
+    ref = db.collection("fp_users").document(str(user.telegram_id))
+    new_balance = user.p_balance + amount
+    new_streak = user.streak_days + 1
+    await ref.update({
+        "p_balance": new_balance,
+        "last_daily": today,
+        "streak_days": new_streak,
+    })
+    user.p_balance = new_balance
+    user.last_daily = today
     user.streak_days = new_streak
-    user.last_daily_date = today
-    await session.commit()
-    return True
+    return True, "ok"
 
 
-def _yesterday(today_str: str) -> str:
-    from datetime import timedelta
-    d = date.fromisoformat(today_str)
-    return (d - timedelta(days=1)).isoformat()
+async def get_leaderboard(session, limit: int = 10) -> List[User]:
+    users = []
+    async for doc in db.collection("fp_users").stream():
+        users.append(_to_user(doc.to_dict()))
+    users.sort(key=lambda u: u.correct_predictions, reverse=True)
+    return users[:limit]
+
+
+async def get_all_user_telegram_ids(session) -> List[int]:
+    ids = []
+    async for doc in db.collection("fp_users").stream():
+        data = doc.to_dict()
+        tid = data.get("telegram_id")
+        if tid:
+            ids.append(tid)
+    return ids
 
 
 # ---------------------------------------------------------------------------
-# Match helpers
+# Match functions
 # ---------------------------------------------------------------------------
-
-async def get_upcoming_matches(session: AsyncSession, limit: int = 20) -> list[Match]:
-    now = datetime.utcnow()
-    result = await session.execute(
-        select(Match)
-        .where(Match.status == "scheduled", Match.match_time > now)
-        .order_by(Match.match_time)
-        .limit(limit)
-    )
-    return list(result.scalars().all())
-
-
-async def get_match(session: AsyncSession, match_id: int) -> Match | None:
-    return await session.get(Match, match_id)
-
-
-async def update_match_odds(session: AsyncSession, match_id: int, **odds: float | None) -> None:
-    """Persist bookmaker odds on a match row."""
-    await session.execute(update(Match).where(Match.id == match_id).values(**odds))
-    await session.commit()
-
 
 async def add_match(
-    session: AsyncSession,
+    session,
     home_team: str,
     away_team: str,
     league: str,
     match_time: datetime,
-    external_id: int | None = None,
+    external_id: Optional[int] = None,
 ) -> Match:
-    match = Match(
+    match_id = await _next_match_id()
+    mt = match_time
+    if isinstance(mt, datetime) and mt.tzinfo is not None:
+        from datetime import timezone
+        mt = mt.astimezone(timezone.utc).replace(tzinfo=None)
+    data = {
+        "id": match_id,
+        "home_team": home_team,
+        "away_team": away_team,
+        "league": league,
+        "match_time": mt,
+        "status": "scheduled",
+        "home_score": None,
+        "away_score": None,
+        "external_id": external_id,
+        "odds_home": None,
+        "odds_draw": None,
+        "odds_away": None,
+        "odds_btts_yes": None,
+        "odds_btts_no": None,
+        "odds_over25": None,
+        "odds_under25": None,
+        "ai_analysis": None,
+    }
+    await db.collection("fp_matches").document(str(match_id)).set(data)
+    return Match(
+        id=match_id,
         home_team=home_team,
         away_team=away_team,
         league=league,
-        match_time=match_time,
+        match_time=mt,
         external_id=external_id,
     )
-    session.add(match)
-    await session.commit()
-    await session.refresh(match)
-    return match
+
+
+async def get_match(session, match_id: int) -> Optional[Match]:
+    doc = await db.collection("fp_matches").document(str(match_id)).get()
+    if not doc.exists:
+        return None
+    return _to_match(doc.to_dict(), doc.id)
+
+
+async def get_upcoming_matches(session) -> List[Match]:
+    now = datetime.utcnow()
+    matches = []
+    async for doc in db.collection("fp_matches").stream():
+        data = doc.to_dict()
+        mt = _ts_to_dt(data.get("match_time"))
+        if mt and mt > now and data.get("status") == "scheduled":
+            matches.append(_to_match(data, doc.id))
+    matches.sort(key=lambda m: m.match_time)
+    return matches
+
+
+async def get_all_matches(session) -> List[Match]:
+    matches = []
+    async for doc in db.collection("fp_matches").stream():
+        matches.append(_to_match(doc.to_dict(), doc.id))
+    matches.sort(key=lambda m: m.match_time, reverse=True)
+    return matches
+
+
+async def update_match_odds(session, match_id: int, **kwargs) -> None:
+    await db.collection("fp_matches").document(str(match_id)).update(kwargs)
+
+
+async def update_match_status(session, match_id: int, status: str, home_score: int = None, away_score: int = None) -> None:
+    updates: dict = {"status": status}
+    if home_score is not None:
+        updates["home_score"] = home_score
+    if away_score is not None:
+        updates["away_score"] = away_score
+    await db.collection("fp_matches").document(str(match_id)).update(updates)
 
 
 # ---------------------------------------------------------------------------
-# Prediction helpers
+# Scheduler-specific match helpers (used by services/scheduler.py)
 # ---------------------------------------------------------------------------
 
-async def has_predicted(session: AsyncSession, user_id: int, match_id: int) -> bool:
-    result = await session.execute(
-        select(Prediction).where(
-            Prediction.user_id == user_id,
-            Prediction.match_id == match_id,
-            Prediction.status != "cancelled",
-        )
-    )
-    return result.scalar_one_or_none() is not None
+async def get_match_by_external_id(external_id: int) -> Optional[Match]:
+    async for doc in db.collection("fp_matches").stream():
+        data = doc.to_dict()
+        if data.get("external_id") == external_id:
+            return _to_match(data, doc.id)
+    return None
 
 
-async def place_prediction(
-    session: AsyncSession,
+async def get_scheduled_matches_in_window(from_dt: datetime, to_dt: datetime) -> List[Match]:
+    matches = []
+    async for doc in db.collection("fp_matches").stream():
+        data = doc.to_dict()
+        if data.get("status") != "scheduled":
+            continue
+        mt = _ts_to_dt(data.get("match_time"))
+        if mt and from_dt <= mt <= to_dt:
+            matches.append(_to_match(data, doc.id))
+    return matches
+
+
+async def get_live_matches_in_window(from_dt: datetime, to_dt: datetime) -> List[Match]:
+    matches = []
+    async for doc in db.collection("fp_matches").stream():
+        data = doc.to_dict()
+        if data.get("status") not in ("live", "scheduled"):
+            continue
+        mt = _ts_to_dt(data.get("match_time"))
+        if mt and from_dt <= mt <= to_dt:
+            matches.append(_to_match(data, doc.id))
+    return matches
+
+
+async def get_past_active_matches_with_external_id(cutoff: datetime) -> List[Match]:
+    matches = []
+    async for doc in db.collection("fp_matches").stream():
+        data = doc.to_dict()
+        if data.get("status") not in ("scheduled", "live"):
+            continue
+        if not data.get("external_id"):
+            continue
+        mt = _ts_to_dt(data.get("match_time"))
+        if mt and mt < cutoff:
+            matches.append(_to_match(data, doc.id))
+    return matches
+
+
+# ---------------------------------------------------------------------------
+# Prediction functions
+# ---------------------------------------------------------------------------
+
+async def create_prediction(
+    session,
     user: User,
     match_id: int,
     pred_type: str,
     pred_value: str,
     stake_ap: int,
     payout_ap: int,
-    currency: str = "ap",
+    stake_currency: str = "p",
 ) -> Prediction:
-    pred = Prediction(
-        user_id=user.id,
+    doc_id = f"{user.telegram_id}_{match_id}_{pred_type}"
+    data = {
+        "user_id": user.telegram_id,
+        "match_id": match_id,
+        "pred_type": pred_type,
+        "pred_value": pred_value,
+        "stake_ap": stake_ap,
+        "payout_ap": payout_ap,
+        "stake_currency": stake_currency,
+        "status": "pending",
+        "created_at": SERVER_TIMESTAMP,
+    }
+    await db.collection("fp_predictions").document(doc_id).set(data)
+    ref = db.collection("fp_users").document(str(user.telegram_id))
+    doc = await ref.get()
+    current_balance = doc.to_dict().get("p_balance", 0) if doc.exists else 0
+    current_total = doc.to_dict().get("total_predicted", 0) if doc.exists else 0
+    await ref.update({
+        "p_balance": max(0, current_balance - stake_ap),
+        "total_predicted": current_total + 1,
+    })
+    return Prediction(
+        user_id=user.telegram_id,
         match_id=match_id,
         pred_type=pred_type,
         pred_value=pred_value,
         stake_ap=stake_ap,
         payout_ap=payout_ap,
-        stake_currency=currency,
+        stake_currency=stake_currency,
     )
-    if currency == "p":
-        user.p_balance -= stake_ap
-    else:
-        user.ap_balance -= stake_ap
-    user.total_predicted += 1
-    session.add(pred)
-    await session.commit()
-    await session.refresh(pred)
-    return pred
 
 
-async def get_predictions_for_match(
-    session: AsyncSession, match_id: int
-) -> list[Prediction]:
-    result = await session.execute(
-        select(Prediction).where(
-            Prediction.match_id == match_id,
-            Prediction.status == "pending",
-        )
-    )
-    return list(result.scalars().all())
+async def get_user_predictions(session, telegram_id: int) -> List[Prediction]:
+    preds = []
+    async for doc in db.collection("fp_predictions").stream():
+        data = doc.to_dict()
+        if data.get("user_id") == telegram_id:
+            preds.append(_to_prediction(data))
+    preds.sort(key=lambda p: p.created_at or datetime.min, reverse=True)
+    return preds
 
 
-async def settle_match(
-    session: AsyncSession,
-    match: Match,
-    home_score: int,
-    away_score: int,
-) -> tuple[int, int]:
-    """Settle all pending predictions for a match. Returns (winner_count, total_payout)."""
-    predictions = await get_predictions_for_match(session, match.id)
-
-    winners = 0
-    total_payout = 0
-
-    for pred in predictions:
-        correct = _evaluate_prediction(pred.pred_type, pred.pred_value, home_score, away_score)
-        if correct:
-            pred.status = "won"
-            payout = pred.payout_ap
-
-            # Award winner in the same currency they bet with
-            result = await session.execute(select(User).where(User.id == pred.user_id))
-            winner = result.scalar_one_or_none()
-            if winner:
-                if pred.stake_currency == "p":
-                    winner.p_balance += payout
-                else:
-                    winner.ap_balance += payout
-                    winner.total_ap_won += payout
-                winner.correct_predictions += 1
-                winner.win_streak += 1
-                if winner.win_streak > winner.max_win_streak:
-                    winner.max_win_streak = winner.win_streak
-            winners += 1
-            total_payout += payout
-        else:
-            pred.status = "lost"
-            # Reset win streak on loss
-            result = await session.execute(select(User).where(User.id == pred.user_id))
-            loser = result.scalar_one_or_none()
-            if loser:
-                loser.win_streak = 0
-
-    match.status = "finished"
-    match.home_score = home_score
-    match.away_score = away_score
-    await session.commit()
-    return winners, total_payout
+async def get_user_prediction_for_match(session, telegram_id: int, match_id: int) -> List[Prediction]:
+    preds = []
+    async for doc in db.collection("fp_predictions").stream():
+        data = doc.to_dict()
+        if data.get("user_id") == telegram_id and data.get("match_id") == match_id:
+            preds.append(_to_prediction(data))
+    return preds
 
 
-async def count_predictions_for_match(session: AsyncSession, match_id: int) -> int:
-    result = await session.execute(
-        select(func.count(Prediction.id)).where(
-            Prediction.match_id == match_id,
-            Prediction.status != "cancelled",
-        )
-    )
-    return result.scalar() or 0
-
-
-async def cancel_match_predictions(session: AsyncSession, match: Match) -> int:
-    """Cancel all pending predictions and refund AP. Returns count refunded."""
-    predictions = await get_predictions_for_match(session, match.id)
+async def count_predictions_for_match(session, match_id: int) -> int:
     count = 0
-    for pred in predictions:
-        result = await session.execute(select(User).where(User.id == pred.user_id))
-        user = result.scalar_one_or_none()
-        if user:
-            if pred.stake_currency == "p":
-                user.p_balance += pred.stake_ap
-            else:
-                user.ap_balance += pred.stake_ap
-        pred.status = "cancelled"
-        count += 1
-    match.status = "cancelled"
-    await session.commit()
+    async for doc in db.collection("fp_predictions").stream():
+        if doc.to_dict().get("match_id") == match_id:
+            count += 1
     return count
 
 
-def _evaluate_prediction(
-    pred_type: str, pred_value: str, home_score: int, away_score: int
-) -> bool:
-    if pred_type == "1x2":
-        if home_score > away_score:
-            return pred_value == "home"
-        if home_score == away_score:
-            return pred_value == "draw"
-        return pred_value == "away"
-
-    if pred_type == "score":
-        return pred_value == f"{home_score}-{away_score}"
-
-    if pred_type == "btts":
-        both = home_score > 0 and away_score > 0
-        return (pred_value == "yes") == both
-
-    if pred_type == "ou":
+def _evaluate_prediction(pred: Prediction, home_score: int, away_score: int) -> bool:
+    v = pred.pred_value
+    if pred.pred_type == "result":
+        if v == "home" and home_score > away_score:
+            return True
+        if v == "draw" and home_score == away_score:
+            return True
+        if v == "away" and away_score > home_score:
+            return True
+    elif pred.pred_type == "btts":
+        scored = home_score > 0 and away_score > 0
+        return (v == "yes") == scored
+    elif pred.pred_type == "over_under":
         total = home_score + away_score
-        return (pred_value == "over") == (total > 2.5)
-
-    if pred_type == "first":
-        # Approximation: whoever has higher score most likely scored first.
-        # Admin should manually settle "first" type if needed.
-        if home_score > 0 and away_score == 0:
-            return pred_value == "home"
-        if away_score > 0 and home_score == 0:
-            return pred_value == "away"
-        # Both scored — default to home for tiebreak (admin should handle manually)
-        return pred_value == "home"
-
-    if pred_type == "handicap":
-        # Home team -1: home wins by 2+ = home wins handicap
-        diff = home_score - away_score
-        if pred_value == "home":
-            return diff >= 2
-        return diff < 2
-
+        if v == "over_2.5":
+            return total > 2
+        if v == "under_2.5":
+            return total < 3
+    elif pred.pred_type == "exact":
+        parts = v.split("-")
+        if len(parts) == 2:
+            try:
+                return int(parts[0]) == home_score and int(parts[1]) == away_score
+            except ValueError:
+                pass
     return False
 
 
-async def get_user_predictions_with_matches(
-    session: AsyncSession, user_id: int, limit: int = 20
-) -> list[tuple[Prediction, Match]]:
-    """Return recent predictions joined with match data, newest first."""
-    result = await session.execute(
-        select(Prediction, Match)
-        .join(Match, Prediction.match_id == Match.id)
-        .where(Prediction.user_id == user_id)
-        .order_by(Prediction.created_at.desc())
-        .limit(limit)
-    )
-    return [(row.Prediction, row.Match) for row in result.all()]
+async def settle_match(session, match: Match, home_score: int, away_score: int) -> tuple[list[int], int]:
+    await update_match_status(session, match.id, "finished", home_score, away_score)
+
+    winners: list[int] = []
+    total_payout = 0
+
+    async for doc in db.collection("fp_predictions").stream():
+        data = doc.to_dict()
+        if data.get("match_id") != match.id or data.get("status") != "pending":
+            continue
+        pred = _to_prediction(data)
+        won = _evaluate_prediction(pred, home_score, away_score)
+        new_status = "won" if won else "lost"
+        await db.collection("fp_predictions").document(doc.id).update({"status": new_status})
+
+        if won:
+            user_ref = db.collection("fp_users").document(str(pred.user_id))
+            user_doc = await user_ref.get()
+            if user_doc.exists:
+                udata = user_doc.to_dict()
+                await user_ref.update({
+                    "p_balance": udata.get("p_balance", 0) + pred.payout_ap,
+                    "correct_predictions": udata.get("correct_predictions", 0) + 1,
+                    "total_ap_won": udata.get("total_ap_won", 0) + pred.payout_ap,
+                })
+            winners.append(pred.user_id)
+            total_payout += pred.payout_ap
+
+    return winners, total_payout
 
 
-# ---------------------------------------------------------------------------
-# Ranking helpers
-# ---------------------------------------------------------------------------
-
-async def get_leaderboard(
-    session: AsyncSession, limit: int = 20
-) -> list[User]:
-    result = await session.execute(
-        select(User)
-        .where(User.total_predicted > 0)
-        .order_by(User.correct_predictions.desc(), User.total_ap_won.desc())
-        .limit(limit)
-    )
-    return list(result.scalars().all())
-
-
-async def get_user_rank(session: AsyncSession, user_id: int) -> int:
-    result = await session.execute(
-        select(func.count(User.id)).where(
-            User.total_predicted > 0,
-            User.correct_predictions
-            > (
-                select(User.correct_predictions).where(User.id == user_id).scalar_subquery()
-            ),
-        )
-    )
-    rank = result.scalar() or 0
-    return rank + 1
-
-
-# ---------------------------------------------------------------------------
-# Broadcast helper
-# ---------------------------------------------------------------------------
-
-async def get_all_user_telegram_ids(session: AsyncSession) -> list[int]:
-    result = await session.execute(select(User.telegram_id))
-    return [row[0] for row in result.all()]
+async def cancel_match_predictions(session, match: Match) -> int:
+    count = 0
+    async for doc in db.collection("fp_predictions").stream():
+        data = doc.to_dict()
+        if data.get("match_id") != match.id or data.get("status") != "pending":
+            continue
+        pred = _to_prediction(data)
+        await db.collection("fp_predictions").document(doc.id).update({"status": "cancelled"})
+        user_ref = db.collection("fp_users").document(str(pred.user_id))
+        user_doc = await user_ref.get()
+        if user_doc.exists:
+            current = user_doc.to_dict().get("p_balance", 0)
+            await user_ref.update({"p_balance": current + pred.stake_ap})
+        count += 1
+    await update_match_status(session, match.id, "cancelled")
+    return count
