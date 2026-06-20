@@ -46,3 +46,8 @@ coverage/
 
 # Railway CLI local auth token (global, not per-project)
 # .railway/config.json is intentionally committed — contains only project/service IDs, no secrets
+
+# Google OAuth credentials (one-time local use only)
+bots/client_secret.json
+bots/**/client_secret.json
+bots/**/token.json
