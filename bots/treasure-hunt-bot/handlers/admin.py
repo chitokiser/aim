@@ -209,7 +209,12 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
         f"💬 https://t.me/ai119"
     )
     from services.threads import post_threads
+    from services.blogger import post_blogger
     await post_threads(tweet)
+    await post_blogger(
+        f"🗺 New Treasure Hunt #{treasure.id} — {treasure.prize_gp:,} P Prize!",
+        tweet,
+    )
 
 
 # ── Cancel ────────────────────────────────────────────────────────────────────
@@ -234,23 +239,14 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     lang = await get_lang(update.effective_user.id)
 
-    from sqlalchemy import select, func as sqlfunc
-    from database import SessionLocal, Treasure, UserAttempt, UserGP
+    from database import get_stats
 
-    async with SessionLocal() as session:
-        total_treasures = (await session.execute(select(sqlfunc.count()).select_from(Treasure))).scalar()
-        active_treasures = (
-            await session.execute(select(sqlfunc.count()).select_from(Treasure).where(Treasure.is_active == True))
-        ).scalar()
-        total_attempts = (await session.execute(select(sqlfunc.count()).select_from(UserAttempt))).scalar()
-        completions = (
-            await session.execute(select(sqlfunc.count()).select_from(UserAttempt).where(UserAttempt.is_completed == True))
-        ).scalar()
-        total_players = (await session.execute(select(sqlfunc.count()).select_from(UserGP))).scalar()
+    stats = await get_stats()
 
     await update.message.reply_text(
         t("admin_panel", lang,
-          total=total_treasures, active=active_treasures,
-          players=total_players, attempts=total_attempts, completions=completions),
+          total=stats["total_treasures"], active=stats["active_treasures"],
+          players=stats["total_players"], attempts=stats["total_attempts"],
+          completions=stats["completions"]),
         parse_mode=ParseMode.MARKDOWN,
     )

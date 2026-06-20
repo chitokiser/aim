@@ -303,7 +303,12 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 f"💬 https://t.me/ai119"
             )
             from services.threads import post_threads
+            from services.blogger import post_blogger
             await post_threads(tweet)
+            await post_blogger(
+                f"🏆 Treasure #{treasure_id} Found! — {treasure.prize_gp:,} P",
+                tweet,
+            )
         else:
             # ── CORRECT, next question ────────────────────────────────────────
             await update_attempt(user.id, treasure_id, current_question=order_num + 1)
@@ -374,7 +379,7 @@ async def cb_need_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     attempt = await get_attempt(user.id, treasure_id)
     wrong_count = attempt.wrong_count if attempt else 0
     text = await _build_question_text(treasure_id, order_num, q_total, wrong_count, set(purchased), lang)
-    text += t("hint_balance_info", lang, balance=gp.balance, level=level, cost=cost)
+    text += t("hint_balance_info", lang, balance=gp.gp, level=level, cost=cost)
 
     await query.edit_message_text(
         text,
@@ -416,7 +421,7 @@ async def cb_buy_hint(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     if not success:
         gp = await get_gp(user.id, user.username)
         await query.answer(
-            t("hint_insufficient", lang, balance=gp.balance, cost=cost),
+            t("hint_insufficient", lang, balance=gp.gp, cost=cost),
             show_alert=True,
         )
         await _show_question(query, user.id, treasure_id, order_num, lang)

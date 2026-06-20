@@ -5,3 +5,5 @@ __pycache__/
 *.db-shm
 *.db-wal
 .railway/
+client_secret.json
+token.json
