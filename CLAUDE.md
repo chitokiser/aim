@@ -267,6 +267,7 @@ All bots deploy to the **`ai119-bot`** Railway project (project ID: `b848e338-39
 |---|---|---|---|
 | `ai-money-hunter-bot` | `c6997810-ab00-401d-bd04-6c3d9a166ca2` | `bots/ai-money-hunter-bot/` | deployed |
 | `football-bot` | `65d9d6e8-dbe9-4958-b938-a7909589b17a` | `bots/football-predictor/` | deployed |
+| `treasure-hunt-bot` | `2bb9da20-4302-4731-9851-5ea3778f021c` | `bots/treasure-hunt-bot/` | deployed |
 | `ai119-bot` | `e8b90957-f2b0-4e48-ac07-c322e87f006c` | `backend/` (NestJS) | deployed |
 
 > **CRITICAL:** `ai119-bot` is the **NestJS backend**, NOT the AI Money Hunter Bot. Never `railway up` from a bot directory while linked to `ai119-bot`.
