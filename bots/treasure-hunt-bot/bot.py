@@ -1,6 +1,8 @@
 """AI Treasure Hunt Bot — entry point."""
 
+import asyncio
 import logging
+import os
 import sys
 from telegram import BotCommand, Update
 from telegram.error import Conflict
@@ -56,6 +58,9 @@ BOT_COMMANDS = [
 ]
 
 
+_STARTUP_DELAY = int(os.getenv("STARTUP_DELAY_SECS", "8"))
+
+
 async def post_init(app: Application) -> None:
     await init_db()
     me = await app.bot.get_me()
@@ -65,6 +70,12 @@ async def post_init(app: Application) -> None:
 
     from services.blogger import check_connection as check_blogger
     await check_blogger()
+
+    # Give any previous instance time to stop polling before this one begins.
+    # Prevents 409 Conflict on Railway rolling deploys.
+    if _STARTUP_DELAY > 0:
+        logger.info("Startup grace period: waiting %ds for previous instance to stop...", _STARTUP_DELAY)
+        await asyncio.sleep(_STARTUP_DELAY)
 
 
 def main() -> None:
@@ -122,7 +133,14 @@ def main() -> None:
 
 async def _error_handler(update: object, context) -> None:
     if isinstance(context.error, Conflict):
-        logger.critical("Conflict: another instance is already polling. Exiting.")
+        # Wait 60 s before exiting so Railway's restart policy doesn't spin up a
+        # new instance while the conflicting process is still alive. Without this
+        # delay the bot burns through all 10 restart retries in under a minute.
+        logger.critical(
+            "Conflict: another instance is already polling. "
+            "Waiting 60 s before exit to allow the other instance to stop..."
+        )
+        await asyncio.sleep(60)
         sys.exit(1)
     logger.error("Unhandled exception: %s", context.error, exc_info=context.error)
 

@@ -21,6 +21,12 @@ DAILY_P = int(os.getenv("DAILY_P", "10000"))
 WELCOME_BONUS_P = int(os.getenv("WELCOME_BONUS_P", "10000"))
 GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "")
 
+TUMBLR_CONSUMER_KEY = os.getenv("TUMBLR_CONSUMER_KEY", "")
+TUMBLR_CONSUMER_SECRET = os.getenv("TUMBLR_CONSUMER_SECRET", "")
+TUMBLR_OAUTH_TOKEN = os.getenv("TUMBLR_OAUTH_TOKEN", "")
+TUMBLR_OAUTH_SECRET = os.getenv("TUMBLR_OAUTH_SECRET", "")
+TUMBLR_BLOG_NAME = os.getenv("TUMBLR_BLOG_NAME", "")
+
 SITE_URL = "https://ai119.netlify.app"
 COMMUNITY_URL = "https://t.me/globalSoccer_b"
 

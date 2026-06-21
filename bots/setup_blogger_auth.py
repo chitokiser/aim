@@ -132,11 +132,11 @@ def main() -> None:
         )
         sys.exit(1)
 
-    print("\n✅ Authorization successful! Set these on Railway:\n")
+    print("\n[OK] Authorization successful! Set these on Railway:\n")
     print(f"  railway variables set BLOGGER_CLIENT_ID={client_id}")
     print(f"  railway variables set BLOGGER_CLIENT_SECRET={client_secret}")
     print(f"  railway variables set BLOGGER_REFRESH_TOKEN={refresh_token}")
-    print("\n⚠️  IMPORTANT: If your OAuth app is in 'Testing' mode, this token expires in 7 days.")
+    print("\n[NOTE] If your OAuth app is in 'Testing' mode, this token expires in 7 days.")
     print("   Go to Google Cloud Console → OAuth consent screen → change to 'Production' for permanent tokens.")
     print("\n  BLOGGER_BLOG_ID=<find at blogger.com → select blog → URL bar shows /blog/posts/<ID>>")
 

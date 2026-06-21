@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Video, Image as ImageIcon, Music, FileQuestion, ExternalLink, Loader2,
-  Plus, Trash2, Coins, ShoppingBag,
+  Plus, Trash2, Coins, ShoppingBag, Heart, MessageCircle, Pencil,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -45,6 +45,16 @@ interface Listing {
   buyerId: string | null;
   soldAt: string | null;
   createdAt: string;
+  likeCount: number;
+  commentCount: number;
+}
+
+interface Comment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: string;
 }
 
 function ContentTypeIcon({ type, className }: { type: string; className?: string }) {
@@ -53,20 +63,268 @@ function ContentTypeIcon({ type, className }: { type: string; className?: string
   return <Icon className={className ?? `h-5 w-5 ${found?.color ?? "text-muted-foreground"}`} />;
 }
 
-function ListingCard({
-  listing,
-  onBuy,
-  onDelete,
-  isOwner,
-  t,
-}: {
+interface ListingCardProps {
   listing: Listing;
   onBuy?: () => void;
   onDelete?: () => void;
+  onUpdated?: (updated: Listing) => void;
   isOwner?: boolean;
+  isAdmin?: boolean;
+  likedByMe?: boolean;
+  token?: string | null;
+  userId?: string;
   t: Record<string, string>;
-}) {
+}
+
+function ListingCard({
+  listing: initialListing,
+  onBuy,
+  onDelete,
+  onUpdated,
+  isOwner,
+  isAdmin,
+  likedByMe: initialLikedByMe = false,
+  token,
+  userId,
+  t,
+}: ListingCardProps) {
+  const [listing, setListing] = useState(initialListing);
+  const [liked, setLiked] = useState(initialLikedByMe);
+  const [likeCount, setLikeCount] = useState(initialListing.likeCount ?? 0);
+  const [showComments, setShowComments] = useState(false);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [commentText, setCommentText] = useState("");
+  const [addingComment, setAddingComment] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editForm, setEditForm] = useState({
+    contentType: initialListing.contentType,
+    title: initialListing.title,
+    description: initialListing.description,
+    link: initialListing.link,
+    thumbnailUrl: initialListing.thumbnailUrl,
+    price: String(initialListing.price),
+    tags: (initialListing.tags ?? []).join(", "),
+  });
+  const [saving, setSaving] = useState(false);
+  const commentInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setLiked(initialLikedByMe);
+  }, [initialLikedByMe]);
+
+  useEffect(() => {
+    setListing(initialListing);
+    setLikeCount(initialListing.likeCount ?? 0);
+  }, [initialListing]);
+
+  const handleLike = async () => {
+    if (!token) { toast.error(t.loginRequired); return; }
+    const newLiked = !liked;
+    const newCount = newLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
+    setLiked(newLiked);
+    setLikeCount(newCount);
+    try {
+      const res = await fetch(`${API}/api/creative-listings/${listing.id}/like`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json() as { liked: boolean; likeCount: number };
+        setLiked(data.liked);
+        setLikeCount(data.likeCount);
+      } else {
+        setLiked(!newLiked);
+        setLikeCount(likeCount);
+      }
+    } catch {
+      setLiked(!newLiked);
+      setLikeCount(likeCount);
+    }
+  };
+
+  const loadComments = async () => {
+    try {
+      const res = await fetch(`${API}/api/creative-listings/${listing.id}/comments`);
+      if (res.ok) {
+        setComments(await res.json() as Comment[]);
+        setCommentsLoaded(true);
+      }
+    } catch { /* silent */ }
+  };
+
+  const toggleComments = async () => {
+    if (!showComments && !commentsLoaded) await loadComments();
+    setShowComments((v) => !v);
+    if (!showComments) setTimeout(() => commentInputRef.current?.focus(), 100);
+  };
+
+  const handleAddComment = async () => {
+    if (!token || !commentText.trim()) return;
+    setAddingComment(true);
+    try {
+      const res = await fetch(`${API}/api/creative-listings/${listing.id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: commentText.trim() }),
+      });
+      if (res.ok) {
+        setCommentText("");
+        setListing((l) => ({ ...l, commentCount: (l.commentCount ?? 0) + 1 }));
+        toast.success(t.commentAdded);
+        await loadComments();
+      } else {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Error");
+      }
+    } finally {
+      setAddingComment(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/creative-listings/${listing.id}/comments/${commentId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setComments((c) => c.filter((x) => x.id !== commentId));
+        setListing((l) => ({ ...l, commentCount: Math.max(0, (l.commentCount ?? 0) - 1) }));
+      }
+    } catch { /* silent */ }
+  };
+
+  const handleEdit = async () => {
+    if (!token) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`${API}/api/creative-listings/${listing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          contentType: editForm.contentType,
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          link: editForm.link.trim(),
+          thumbnailUrl: editForm.thumbnailUrl.trim(),
+          tags: editForm.tags.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean),
+          price: Number(editForm.price),
+        }),
+      });
+      if (res.ok) {
+        toast.success(t.editSuccess);
+        const updated: Listing = {
+          ...listing,
+          contentType: editForm.contentType as ContentType,
+          title: editForm.title.trim(),
+          description: editForm.description.trim(),
+          link: editForm.link.trim(),
+          thumbnailUrl: editForm.thumbnailUrl.trim(),
+          tags: editForm.tags.split(",").map((s) => s.trim().replace(/^#/, "")).filter(Boolean),
+          price: Number(editForm.price),
+        };
+        setListing(updated);
+        setEditMode(false);
+        onUpdated?.(updated);
+      } else {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Error");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEdit = () => {
+    setEditForm({
+      contentType: listing.contentType,
+      title: listing.title,
+      description: listing.description,
+      link: listing.link,
+      thumbnailUrl: listing.thumbnailUrl,
+      price: String(listing.price),
+      tags: (listing.tags ?? []).join(", "),
+    });
+    setEditMode(true);
+  };
+
   const sold = listing.status === "sold";
+  const canEdit = (isOwner || isAdmin) && !sold;
+
+  if (editMode) {
+    return (
+      <Card className="border-violet-300 dark:border-violet-700">
+        <CardContent className="p-4 space-y-3">
+          <h3 className="font-bold text-sm">{t.editTitle}</h3>
+
+          <Select value={editForm.contentType} onValueChange={(v) => setEditForm((p) => ({ ...p, contentType: v as ContentType }))}>
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTENT_TYPES.map((ct) => (
+                <SelectItem key={ct.value} value={ct.value}>{ct.value}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Input
+            className="h-8 text-sm"
+            value={editForm.title}
+            onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
+            placeholder={t.fieldTitle}
+          />
+          <Textarea
+            rows={2}
+            className="text-sm"
+            value={editForm.description}
+            onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+            placeholder={t.fieldDesc}
+          />
+          <Input
+            className="h-8 text-sm"
+            value={editForm.link}
+            onChange={(e) => setEditForm((p) => ({ ...p, link: e.target.value }))}
+            placeholder={t.fieldLink}
+          />
+          <Input
+            className="h-8 text-sm"
+            value={editForm.thumbnailUrl}
+            onChange={(e) => setEditForm((p) => ({ ...p, thumbnailUrl: e.target.value }))}
+            placeholder={t.fieldThumbnail}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              className="h-8 text-sm"
+              type="number"
+              min={1}
+              value={editForm.price}
+              onChange={(e) => setEditForm((p) => ({ ...p, price: e.target.value }))}
+              placeholder={t.fieldPrice}
+            />
+            <Input
+              className="h-8 text-sm"
+              value={editForm.tags}
+              onChange={(e) => setEditForm((p) => ({ ...p, tags: e.target.value }))}
+              placeholder={t.fieldTags}
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button size="sm" onClick={handleEdit} disabled={saving}
+              className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90">
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.saveBtn}
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setEditMode(false)}>
+              {t.cancelBtn}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className={sold ? "opacity-70" : ""}>
       <CardContent className="p-4">
@@ -115,7 +373,7 @@ function ListingCard({
                 {t.buyBtn}
               </Button>
             )}
-            {isOwner && !sold && onDelete && (
+            {(isOwner || isAdmin) && !sold && onDelete && (
               <Button size="sm" variant="ghost" onClick={onDelete}
                 className="gap-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20">
                 <Trash2 className="h-3.5 w-3.5" />
@@ -124,6 +382,89 @@ function ListingCard({
             )}
           </div>
         </div>
+
+        {/* Footer: likes, comments, edit */}
+        <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-sm text-muted-foreground">
+          <button
+            onClick={handleLike}
+            className={`flex items-center gap-1 transition-colors ${liked ? "text-red-500" : "hover:text-red-400"}`}
+          >
+            <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
+            <span>{likeCount}</span>
+          </button>
+          <button
+            onClick={toggleComments}
+            className={`flex items-center gap-1 transition-colors hover:text-foreground ${showComments ? "text-violet-500" : ""}`}
+          >
+            <MessageCircle className="h-4 w-4" />
+            <span>{listing.commentCount ?? 0}</span>
+          </button>
+          {canEdit && (
+            <button
+              onClick={openEdit}
+              className="flex items-center gap-1 transition-colors hover:text-foreground ml-auto"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              {t.editBtn}
+            </button>
+          )}
+        </div>
+
+        {/* Comments panel */}
+        {showComments && (
+          <div className="mt-3 space-y-2">
+            {!commentsLoaded ? (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : comments.length === 0 ? (
+              <p className="text-xs text-muted-foreground py-2">{t.noComments}</p>
+            ) : (
+              comments.map((c) => (
+                <div key={c.id} className="flex items-start gap-2 text-sm">
+                  <span className="font-semibold shrink-0 text-foreground/80">{c.userName}</span>
+                  <span className="flex-1 text-foreground/70 break-all">{c.text}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(c.createdAt).toLocaleDateString()}
+                  </span>
+                  {(userId === c.userId || isOwner || isAdmin) && (
+                    <button
+                      onClick={() => void handleDeleteComment(c.id)}
+                      className="text-red-400 hover:text-red-600 shrink-0 mt-0.5"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+            {token && (
+              <div className="flex gap-2 mt-2 pt-2 border-t border-border/30">
+                <Input
+                  ref={commentInputRef}
+                  className="h-8 text-sm"
+                  placeholder={t.commentPlaceholder}
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      void handleAddComment();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleAddComment}
+                  disabled={addingComment || !commentText.trim()}
+                  className="shrink-0 bg-violet-600 text-white hover:bg-violet-700"
+                >
+                  {addingComment ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.commentAddBtn}
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -138,6 +479,7 @@ export default function CreativeMarketPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [myListings, setMyListings] = useState<Listing[]>([]);
   const [myPurchases, setMyPurchases] = useState<Listing[]>([]);
+  const [likedIds, setLikedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -178,7 +520,29 @@ export default function CreativeMarketPage() {
     } catch { /* silent */ }
   }, [token]);
 
+  const loadMyLikes = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/creative-listings/my-likes`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const ids = await res.json() as string[];
+        setLikedIds(new Set(ids));
+      }
+    } catch { /* silent */ }
+  }, [token]);
+
   useEffect(() => { void loadListings(activeType); }, [loadListings, activeType]);
+  useEffect(() => { if (token) void loadMyLikes(); }, [loadMyLikes, token]);
+
+  const handleUpdatedInBrowse = (updated: Listing) => {
+    setListings((prev) => prev.map((l) => l.id === updated.id ? updated : l));
+  };
+
+  const handleUpdatedInMine = (updated: Listing) => {
+    setMyListings((prev) => prev.map((l) => l.id === updated.id ? updated : l));
+  };
 
   const handleSell = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -245,6 +609,8 @@ export default function CreativeMarketPage() {
     } catch { toast.error("Network error"); }
   };
 
+  const cmT = cm as unknown as Record<string, string>;
+
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
       <div className="mb-8">
@@ -300,9 +666,14 @@ export default function CreativeMarketPage() {
                   key={l.id}
                   listing={l}
                   isOwner={user?.id === l.sellerId}
+                  isAdmin={user?.isAdmin}
+                  likedByMe={likedIds.has(l.id)}
+                  token={token}
+                  userId={user?.id}
                   onBuy={() => void handleBuy(l.id)}
                   onDelete={() => void handleDelete(l.id)}
-                  t={cm as unknown as Record<string, string>}
+                  onUpdated={handleUpdatedInBrowse}
+                  t={cmT}
                 />
               ))}
             </div>
@@ -419,8 +790,13 @@ export default function CreativeMarketPage() {
                     key={l.id}
                     listing={l}
                     isOwner
+                    isAdmin={user.isAdmin}
+                    likedByMe={likedIds.has(l.id)}
+                    token={token}
+                    userId={user.id}
                     onDelete={() => void handleDelete(l.id)}
-                    t={cm as unknown as Record<string, string>}
+                    onUpdated={handleUpdatedInMine}
+                    t={cmT}
                   />
                 ))}
               </div>

@@ -5,3 +5,4 @@ firebase-admin
 python-dotenv==1.0.1
 pytz==2024.2
 PyJWT==2.9.0
+pytumblr==0.1.0

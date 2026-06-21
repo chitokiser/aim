@@ -201,19 +201,53 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
         logger.error("Failed to send group announcement: %s", e)
 
     tg_username = context.bot_data.get("username", "AITreasureHuntBot")
+    bot_url = f"https://t.me/{tg_username}?start=treasure_{treasure.id}" if tg_username else ""
+
+    # Plain text for Threads (text-only API — URLs are auto-linked by the platform)
     tweet = (
         f"🗺 New Treasure Hunt! / 새 보물 등장!\n\n"
         f"🔢 #{treasure.id}  🎁 {treasure.prize_gp:,} P\n"
         f"📋 {q_count} questions (AI generated)\n\n"
-        f"👉 https://t.me/{tg_username}?start=treasure_{treasure.id}\n"
+        f"👉 {bot_url}\n"
         f"💬 https://t.me/ai119link"
     )
+
+    post_title = f"🗺 New Treasure Hunt #{treasure.id} — {treasure.prize_gp:,} P Prize!"
+
     from services.threads import post_threads
     from services.blogger import post_blogger
+    from services.tumblr import post_tumblr
     await post_threads(tweet)
-    await post_blogger(
-        f"🗺 New Treasure Hunt #{treasure.id} — {treasure.prize_gp:,} P Prize!",
-        tweet,
+    await post_blogger(post_title, _build_html_post(treasure, q_count, bot_url), is_html=True)
+    await post_tumblr(post_title, _build_html_post(treasure, q_count, bot_url), is_html=True)
+
+
+_BTN_STYLE = (
+    "display:inline-block;padding:10px 20px;margin:4px 2px;border-radius:6px;"
+    "background:#2563eb;color:#fff;text-decoration:none;font-weight:bold;font-size:15px;"
+)
+_BTN_STYLE_GREEN = _BTN_STYLE.replace("#2563eb", "#16a34a")
+
+
+def _build_html_post(treasure, q_count: int, bot_url: str) -> str:
+    """Build an HTML body for Blogger/Tumblr with clickable button links."""
+    play_btn = (
+        f'<a href="{bot_url}" style="{_BTN_STYLE}">🎯 Play Now / 도전하기</a>'
+        if bot_url else ""
+    )
+    community_btn = (
+        f'<a href="https://t.me/ai119link" style="{_BTN_STYLE_GREEN}">💬 Join AIM Community</a>'
+    )
+    desc = treasure.prize_description or "Find the exact location of the treasure!"
+    return (
+        f"<h2>🗺 New Treasure Hunt #{treasure.id}</h2>"
+        f"<p>🎁 Prize: <strong>{treasure.prize_gp:,} P</strong></p>"
+        f"<p>📋 {q_count} questions (AI generated)</p>"
+        f"<p>📝 {desc}</p>"
+        f"<p>⚠️ 3 wrong answers = challenge locked<br>"
+        f"💡 Hints available (costs P)<br>"
+        f"🔒 Coordinates revealed only after solving</p>"
+        f"<p>{play_btn}&nbsp;&nbsp;{community_btn}</p>"
     )
 
 

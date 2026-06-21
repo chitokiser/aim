@@ -220,8 +220,13 @@ async def broadcast_pre_match_alert(app: Application) -> None:
                 match.id, match.home_team, match.away_team, hours_before,
             )
             from services.blogger import post_blogger
+            from services.tumblr import post_tumblr
             await post_blogger(
                 f"⚽ {match.home_team} vs {match.away_team} — {hours_before}h Preview",
+                text,
+            )
+            await post_tumblr(
+                f"⚽ {match.home_team} vs {match.away_team} — {hours_before}h to Kick-off",
                 text,
             )
         except Exception as exc:
@@ -310,7 +315,12 @@ async def broadcast_live_update(app: Application) -> None:
                 match.id, match.home_team, match.away_team,
             )
             from services.blogger import post_blogger
+            from services.tumblr import post_tumblr
             await post_blogger(
+                f"📡 Live: {match.home_team} vs {match.away_team}",
+                text,
+            )
+            await post_tumblr(
                 f"📡 Live: {match.home_team} vs {match.away_team}",
                 text,
             )
@@ -380,8 +390,13 @@ async def broadcast_settlement_result(
             match.id, match.home_team, home_score, away_score, match.away_team, winners, payout,
         )
         from services.blogger import post_blogger
+        from services.tumblr import post_tumblr
         await post_blogger(
             f"✅ Result: {match.home_team} {home_score}–{away_score} {match.away_team}",
+            text,
+        )
+        await post_tumblr(
+            f"✅ FT: {match.home_team} {home_score}–{away_score} {match.away_team}",
             text,
         )
     except Exception as exc:

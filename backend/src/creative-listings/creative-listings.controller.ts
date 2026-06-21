@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Delete, Param, Body, Query,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query,
   UseGuards, Request,
 } from '@nestjs/common';
 import { CreativeListingsService } from './creative-listings.service';
@@ -26,6 +26,17 @@ export class CreativeListingsController {
     return this.creativeListingsService.findPurchasesByUser(req.user.sub);
   }
 
+  @Get('my-likes')
+  @UseGuards(JwtAuthGuard)
+  getMyLikes(@Request() req: { user: { sub: string } }) {
+    return this.creativeListingsService.getMyLikedIds(req.user.sub);
+  }
+
+  @Get(':id/comments')
+  getComments(@Param('id') id: string) {
+    return this.creativeListingsService.getComments(id);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard)
   create(
@@ -42,6 +53,45 @@ export class CreativeListingsController {
     @Request() req: { user: { sub: string } },
   ) {
     return this.creativeListingsService.purchase(id, req.user.sub);
+  }
+
+  @Post(':id/like')
+  @UseGuards(JwtAuthGuard)
+  toggleLike(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    return this.creativeListingsService.toggleLike(id, req.user.sub);
+  }
+
+  @Post(':id/comments')
+  @UseGuards(JwtAuthGuard)
+  addComment(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+    @Body('text') text: string,
+  ) {
+    return this.creativeListingsService.addComment(id, req.user.sub, text);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  update(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+    @Body() dto: Record<string, unknown>,
+  ) {
+    return this.creativeListingsService.update(id, req.user.sub, dto);
+  }
+
+  @Delete(':id/comments/:commentId')
+  @UseGuards(JwtAuthGuard)
+  deleteComment(
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    return this.creativeListingsService.deleteComment(id, commentId, req.user.sub);
   }
 
   @Delete(':id')

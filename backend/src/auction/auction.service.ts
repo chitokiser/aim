@@ -425,14 +425,16 @@ export class AuctionService {
   @Cron(CronExpression.EVERY_MINUTE)
   async processExpiredAuctions() {
     const now = new Date().toISOString();
+    // Single-field range query to avoid composite index requirement;
+    // filter status in-memory.
     const snap = await this.firebase
       .collection(COLLECTION)
-      .where('status', '==', 'active')
       .where('endsAt', '<=', now)
       .get();
 
     for (const doc of snap.docs) {
       const auction = doc.data();
+      if (auction.status !== 'active') continue;
       if (auction.currentBidderId) {
         await this.endAuction(doc.id, String(auction.currentBidderId), Number(auction.currentBid));
       } else {

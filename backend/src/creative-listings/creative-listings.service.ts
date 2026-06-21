@@ -3,6 +3,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 
 const COLLECTION = 'creative_listings';
+const LIKES_COLLECTION = 'creative_listing_likes';
 const CONTENT_TYPES = ['video', 'image', 'audio', 'other'];
 
 @Injectable()
@@ -125,9 +126,137 @@ export class CreativeListingsService {
     const snap = await ref.get();
     if (!snap.exists) throw new NotFoundException('Listing not found');
     const listing = snap.data()!;
-    if (listing.sellerId !== userId) throw new ForbiddenException('Not your listing');
+    if (listing.sellerId !== userId) {
+      const userSnap = await this.firebase.collection('users').doc(userId).get();
+      if (!userSnap.exists || !userSnap.data()?.isAdmin) throw new ForbiddenException('Not your listing');
+    }
     if (listing.status !== 'active') throw new BadRequestException('Cannot remove a listing that has already been sold');
     await ref.update({ status: 'deleted' });
+    return { ok: true };
+  }
+
+  async update(listingId: string, userId: string, dto: Record<string, unknown>): Promise<{ ok: boolean }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+    const listing = snap.data()!;
+
+    if (listing.sellerId !== userId) {
+      const userSnap = await this.firebase.collection('users').doc(userId).get();
+      if (!userSnap.exists || !userSnap.data()?.isAdmin) throw new ForbiddenException('Not authorized to edit this listing');
+    }
+    if (listing.status === 'deleted') throw new BadRequestException('Listing is deleted');
+
+    const allowed: Record<string, unknown> = {};
+    if (dto.title !== undefined) allowed.title = String(dto.title).slice(0, 200);
+    if (dto.description !== undefined) allowed.description = String(dto.description).slice(0, 1000);
+    if (dto.link !== undefined) allowed.link = dto.link;
+    if (dto.thumbnailUrl !== undefined) allowed.thumbnailUrl = dto.thumbnailUrl;
+    if (dto.tags !== undefined) allowed.tags = dto.tags;
+    if (dto.contentType !== undefined && CONTENT_TYPES.includes(dto.contentType as string)) {
+      allowed.contentType = dto.contentType;
+    }
+    if (dto.price !== undefined && listing.status === 'active') {
+      const price = Number(dto.price);
+      if (Number.isFinite(price) && price > 0) allowed.price = price;
+    }
+
+    if (Object.keys(allowed).length === 0) throw new BadRequestException('No valid fields to update');
+    await ref.update(allowed);
+    return { ok: true };
+  }
+
+  async toggleLike(listingId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+
+    const docId = `${userId}_${listingId}`;
+    const likeRef = this.firebase.collection(LIKES_COLLECTION).doc(docId);
+    const likeSnap = await likeRef.get();
+    const currentCount = (snap.data()?.likeCount as number) ?? 0;
+
+    if (likeSnap.exists) {
+      await likeRef.delete();
+      const newCount = Math.max(0, currentCount - 1);
+      await ref.update({ likeCount: newCount });
+      return { liked: false, likeCount: newCount };
+    } else {
+      await likeRef.set({ userId, listingId, createdAt: new Date().toISOString() });
+      const newCount = currentCount + 1;
+      await ref.update({ likeCount: newCount });
+      return { liked: true, likeCount: newCount };
+    }
+  }
+
+  async getMyLikedIds(userId: string): Promise<string[]> {
+    const snap = await this.firebase
+      .collection(LIKES_COLLECTION)
+      .where('userId', '==', userId)
+      .get();
+    return snap.docs.map((d) => (d.data() as { listingId: string }).listingId);
+  }
+
+  async getComments(listingId: string): Promise<unknown[]> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+    const commentsSnap = await ref.collection('comments').orderBy('createdAt', 'asc').get();
+    return commentsSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async addComment(listingId: string, userId: string, text: string): Promise<{ id: string }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    if (!userSnap.exists) throw new NotFoundException('User not found');
+    const user = userSnap.data()!;
+    const userName = (user.firstName as string) || (user.username as string) || 'User';
+
+    if (!text?.trim()) throw new BadRequestException('Comment text is required');
+
+    const commentRef = await ref.collection('comments').add({
+      userId,
+      userName,
+      text: text.trim().slice(0, 500),
+      createdAt: new Date().toISOString(),
+    });
+
+    const currentCount = (snap.data()?.commentCount as number) ?? 0;
+    await ref.update({ commentCount: currentCount + 1 });
+
+    return { id: commentRef.id };
+  }
+
+  async deleteComment(listingId: string, commentId: string, userId: string): Promise<{ ok: boolean }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+    const listing = snap.data()!;
+
+    const commentRef = ref.collection('comments').doc(commentId);
+    const commentSnap = await commentRef.get();
+    if (!commentSnap.exists) throw new NotFoundException('Comment not found');
+    const comment = commentSnap.data()!;
+
+    const isCommentOwner = comment.userId === userId;
+    const isListingOwner = listing.sellerId === userId;
+    let isAdmin = false;
+    if (!isCommentOwner && !isListingOwner) {
+      const userSnap = await this.firebase.collection('users').doc(userId).get();
+      isAdmin = !!(userSnap.exists && userSnap.data()?.isAdmin);
+    }
+
+    if (!isCommentOwner && !isListingOwner && !isAdmin) {
+      throw new ForbiddenException('Not authorized to delete this comment');
+    }
+
+    await commentRef.delete();
+    const currentCount = (snap.data()?.commentCount as number) ?? 0;
+    await ref.update({ commentCount: Math.max(0, currentCount - 1) });
+
     return { ok: true };
   }
 }
