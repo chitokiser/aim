@@ -6,3 +6,5 @@
   NODE_VERSION = "22"
   NEXT_PUBLIC_API_URL = "https://ai119-bot-production.up.railway.app"
   NEXT_PUBLIC_TELEGRAM_BOT_USERNAME = "ai_bootcamp_hub_bot"
+  NEXT_PUBLIC_TON_WALLET = "UQBLkDA_wtlLMP8m5k-XD5O6XumB9v5mzdowMR8c0A8S9edJ"
+  NEXT_PUBLIC_USDT_WALLET = "TTpFFt5Kyin3MhEeQe84UNbKi8LnuD8MVv"
