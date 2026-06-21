@@ -11,7 +11,8 @@ const COMMUNITY = 'https://t.me/ai119link';
 
 @Injectable()
 export class MainBotService extends BaseTelegrafBotService {
-  private readonly AP_PER_STAR = 100;
+  private readonly AP_PER_STAR = 100; // 100 Stars = 10,000 AP = $1 USD
+  private readonly STAR_PRESETS = [50, 100, 200, 500, 1000];
 
   constructor(
     private config: ConfigService,
@@ -40,9 +41,30 @@ export class MainBotService extends BaseTelegrafBotService {
           { text: '🎯 미션', web_app: { url: `${SITE}/missions${q}` } },
           { text: '🏆 랭킹', web_app: { url: `${SITE}/leaderboard${q}` } },
         ],
-        [{ text: '💬 AIM 커뮤니티', url: COMMUNITY }],
+        [
+          { text: '⭐ AP 충전하기', callback_data: 'topup_menu' },
+          { text: '💬 AIM 커뮤니티', url: COMMUNITY },
+        ],
       ],
     };
+  }
+
+  private topupKeyboard() {
+    const rows: { text: string; callback_data: string }[][] = [];
+    const pairs = this.STAR_PRESETS.reduce<(typeof this.STAR_PRESETS)[]>((acc, s, i) => {
+      if (i % 2 === 0) acc.push([s]);
+      else acc[acc.length - 1].push(s);
+      return acc;
+    }, []);
+    for (const pair of pairs) {
+      rows.push(
+        pair.map((s) => ({
+          text: `⭐ ${s} Stars → ${(s * this.AP_PER_STAR).toLocaleString()} AP`,
+          callback_data: `topup_${s}`,
+        })),
+      );
+    }
+    return { inline_keyboard: rows };
   }
 
   protected registerHandlers() {
@@ -146,6 +168,26 @@ export class MainBotService extends BaseTelegrafBotService {
             },
           },
         );
+        return;
+      }
+
+      // topup_X deep link from frontend Stars buttons  e.g. ?start=topup_100
+      if (payload.startsWith('topup_')) {
+        const { user } = await this.usersService.registerFromTelegram({
+          telegramId: String(tg.id),
+          firstName: tg.first_name,
+          lastName: tg.last_name,
+          username: tg.username,
+        });
+        const stars = parseInt(payload.replace('topup_', ''), 10);
+        if (stars > 0 && this.STAR_PRESETS.includes(stars)) {
+          await this.sendStarsInvoice(ctx, user as Record<string, unknown>, stars);
+        } else {
+          await ctx.reply(
+            `⭐ *AP 충전 — Telegram Stars*\n\n환율: ⭐ 1 Star = *${this.AP_PER_STAR} AP* (10,000 AP = $1)\n\n충전할 Stars를 선택하세요:`,
+            { parse_mode: 'Markdown', reply_markup: this.topupKeyboard() },
+          );
+        }
         return;
       }
 
@@ -353,61 +395,34 @@ export class MainBotService extends BaseTelegrafBotService {
         return;
       }
 
-      const args = ctx.message.text.split(' ');
-      const requestedStars = args[1] ? parseInt(args[1], 10) : 0;
-
-      const presets = [100, 500, 1000, 5000];
-
-      if (!requestedStars || !presets.includes(requestedStars)) {
-        const buttons = presets.map((s) => ({
-          text: `⭐ ${s} Stars → ${(s * this.AP_PER_STAR).toLocaleString()} AP`,
-          callback_data: `topup_${s}`,
-        }));
+      const requestedStars = parseInt(ctx.message.text.split(' ')[1] ?? '0', 10);
+      if (requestedStars > 0 && this.STAR_PRESETS.includes(requestedStars)) {
+        await this.sendStarsInvoice(ctx, user, requestedStars);
+      } else {
         await ctx.reply(
-          `💰 *AP Top-Up via Telegram Stars*\n\n` +
-            `Rate: ⭐ 1 Star = *${this.AP_PER_STAR} AP*\n` +
-            `10,000 AP = $1 USD\n\n` +
-            `Choose an amount:`,
-          {
-            parse_mode: 'Markdown',
-            reply_markup: {
-              inline_keyboard: [
-                [buttons[0], buttons[1]],
-                [buttons[2], buttons[3]],
-              ],
-            },
-          },
+          `⭐ *AP 충전 — Telegram Stars*\n\n환율: ⭐ 1 Star = *${this.AP_PER_STAR} AP*\n💰 10,000 AP = $1 USD\n\n충전할 금액을 선택하세요:`,
+          { parse_mode: 'Markdown', reply_markup: this.topupKeyboard() },
         );
-        return;
       }
+    });
 
-      const ap = requestedStars * this.AP_PER_STAR;
-      await ctx.replyWithInvoice({
-        title: `AP Top-Up — ${requestedStars} Stars`,
-        description: `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
-        payload: JSON.stringify({ userId: user.id as string, stars: requestedStars }),
-        provider_token: '',
-        currency: 'XTR',
-        prices: [{ label: `${ap.toLocaleString()} AP`, amount: requestedStars }],
-      });
+    this.bot.action('topup_menu', async (ctx) => {
+      await ctx.answerCbQuery();
+      await ctx.reply(
+        `⭐ *AP 충전 — Telegram Stars*\n\n환율: ⭐ 1 Star = *${this.AP_PER_STAR} AP*\n💰 10,000 AP = $1 USD\n\n충전할 금액을 선택하세요:`,
+        { parse_mode: 'Markdown', reply_markup: this.topupKeyboard() },
+      );
     });
 
     this.bot.action(/^topup_(\d+)$/, async (ctx) => {
       await ctx.answerCbQuery();
       const telegramId = String(ctx.from?.id);
       const user = (await this.usersService.findByTelegramId(telegramId)) as Record<string, unknown> | null;
-      if (!user) return;
+      if (!user) { await ctx.reply('Please register first with /start'); return; }
 
       const stars = parseInt((ctx.match as RegExpMatchArray)[1], 10);
-      const ap = stars * this.AP_PER_STAR;
-      await ctx.replyWithInvoice({
-        title: `AP Top-Up — ${stars} Stars`,
-        description: `Receive ${ap.toLocaleString()} AP (≈ $${(ap / 10000).toFixed(2)} USD) in your AI119 wallet.`,
-        payload: JSON.stringify({ userId: user.id as string, stars }),
-        provider_token: '',
-        currency: 'XTR',
-        prices: [{ label: `${ap.toLocaleString()} AP`, amount: stars }],
-      });
+      if (!this.STAR_PRESETS.includes(stars)) return;
+      await this.sendStarsInvoice(ctx, user, stars);
     });
 
     this.bot.on('pre_checkout_query', async (ctx) => {
@@ -552,6 +567,22 @@ export class MainBotService extends BaseTelegrafBotService {
         `Tap a button to get started 👇\n(or type /start to register)`,
         { reply_markup: this.mainKeyboard(loginToken) },
       );
+    });
+  }
+
+  private async sendStarsInvoice(
+    ctx: { replyWithInvoice: (args: Record<string, unknown>) => Promise<unknown> },
+    user: Record<string, unknown>,
+    stars: number,
+  ) {
+    const ap = stars * this.AP_PER_STAR;
+    await ctx.replyWithInvoice({
+      title: `⭐ ${stars} Stars → ${ap.toLocaleString()} AP`,
+      description: `AI119 계정에 ${ap.toLocaleString()} AP (≈ $${(ap / 10_000).toFixed(2)} USD)가 즉시 충전됩니다.`,
+      payload: JSON.stringify({ userId: user.id as string, stars }),
+      provider_token: '',
+      currency: 'XTR',
+      prices: [{ label: `${ap.toLocaleString()} AP`, amount: stars }],
     });
   }
 
