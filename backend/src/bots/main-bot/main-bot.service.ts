@@ -7,6 +7,7 @@ import { PointsService } from '../../points/points.service';
 import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
 
 const SITE = 'https://ai119.netlify.app';
+const COMMUNITY = 'https://t.me/ai119link';
 
 @Injectable()
 export class MainBotService extends BaseTelegrafBotService {
@@ -39,6 +40,7 @@ export class MainBotService extends BaseTelegrafBotService {
           { text: '🎯 미션', web_app: { url: `${SITE}/missions${q}` } },
           { text: '🏆 랭킹', web_app: { url: `${SITE}/leaderboard${q}` } },
         ],
+        [{ text: '💬 AIM 커뮤니티', url: COMMUNITY }],
       ],
     };
   }
@@ -68,6 +70,7 @@ export class MainBotService extends BaseTelegrafBotService {
               // t.me deep links open in-app without confirmation dialog
               inline_keyboard: [
                 [{ text: '🚀 AI119 시작하기', url: `https://t.me/${botUsername}?start=login` }],
+                [{ text: '💬 AIM 커뮤니티', url: COMMUNITY }],
               ],
             },
           },
@@ -505,6 +508,7 @@ export class MainBotService extends BaseTelegrafBotService {
                   { text: '🎯 미션', url: `https://t.me/${botUsername}?start=mission` },
                   { text: '🏆 랭킹', url: `https://t.me/${botUsername}?start=rank` },
                 ],
+                [{ text: '💬 AIM 커뮤니티', url: COMMUNITY }],
               ],
             },
           },

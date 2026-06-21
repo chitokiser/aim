@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Param, Body, Query,
+  Controller, Get, Post, Patch, Delete, Param, Body, Query,
   UseGuards, Request, ForbiddenException,
 } from '@nestjs/common';
 import { AuctionService } from './auction.service';
@@ -122,6 +122,27 @@ export class AuctionController {
   ) {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.auctionService.adminResolveDispute(id, body.resolution);
+  }
+
+  @Patch('admin/:id')
+  @UseGuards(JwtAuthGuard)
+  async adminUpdate(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+    @Body() dto: Record<string, unknown>,
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.auctionService.adminUpdate(id, dto);
+  }
+
+  @Delete('admin/:id')
+  @UseGuards(JwtAuthGuard)
+  async adminDelete(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.auctionService.adminDelete(id);
   }
 
   @Post('admin/seed/run')

@@ -6,9 +6,21 @@ import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Gavel, Clock, Eye, TrendingUp, ArrowLeft } from "lucide-react";
+import { Gavel, Clock, Eye, TrendingUp, ArrowLeft, Pencil, Trash2, ShieldCheck } from "lucide-react";
 
 const API = `${process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app"}/api`;
+
+const STATUSES = [
+  "pending_approval", "active", "ended", "transfer_pending",
+  "completed", "disputed", "cancelled",
+];
+
+const CAT_LABEL: Record<string, string> = {
+  youtube: "YouTube", wordpress: "WordPress", instagram: "Instagram",
+  tiktok: "TikTok", google: "Google", telegram_group: "TG Group",
+  telegram_channel: "TG Channel", telegram_bot: "TG Bot",
+  jumpdao_store: "Jumpdao Store", jumpdao_gold: "Jumpdao Gold",
+};
 
 interface Auction {
   id: string;
@@ -27,6 +39,25 @@ interface Auction {
   status: string;
   transferMethod: string;
   sellerId: string;
+}
+
+interface EditForm {
+  title: string;
+  category: string;
+  description: string;
+  thumbnailUrl: string;
+  startPrice: string;
+  buyNowPrice: string;
+  monthlyRevenue: string;
+  endsAt: string;
+  transferMethod: string;
+  status: string;
+}
+
+function toDatetimeLocal(iso: string): string {
+  const dt = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
 }
 
 interface Bid {
@@ -59,6 +90,7 @@ export default function AuctionDetailClient({ id }: { id: string }) {
   const { t } = useLanguage();
   const a = t.auction;
   const { user, token } = useAuthStore();
+  const isAdmin = user?.isAdmin === true;
 
   const [auction, setAuction] = useState<Auction | null>(null);
   const [bids, setBids] = useState<Bid[]>([]);
@@ -67,6 +99,11 @@ export default function AuctionDetailClient({ id }: { id: string }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState<EditForm | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editError, setEditError] = useState("");
 
   const fetchData = async () => {
     try {
@@ -139,6 +176,93 @@ export default function AuctionDetailClient({ id }: { id: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message ?? "Error");
       setSuccess("Transfer confirmed!");
+      fetchData();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = () => {
+    if (!auction) return;
+    setEditForm({
+      title: auction.title ?? "",
+      category: auction.category ?? "",
+      description: auction.description ?? "",
+      thumbnailUrl: auction.thumbnailUrl ?? "",
+      startPrice: String(auction.startPrice ?? ""),
+      buyNowPrice: String(auction.buyNowPrice ?? ""),
+      monthlyRevenue: String(auction.monthlyRevenue ?? ""),
+      endsAt: auction.endsAt ? toDatetimeLocal(auction.endsAt) : "",
+      transferMethod: auction.transferMethod ?? "",
+      status: auction.status ?? "active",
+    });
+    setEditError("");
+    setShowEditModal(true);
+  };
+
+  const handleAdminSave = async () => {
+    if (!auction || !editForm) return;
+    setSaving(true);
+    setEditError("");
+    try {
+      const body: Record<string, unknown> = {
+        title: editForm.title,
+        category: editForm.category,
+        description: editForm.description,
+        thumbnailUrl: editForm.thumbnailUrl || undefined,
+        startPrice: editForm.startPrice ? Number(editForm.startPrice) : undefined,
+        buyNowPrice: editForm.buyNowPrice ? Number(editForm.buyNowPrice) : undefined,
+        monthlyRevenue: editForm.monthlyRevenue ? Number(editForm.monthlyRevenue) : undefined,
+        endsAt: editForm.endsAt ? new Date(editForm.endsAt).toISOString() : undefined,
+        transferMethod: editForm.transferMethod,
+        status: editForm.status,
+      };
+      const res = await fetch(`${API}/auction/admin/${auction.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        throw new Error(d.message ?? "Failed to save");
+      }
+      setShowEditModal(false);
+      fetchData();
+    } catch (e: unknown) {
+      setEditError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdminDelete = async () => {
+    if (!auction) return;
+    if (!confirm(`Delete auction "${auction.title}"? Active bidders will be refunded.`)) return;
+    try {
+      const res = await fetch(`${API}/auction/admin/${auction.id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error("Delete failed");
+      window.location.href = "/auction";
+    } catch {
+      setError("Failed to delete auction.");
+    }
+  };
+
+  const handleAdminAction = async (path: string, body?: Record<string, unknown>) => {
+    setSubmitting(true); setError(""); setSuccess("");
+    try {
+      const res = await fetch(`${API}/auction/admin/${auction!.id}/${path}`, {
+        method: "POST",
+        headers: authHeader(),
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message ?? "Error");
+      setSuccess(data.message ?? "Done");
       fetchData();
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Error");
@@ -337,9 +461,165 @@ export default function AuctionDetailClient({ id }: { id: string }) {
               <span className="flex items-center gap-1"><Gavel className="h-3 w-3" />{auction.bidCount} {a.bids}</span>
               <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{auction.viewCount} {a.views}</span>
             </div>
+
+            {/* Admin Panel */}
+            {isAdmin && (
+              <div className="rounded-lg border border-dashed border-amber-400 p-3 space-y-2 mt-1">
+                <p className="text-xs font-semibold text-amber-600 flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5" /> 관리자 도구
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={openEditModal}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-800 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" /> 수정
+                  </button>
+                  <button
+                    onClick={handleAdminDelete}
+                    className="flex-1 flex items-center justify-center gap-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 py-1.5 text-xs font-semibold transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" /> 삭제
+                  </button>
+                </div>
+                {auction.status === "pending_approval" && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleAdminAction("approve")}
+                      disabled={submitting}
+                      className="flex-1 rounded-lg bg-green-600 hover:bg-green-700 text-white py-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
+                    >
+                      ✅ 승인
+                    </button>
+                    <button
+                      onClick={() => handleAdminAction("stop")}
+                      disabled={submitting}
+                      className="flex-1 rounded-lg bg-gray-600 hover:bg-gray-700 text-white py-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
+                    >
+                      🚫 거절
+                    </button>
+                  </div>
+                )}
+                {auction.status === "active" && (
+                  <button
+                    onClick={() => handleAdminAction("stop")}
+                    disabled={submitting}
+                    className="w-full rounded-lg border border-red-300 text-red-600 hover:bg-red-50 py-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
+                  >
+                    🚫 강제 종료
+                  </button>
+                )}
+                {auction.status === "disputed" && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">분쟁 해결:</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAdminAction("resolve", { resolution: "buyer" })}
+                        disabled={submitting}
+                        className="flex-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white py-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
+                      >
+                        구매자 승리
+                      </button>
+                      <button
+                        onClick={() => handleAdminAction("resolve", { resolution: "seller" })}
+                        disabled={submitting}
+                        className="flex-1 rounded-lg bg-purple-600 hover:bg-purple-700 text-white py-1.5 text-xs font-semibold disabled:opacity-50 transition-colors"
+                      >
+                        판매자 승리
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Admin Edit Modal */}
+      {showEditModal && editForm && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4">
+          <div className="bg-background rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-5 border-b">
+              <h2 className="text-lg font-bold">옥션 수정</h2>
+              <button onClick={() => setShowEditModal(false)} className="text-muted-foreground hover:text-foreground text-xl leading-none">✕</button>
+            </div>
+            <div className="p-5 space-y-3">
+              {editError && <p className="text-sm text-red-500">{editError}</p>}
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">제목</label>
+                <input className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">카테고리</label>
+                  <select className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+                    {Object.entries(CAT_LABEL).map(([val, label]) => (
+                      <option key={val} value={val}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">상태</label>
+                  <select className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                    {STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">설명</label>
+                <textarea rows={3} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">썸네일 URL</label>
+                <input className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  value={editForm.thumbnailUrl} onChange={(e) => setEditForm({ ...editForm, thumbnailUrl: e.target.value })} placeholder="https://..." />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">시작가 (AP)</label>
+                  <input type="number" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    value={editForm.startPrice} onChange={(e) => setEditForm({ ...editForm, startPrice: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">즉구가 (AP)</label>
+                  <input type="number" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    value={editForm.buyNowPrice} onChange={(e) => setEditForm({ ...editForm, buyNowPrice: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground">월 수익 (AP)</label>
+                  <input type="number" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    value={editForm.monthlyRevenue} onChange={(e) => setEditForm({ ...editForm, monthlyRevenue: e.target.value })} />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">마감일시</label>
+                <input type="datetime-local" className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  value={editForm.endsAt} onChange={(e) => setEditForm({ ...editForm, endsAt: e.target.value })} />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground">이전 방법</label>
+                <textarea rows={2} className="mt-1 w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  value={editForm.transferMethod} onChange={(e) => setEditForm({ ...editForm, transferMethod: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex gap-2 p-5 border-t">
+              <button onClick={handleAdminSave} disabled={saving}
+                className="flex-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white py-2 text-sm font-semibold disabled:opacity-50 transition-colors">
+                {saving ? "저장 중..." : "저장"}
+              </button>
+              <button onClick={() => setShowEditModal(false)}
+                className="px-4 rounded-lg border hover:bg-muted py-2 text-sm font-medium transition-colors">
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

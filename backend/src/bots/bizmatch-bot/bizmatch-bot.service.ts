@@ -78,7 +78,7 @@ interface MatchResult {
 
 const COLLECTION = 'bizmatch_profiles';
 const FREE_DAILY_LIMIT = 3;
-const GROUP_LINK = 'https://t.me/ai119';
+const GROUP_LINK = 'https://t.me/ai119link';
 
 const SCORE_WEIGHTS = {
   location: 0.15,

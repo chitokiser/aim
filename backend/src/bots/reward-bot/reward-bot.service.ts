@@ -54,7 +54,7 @@ export class RewardBotService extends BaseTelegrafBotService {
             parse_mode: 'Markdown',
             ...Markup.inlineKeyboard([
               [Markup.button.url('🎯 AI119 미션 보기', 'https://ai119.netlify.app/missions')],
-              [Markup.button.url('🌐 AI119 커뮤니티', 'https://t.me/ai119')],
+              [Markup.button.url('🌐 AI119 커뮤니티', 'https://t.me/ai119link')],
             ]),
           },
         ).catch(() => {});

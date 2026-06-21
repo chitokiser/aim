@@ -394,6 +394,40 @@ export class AuctionService {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
+  async adminUpdate(id: string, dto: Record<string, unknown>) {
+    const ref = this.firebase.collection(COLLECTION).doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) throw new NotFoundException('Auction not found');
+    const allowed = [
+      'title', 'description', 'thumbnailUrl', 'category',
+      'startPrice', 'buyNowPrice', 'monthlyRevenue',
+      'endsAt', 'transferMethod', 'status',
+    ];
+    const update: Record<string, unknown> = { updatedAt: new Date().toISOString() };
+    for (const key of allowed) {
+      if (dto[key] !== undefined) update[key] = dto[key];
+    }
+    await ref.update(update);
+    return { id, ...doc.data(), ...update };
+  }
+
+  async adminDelete(id: string) {
+    const ref = this.firebase.collection(COLLECTION).doc(id);
+    const doc = await ref.get();
+    if (!doc.exists) throw new NotFoundException('Auction not found');
+    const data = doc.data() as Record<string, unknown>;
+    await this.refundAllBidders(id, data);
+    const bidsSnap = await this.firebase
+      .collection(BIDS_COLLECTION)
+      .where('auctionId', '==', id)
+      .get();
+    const batch = this.firebase.getFirestore().batch();
+    bidsSnap.docs.forEach((d) => batch.delete(d.ref));
+    batch.delete(ref);
+    await batch.commit();
+    return { deleted: id };
+  }
+
   async adminDeleteSeed() {
     const snap = await this.firebase
       .collection(COLLECTION)
