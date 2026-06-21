@@ -17,6 +17,7 @@ import { RewardBotModule } from './bots/reward-bot/reward-bot.module';
 import { BizMatchBotModule } from './bots/bizmatch-bot/bizmatch-bot.module';
 import { AuctionModule } from './auction/auction.module';
 import { AdminModule } from './admin/admin.module';
+import { TopupModule } from './topup/topup.module';
 
 @Module({
   imports: [
@@ -36,6 +37,7 @@ import { AdminModule } from './admin/admin.module';
     BizMatchBotModule,
     AuctionModule,
     AdminModule,
+    TopupModule,
   ],
   controllers: [AppController],
   providers: [AppService],

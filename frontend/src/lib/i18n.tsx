@@ -412,6 +412,9 @@ const T = {
       tonMinimum: "Minimum: 1 TON",
       tonSendExact: "Send the exact TON amount to the wallet above",
       tonQrNote: "Scan or copy the wallet address, send TON, then contact admin with your TXID",
+      tonCommentTitle: "Important: Add Telegram ID as transfer comment",
+      tonCommentHint: "Enter your Telegram ID in the comment/memo field when sending TON. AP will be credited automatically within 5 minutes.",
+      tonAutoNote: "Automatic — no need to contact admin",
     },
     cfAd: {
       ctaTitle: "Are you an advertiser?",
@@ -1014,6 +1017,9 @@ const T = {
       tonMinimum: "최소: 1 TON",
       tonSendExact: "위 지갑 주소로 정확한 TON 금액을 전송하세요",
       tonQrNote: "지갑 주소를 복사하거나 스캔 후 TON을 보내고, TXID와 함께 관리자에게 문의하세요",
+      tonCommentTitle: "중요: 전송 시 텔레그램 ID를 comment에 입력하세요",
+      tonCommentHint: "TON 전송 시 comment/memo 칸에 텔레그램 ID를 입력하면 5분 내 AP가 자동 지급됩니다.",
+      tonAutoNote: "자동 처리 — 관리자 문의 불필요",
     },
     cfAd: {
       ctaTitle: "광고주이신가요?",
@@ -1616,6 +1622,9 @@ const T = {
       tonMinimum: "Tối thiểu: 1 TON",
       tonSendExact: "Gửi đúng số TON tới ví ở trên",
       tonQrNote: "Sao chép hoặc quét địa chỉ ví, gửi TON, sau đó liên hệ admin với TXID",
+      tonCommentTitle: "Quan trọng: Nhập Telegram ID vào ghi chú khi chuyển TON",
+      tonCommentHint: "Nhập Telegram ID vào trường comment/memo khi gửi TON. AP sẽ được cộng tự động trong 5 phút.",
+      tonAutoNote: "Tự động — không cần liên hệ admin",
     },
     cfAd: {
       ctaTitle: "Bạn là nhà quảng cáo?",

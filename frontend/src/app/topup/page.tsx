@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Zap, Copy, Check, ExternalLink, Star, Coins,
-  MessageCircle, AlertCircle, RefreshCw, ArrowLeftRight,
+  MessageCircle, AlertCircle, RefreshCw, ArrowLeftRight, Hash,
 } from "lucide-react";
 
 const BOT_USERNAME  = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "";
@@ -453,8 +453,69 @@ function TonTab({
         onCopy={onCopy}
       />
 
-      {/* After-send guide */}
-      <AfterSendGuide tt={tt} botUsername={botUsername} telegramId={telegramId} />
+      {/* Telegram ID comment instruction */}
+      <TonCommentGuide tt={tt} telegramId={telegramId} onCopy={onCopy} />
+    </div>
+  );
+}
+
+// ─── TON Comment Guide ────────────────────────────────────────────────────────
+function TonCommentGuide({
+  tt, telegramId, onCopy,
+}: {
+  tt: Record<string, string>;
+  telegramId?: string | number | null;
+  onCopy: (s: string) => void;
+}) {
+  const [copiedId, setCopiedId] = useState(false);
+
+  const copyId = async () => {
+    if (!telegramId) return;
+    try {
+      await navigator.clipboard.writeText(String(telegramId));
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="rounded-xl border-2 border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-950/20 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <Hash className="h-4 w-4 text-amber-600 shrink-0" />
+        <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+          {tt.tonCommentTitle}
+        </p>
+      </div>
+      <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+        {tt.tonCommentHint}
+      </p>
+      {telegramId ? (
+        <div className="flex items-center gap-2">
+          <div className="flex-1 flex items-center gap-2 bg-white dark:bg-amber-950/40 rounded-lg border border-amber-200 dark:border-amber-700 px-3 py-2">
+            <span className="text-xs text-muted-foreground">{tt.yourTelegramId}:</span>
+            <code className="flex-1 text-sm font-mono font-bold text-amber-800 dark:text-amber-200">
+              {telegramId}
+            </code>
+          </div>
+          <button
+            onClick={copyId}
+            className="shrink-0 flex items-center gap-1 rounded-lg border border-amber-300 dark:border-amber-600 bg-white dark:bg-amber-950/40 px-2.5 py-2 text-xs font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+          >
+            {copiedId
+              ? <Check className="h-3.5 w-3.5 text-green-500" />
+              : <Copy className="h-3.5 w-3.5 text-amber-600" />}
+            {tt.copy}
+          </button>
+        </div>
+      ) : (
+        <p className="text-xs text-amber-600 italic">{tt.loginRequired}</p>
+      )}
+      <p className="text-xs text-green-700 dark:text-green-400 font-semibold flex items-center gap-1">
+        <Check className="h-3 w-3" />
+        {tt.tonAutoNote}
+      </p>
     </div>
   );
 }
