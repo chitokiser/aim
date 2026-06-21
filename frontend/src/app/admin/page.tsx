@@ -132,6 +132,11 @@ export default function AdminPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
 
+  // Tags state
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
+  const [newTag, setNewTag] = useState("");
+
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
   }, [user, router]);
@@ -238,15 +243,15 @@ export default function AdminPage() {
     setSeedingAuctions(true);
     try {
       const res = await fetch(`${API}/api/auction/admin/seed/run`, { method: "POST", headers: authHeader() });
-      const data = await res.json();
-      if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
       if (data.skipped) {
         toast.info("Seed data already exists. Delete first to re-seed.");
       } else {
         toast.success(`${data.inserted} demo auctions added!`);
       }
-    } catch {
-      toast.error("Failed to seed auction data");
+    } catch (err) {
+      toast.error(`Failed to seed auction data: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setSeedingAuctions(false);
     }
@@ -257,11 +262,11 @@ export default function AdminPage() {
     setDeletingSeed(true);
     try {
       const res = await fetch(`${API}/api/auction/admin/seed/delete`, { method: "POST", headers: authHeader() });
-      const data = await res.json();
-      if (!res.ok) throw new Error();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || `HTTP ${res.status}`);
       toast.success(`${data.deleted} seed auctions deleted.`);
-    } catch {
-      toast.error("Failed to delete seed data");
+    } catch (err) {
+      toast.error(`Failed to delete seed data: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setDeletingSeed(false);
     }
@@ -280,6 +285,20 @@ export default function AdminPage() {
       setPendingLoading(false);
     }
   }, [token, authHeader]);
+
+  const loadTags = useCallback(async () => {
+    setTagsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/admin/tags`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setTags(data.tags ?? []);
+    } catch {
+      toast.error("Failed to load tags");
+    } finally {
+      setTagsLoading(false);
+    }
+  }, []);
 
   const handleCreateTemplate = async () => {
     if (!tplTitle.trim() || !tplDesc.trim()) return;
@@ -472,7 +491,7 @@ export default function AdminPage() {
           <TabsTrigger value="vault" onClick={loadVault}>{t.admin.tabVault}</TabsTrigger>
           <TabsTrigger value="points">{t.admin.tabPoints}</TabsTrigger>
           <TabsTrigger value="notice">{t.admin.tabNotice}</TabsTrigger>
-          <TabsTrigger value="tags">{t.admin.tabTags}</TabsTrigger>
+          <TabsTrigger value="tags" onClick={loadTags}>{t.admin.tabTags}</TabsTrigger>
         </TabsList>
 
         {/* Posts Review */}
@@ -1140,24 +1159,95 @@ export default function AdminPage() {
             <CardHeader><CardTitle className="text-base">{t.admin.tagMgmt}</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input placeholder={t.admin.addTag} className="flex-1" />
-                <Button variant="outline">{t.admin.add}</Button>
+                <Input
+                  placeholder={t.admin.addTag}
+                  className="flex-1"
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={async (e) => {
+                    if (e.key !== "Enter") return;
+                    const trimmed = newTag.trim();
+                    if (!trimmed) return;
+                    const tag = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+                    try {
+                      const res = await fetch(`${API}/api/admin/tags`, {
+                        method: "POST",
+                        headers: authHeader(),
+                        body: JSON.stringify({ tag }),
+                      });
+                      if (!res.ok) throw new Error();
+                      const data = await res.json();
+                      setTags(data.tags);
+                      setNewTag("");
+                      toast.success("Tag added");
+                    } catch {
+                      toast.error("Failed to add tag");
+                    }
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    const trimmed = newTag.trim();
+                    if (!trimmed) return;
+                    const tag = trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+                    try {
+                      const res = await fetch(`${API}/api/admin/tags`, {
+                        method: "POST",
+                        headers: authHeader(),
+                        body: JSON.stringify({ tag }),
+                      });
+                      if (!res.ok) throw new Error();
+                      const data = await res.json();
+                      setTags(data.tags);
+                      setNewTag("");
+                      toast.success("Tag added");
+                    } catch {
+                      toast.error("Failed to add tag");
+                    }
+                  }}
+                >
+                  {t.admin.add}
+                </Button>
               </div>
-              <div className="space-y-2">
-                {["#AIM", "#AIcreator", "#AIcf", "#AICMsong", "#AI리뷰", "#창작"].map((tag) => (
-                  <div key={tag} className="flex items-center justify-between p-3 rounded-lg bg-muted">
-                    <span className="font-mono text-sm">{tag}</span>
-                    <div className="flex items-center gap-3">
-                      <span className="text-xs text-muted-foreground">
-                        {t.admin.used} {Math.floor(Math.random() * 2000 + 100)}{t.admin.times}
-                      </span>
-                      <Button variant="ghost" size="sm" className="h-7 text-red-500 hover:text-red-600">
+              {tagsLoading ? (
+                <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm">Loading tags...</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tags.map((tag) => (
+                    <div key={tag} className="flex items-center justify-between p-3 rounded-lg bg-muted">
+                      <span className="font-mono text-sm">{tag}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-red-500 hover:text-red-600"
+                        onClick={async () => {
+                          try {
+                            const res = await fetch(
+                              `${API}/api/admin/tags/${encodeURIComponent(tag)}`,
+                              { method: "DELETE", headers: authHeader() },
+                            );
+                            if (!res.ok) throw new Error();
+                            const data = await res.json();
+                            setTags(data.tags);
+                            toast.success("Tag deleted");
+                          } catch {
+                            toast.error("Failed to delete tag");
+                          }
+                        }}
+                      >
                         {t.admin.delete}
                       </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                  {tags.length === 0 && (
+                    <p className="text-center text-sm text-muted-foreground py-6">No tags yet. Add one above.</p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

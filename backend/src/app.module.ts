@@ -16,6 +16,7 @@ import { MainBotModule } from './bots/main-bot/main-bot.module';
 import { RewardBotModule } from './bots/reward-bot/reward-bot.module';
 import { BizMatchBotModule } from './bots/bizmatch-bot/bizmatch-bot.module';
 import { AuctionModule } from './auction/auction.module';
+import { AdminModule } from './admin/admin.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AuctionModule } from './auction/auction.module';
     RewardBotModule,
     BizMatchBotModule,
     AuctionModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],
