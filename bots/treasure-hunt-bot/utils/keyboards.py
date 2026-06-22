@@ -33,7 +33,7 @@ def treasure_list_keyboard(treasures: list, user_attempts: dict, lang: str = "ko
             icon = "▶️"
         else:
             icon = "🆕"
-        label = f"{icon} #{tr.id} — {tr.prize_gp:,} P"
+        label = f"{icon} #{tr.id} — {tr.prize_gp:,} AP"
         buttons.append([InlineKeyboardButton(label, callback_data=f"ti:{tr.id}")])
 
     buttons.append([InlineKeyboardButton(t("btn_main_menu", lang), callback_data="menu")])

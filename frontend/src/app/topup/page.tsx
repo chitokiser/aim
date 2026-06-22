@@ -213,6 +213,8 @@ export default function TopUpPage() {
             <Badge variant="secondary" className="text-xs">{tt.usdtNote}</Badge>
           </div>
 
+          <UsdtAutoGuide tt={tt} botUsername={BOT_USERNAME} />
+
           <WalletCard
             address={USDT_WALLET}
             label={tt.walletAddress}
@@ -221,8 +223,6 @@ export default function TopUpPage() {
             copyLabel={tt.copy}
             onCopy={copy}
           />
-
-          <AfterSendGuide tt={tt} botUsername={BOT_USERNAME} telegramId={user?.telegramId} />
         </div>
       )}
 
@@ -559,40 +559,49 @@ function WalletCard({
   );
 }
 
-function AfterSendGuide({
-  tt, botUsername, telegramId,
+// ─── USDT Auto Guide ─────────────────────────────────────────────────────────
+function UsdtAutoGuide({
+  tt, botUsername,
 }: {
   tt: Record<string, string>;
   botUsername: string;
-  telegramId?: string | number | null;
 }) {
   return (
-    <div className="rounded-xl border bg-card p-4 space-y-3">
-      <p className="text-sm font-medium">{tt.afterSend}</p>
-      <ul className="space-y-1.5 text-sm text-muted-foreground">
-        {[tt.txHash, tt.sendAmount, tt.yourTelegramId].map((step, i) => (
-          <li key={i} className="flex items-center gap-2">
-            <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 text-xs font-bold">
-              {i + 1}
-            </span>
-            {step}
-            {i === 2 && telegramId && (
-              <code className="ml-1 rounded bg-muted px-1.5 py-0.5 text-xs font-mono">{telegramId}</code>
-            )}
-          </li>
-        ))}
-      </ul>
+    <div className="rounded-xl border-2 border-blue-300 dark:border-blue-600 bg-blue-50 dark:bg-blue-950/20 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageCircle className="h-4 w-4 text-blue-600 shrink-0" />
+        <p className="text-sm font-bold text-blue-800 dark:text-blue-300">
+          {tt.usdtRegisterTitle}
+        </p>
+      </div>
+      <p className="text-xs text-blue-700 dark:text-blue-400 leading-relaxed">
+        {tt.usdtRegisterHint}
+      </p>
+      <div className="rounded-lg bg-white dark:bg-blue-950/40 border border-blue-200 dark:border-blue-700 px-3 py-2">
+        <code className="text-sm font-mono font-bold text-blue-800 dark:text-blue-200">
+          /wallet T...yourAddress
+        </code>
+      </div>
       {botUsername && (
-        <a href={`https://t.me/${botUsername}`} target="_blank" rel="noopener noreferrer" className="flex w-full">
+        <a
+          href={`https://t.me/${botUsername}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex w-full"
+        >
           <Button
             variant="outline"
-            className="w-full gap-2 border-violet-300 text-violet-700 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/20"
+            className="w-full gap-2 border-blue-300 text-blue-700 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40"
           >
-            <MessageCircle className="h-4 w-4" />
-            {tt.contactAdmin}
+            <ExternalLink className="h-3.5 w-3.5" />
+            {tt.usdtRegisterBtn}
           </Button>
         </a>
       )}
+      <p className="text-xs text-green-700 dark:text-green-400 font-semibold flex items-center gap-1">
+        <Check className="h-3 w-3" />
+        {tt.usdtAutoNote}
+      </p>
     </div>
   );
 }

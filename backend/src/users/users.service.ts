@@ -31,6 +31,17 @@ export class UsersService {
     return this.findById(id);
   }
 
+  async findByTronWallet(address: string): Promise<Record<string, unknown> | null> {
+    const snap = await this.firebase
+      .collection('users')
+      .where('tronWallet', '==', address)
+      .limit(1)
+      .get();
+    if (snap.empty) return null;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...(doc.data() as Record<string, unknown>) };
+  }
+
   async findByReferralCode(code: string) {
     const snap = await this.firebase
       .collection('users')

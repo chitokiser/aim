@@ -192,7 +192,12 @@ export class MissionsController {
     @Request() req: { user: { sub: string } },
     @Body() dto: Record<string, unknown>,
   ) {
-    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    const userId = req.user.sub;
+    const isAdmin = await this.usersService.isAdminUser(userId);
+    if (!isAdmin) {
+      const mission = await this.missionsService.findById(id);
+      if ((mission as Record<string, unknown>).advertiserId !== userId) throw new ForbiddenException();
+    }
     return this.missionsService.update(id, dto);
   }
 

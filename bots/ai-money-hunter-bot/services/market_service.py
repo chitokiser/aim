@@ -35,7 +35,7 @@ TOP_CRYPTOS = ["bitcoin", "ethereum", "binancecoin", "solana", "ripple", "dogeco
 def _fetch_ticker_sync(symbol: str) -> dict | None:
     try:
         ticker = yf.Ticker(symbol)
-        hist = ticker.history(period="2d", interval="1d")
+        hist = ticker.history(period="5d", interval="1d")
         if hist.empty or len(hist) < 1:
             return None
         latest = hist.iloc[-1]

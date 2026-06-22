@@ -30,6 +30,7 @@ TUMBLR_BLOG_NAME = os.getenv("TUMBLR_BLOG_NAME", "")
 
 HINT_COSTS = {1: 100, 2: 300, 3: 500}
 STARTING_P = 1000
+CORRECT_ANSWER_REWARD = 50
 
 COMMUNITY_URL = "https://t.me/ai119link"
 JUMPWORLD_URL = "https://jump22.netlify.app/merchants"

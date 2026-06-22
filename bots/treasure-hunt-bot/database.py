@@ -354,6 +354,23 @@ async def deduct_gp(user_id: int, amount: int) -> bool:
     return True
 
 
+async def add_gp(user_id: int, amount: int, username: str = None) -> int:
+    """Add P to user's balance. Returns new balance."""
+    ref = db.collection("th_gp").document(str(user_id))
+    doc = await ref.get()
+    if doc.exists:
+        current = doc.to_dict().get("gp", 0)
+        new_balance = current + amount
+        await ref.update({"gp": new_balance})
+    else:
+        new_balance = amount
+        data: dict = {"user_id": user_id, "gp": new_balance, "lang": "en"}
+        if username:
+            data["username"] = username
+        await ref.set(data)
+    return new_balance
+
+
 async def get_lang(user_id: int) -> str:
     doc = await db.collection("th_gp").document(str(user_id)).get()
     if doc.exists:

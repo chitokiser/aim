@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.constants import ParseMode
 
-from config import HINT_COSTS, JUMPWORLD_URL, COMMUNITY_URL
+from config import HINT_COSTS, JUMPWORLD_URL, COMMUNITY_URL, CORRECT_ANSWER_REWARD
 from database import (
     get_active_treasures,
     get_attempt,
@@ -18,6 +18,7 @@ from database import (
     get_gp,
     get_lang,
     deduct_gp,
+    add_gp,
     record_hint_purchase,
     question_count,
 )
@@ -40,6 +41,13 @@ logger = logging.getLogger(__name__)
 OPTION_LABELS = ["A", "B", "C", "D"]
 
 
+def _escape_md(text: str) -> str:
+    """Escape Telegram Markdown v1 special characters in dynamic content."""
+    for ch in ["*", "_", "`", "["]:
+        text = text.replace(ch, f"\\{ch}")
+    return text
+
+
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 async def _build_question_text(
@@ -55,14 +63,14 @@ async def _build_question_text(
         return t("question_load_error", lang)
 
     opts = [q.option_a, q.option_b, q.option_c, q.option_d]
-    text = t("question_header", lang, tid=treasure_id, q=order_num, total=total, question=q.question_text)
-    text += f"A) {opts[0]}\nB) {opts[1]}\nC) {opts[2]}\nD) {opts[3]}\n"
+    text = t("question_header", lang, tid=treasure_id, q=order_num, total=total, question=_escape_md(q.question_text))
+    text += f"A) {_escape_md(opts[0])}\nB) {_escape_md(opts[1])}\nC) {_escape_md(opts[2])}\nD) {_escape_md(opts[3])}\n"
 
     hint_values = {1: q.hint1, 2: q.hint2, 3: q.hint3}
     if purchased_hints:
         text += t("purchased_hints_header", lang)
         for level in sorted(purchased_hints):
-            text += f"  Lv{level}: {hint_values[level]}\n"
+            text += f"  Lv{level}: {_escape_md(hint_values[level])}\n"
 
     if wrong_count > 0:
         crosses = "❌" * wrong_count + "⬜" * (3 - wrong_count)
@@ -279,6 +287,7 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         if order_num >= q_total:
             # ── VICTORY ──────────────────────────────────────────────────────
             await update_attempt(user.id, treasure_id, is_completed=True, completed_at=datetime.now())
+            await add_gp(user.id, CORRECT_ANSWER_REWARD, user.username)
             text = t(
                 "victory", lang,
                 total=q_total,
@@ -286,6 +295,7 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 lon=treasure.longitude,
                 prize=treasure.prize_gp,
                 description=treasure.prize_description or "",
+                reward_p=CORRECT_ANSWER_REWARD,
             )
             await query.edit_message_text(
                 text,
@@ -312,7 +322,8 @@ async def cb_answer(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         else:
             # ── CORRECT, next question ────────────────────────────────────────
             await update_attempt(user.id, treasure_id, current_question=order_num + 1)
-            text = t("correct_answer", lang, q=order_num, total=q_total, clue=clue)
+            await add_gp(user.id, CORRECT_ANSWER_REWARD, user.username)
+            text = t("correct_answer", lang, q=order_num, total=q_total, clue=clue, reward_p=CORRECT_ANSWER_REWARD)
             await query.edit_message_text(
                 text,
                 parse_mode=ParseMode.MARKDOWN,

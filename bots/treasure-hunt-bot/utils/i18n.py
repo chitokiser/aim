@@ -28,7 +28,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "treasure_info": (
             "🗺 *Treasure #{id}*\n\n"
             "📍 Location: 🔒 Revealed after 10 correct answers\n"
-            "🎁 Prize: *{prize:,} P*\n"
+            "🎁 Prize: *{prize:,} AP* (exchangeable for TonCoin)\n"
             "📝 {description}\n"
             "📋 Questions: {qtotal}{progress}"
         ),
@@ -41,7 +41,14 @@ STRINGS: dict[str, dict[str, str]] = {
             "✅ Already completed!\n\n"
             "📍 *Full Coordinates (copy & paste):*\n"
             "`{lat:.6f},{lon:.6f}`\n\n"
-            "🏪 Enter above coordinates in Jumpworld to claim your prize!\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "🏪 *How to claim your prize on Jumpworld:*\n\n"
+            "1️⃣ Tap *🏪 Visit Jumpworld* button below\n"
+            "2️⃣ Find the *Jump to:* field at the bottom of the map\n"
+            "3️⃣ Paste the coordinates above into the field\n"
+            "4️⃣ Tap the *⚡ Jump* button\n"
+            "5️⃣ Move to the treasure location and collect your prize!\n"
+            "━━━━━━━━━━━━━━━━\n"
             "🌍 https://maps.google.com/?q={lat},{lon}"
         ),
         "game_ended": "❌ This game has already ended.",
@@ -52,16 +59,25 @@ STRINGS: dict[str, dict[str, str]] = {
         "wrong_count_display": "\nWrong: {crosses} ({count}/3)",
         "correct_answer": (
             "✅ *Correct!* ({q}/{total})\n\n"
+            "💰 *+{reward_p:,} P* earned!\n\n"
             "📍 Coordinate clue:\n```\n{clue}\n```\n\nNext question!"
         ),
         "victory": (
             "🎉 *Treasure Found! Congratulations!*\n\n"
-            "🏆 All {total} questions answered correctly!\n\n"
+            "🏆 All {total} questions answered correctly!\n"
+            "💰 *+{reward_p:,} P* earned!\n\n"
             "📍 *Full Coordinates (copy & paste):*\n"
             "`{lat:.6f},{lon:.6f}`\n\n"
-            "🏪 Enter above coordinates in Jumpworld to claim your prize!\n"
-            "🌍 https://maps.google.com/?q={lat},{lon}\n\n"
-            "🎁 Prize: *{prize:,} P*\n{description}"
+            "━━━━━━━━━━━━━━━━\n"
+            "🏪 *How to claim your prize on Jumpworld:*\n\n"
+            "1️⃣ Tap *🏪 Visit Jumpworld* button below\n"
+            "2️⃣ Find the *Jump to:* field at the bottom of the map\n"
+            "3️⃣ Paste the coordinates above into the field\n"
+            "4️⃣ Tap the *⚡ Jump* button\n"
+            "5️⃣ Move to the treasure location and collect your prize!\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "🎁 Prize: *{prize:,} AP* (exchangeable for TonCoin)\n"
+            "🌍 https://maps.google.com/?q={lat},{lon}\n{description}"
         ),
         "wrong_answer": "❌ *Wrong!*\n\nChances left: *{remaining}*\n\nTry again!",
         "game_over": (
@@ -106,22 +122,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "invalid_coords_range": "❌ Invalid range (lat ±90, lon ±180).",
         "coords_confirmed": (
             "✅ Coords: `{lat:.6f}, {lon:.6f}`\n\n"
-            "Enter prize amount in P.\nExample: `5000`"
+            "Enter prize amount in AP.\nExample: `5000`"
         ),
         "invalid_prize": "❌ Enter a positive number. Example: `5000`",
         "prize_confirmed": (
-            "✅ Prize: *{prize:,} P*\n\n"
+            "✅ Prize: *{prize:,} AP*\n\n"
             "Enter treasure description.\n(Enter `-` for default)"
         ),
         "generating": "⏳ AI is generating questions...\n(~20–40 seconds)",
         "ai_failed": "❌ AI question generation failed. Try again.",
         "treasure_created_progress": (
-            "✅ Treasure #{id} created!\n📍 {location}\n🎁 {prize:,} P\n"
+            "✅ Treasure #{id} created!\n📍 {location}\n🎁 {prize:,} AP\n"
             "📋 {count} questions\n\nAnnouncing to group..."
         ),
         "treasure_created_ok": (
             "✅ Treasure #{id} registered!\n📍 {location}\n"
-            "🎁 {prize:,} P\n📋 {count} questions"
+            "🎁 {prize:,} AP\n📋 {count} questions"
         ),
         "create_error": "❌ Error: {error}\nTry /newtreasure again.",
         "cancelled": "❌ Treasure registration cancelled.",
@@ -162,7 +178,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "treasure_info": (
             "🗺 *보물 #{id}*\n\n"
             "📍 위치: 🔒 10문제 정답 시 공개\n"
-            "🎁 상금: *{prize:,} P*\n"
+            "🎁 상금: *{prize:,} AP*(TonCoin교환가능)\n"
             "📝 {description}\n"
             "📋 문제 수: {qtotal}문제{progress}"
         ),
@@ -175,7 +191,14 @@ STRINGS: dict[str, dict[str, str]] = {
             "✅ 이미 완료한 보물입니다!\n\n"
             "📍 *전체 좌표 (복사 후 붙여넣기):*\n"
             "`{lat:.6f},{lon:.6f}`\n\n"
-            "🏪 위 좌표를 Jumpworld에 입력하면 보물을 획득할 수 있습니다!\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "🏪 *Jumpworld에서 보물 수령 방법:*\n\n"
+            "1️⃣ 아래 *🏪 Jumpworld 방문하기* 버튼 탭\n"
+            "2️⃣ 지도 하단의 *Jump to:* 입력칸 찾기\n"
+            "3️⃣ 위 좌표를 입력칸에 붙여넣기\n"
+            "4️⃣ *⚡ Jump* 버튼 탭\n"
+            "5️⃣ 보물 위치로 이동해서 상금 수령!\n"
+            "━━━━━━━━━━━━━━━━\n"
             "🌍 https://maps.google.com/?q={lat},{lon}"
         ),
         "game_ended": "❌ 이미 종료된 게임입니다.",
@@ -186,16 +209,25 @@ STRINGS: dict[str, dict[str, str]] = {
         "wrong_count_display": "\n오답 기록: {crosses} ({count}/3)",
         "correct_answer": (
             "✅ *정답입니다!* ({q}/{total})\n\n"
+            "💰 *+{reward_p:,} P* 획득!\n\n"
             "📍 좌표 단서 공개:\n```\n{clue}\n```\n\n다음 문제로 이동하세요!"
         ),
         "victory": (
             "🎉 *보물 발견! 축하합니다!*\n\n"
-            "🏆 {total}문제를 모두 맞히셨습니다!\n\n"
+            "🏆 {total}문제를 모두 맞히셨습니다!\n"
+            "💰 *+{reward_p:,} P* 획득!\n\n"
             "📍 *전체 좌표 (복사 후 붙여넣기):*\n"
             "`{lat:.6f},{lon:.6f}`\n\n"
-            "🏪 위 좌표를 Jumpworld에 입력하면 보물을 획득할 수 있습니다!\n"
-            "🌍 https://maps.google.com/?q={lat},{lon}\n\n"
-            "🎁 상금: *{prize:,} P*\n{description}"
+            "━━━━━━━━━━━━━━━━\n"
+            "🏪 *Jumpworld에서 보물 수령 방법:*\n\n"
+            "1️⃣ 아래 *🏪 Jumpworld 방문하기* 버튼 탭\n"
+            "2️⃣ 지도 하단의 *Jump to:* 입력칸 찾기\n"
+            "3️⃣ 위 좌표를 입력칸에 붙여넣기\n"
+            "4️⃣ *⚡ Jump* 버튼 탭\n"
+            "5️⃣ 보물 위치로 이동해서 상금 수령!\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "🎁 상금: *{prize:,} AP*(TonCoin교환가능)\n"
+            "🌍 https://maps.google.com/?q={lat},{lon}\n{description}"
         ),
         "wrong_answer": "❌ *오답입니다!*\n\n남은 기회: *{remaining}번*\n\n다시 도전하세요!",
         "game_over": (
@@ -240,22 +272,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "invalid_coords_range": "❌ 좌표 범위가 유효하지 않습니다 (위도 ±90, 경도 ±180).",
         "coords_confirmed": (
             "✅ 좌표 확인: `{lat:.6f}, {lon:.6f}`\n\n"
-            "상금액을 P 단위로 입력해주세요.\n예시: `5000` (5,000 P)"
+            "상금액을 AP 단위로 입력해주세요.\n예시: `5000` (5,000 AP)"
         ),
         "invalid_prize": "❌ 양수 숫자를 입력해주세요. 예: `5000`",
         "prize_confirmed": (
-            "✅ 상금: *{prize:,} P*\n\n"
+            "✅ 상금: *{prize:,} AP*\n\n"
             "보물 설명을 입력해주세요.\n(기본값 사용: `-` 입력)"
         ),
         "generating": "⏳ AI가 보물 문제를 생성 중입니다...\n(약 20~40초 소요)",
         "ai_failed": "❌ AI 문제 생성에 실패했습니다. 다시 시도해주세요.",
         "treasure_created_progress": (
-            "✅ 보물 #{id} 생성 완료!\n📍 {location}\n🎁 {prize:,} P\n"
+            "✅ 보물 #{id} 생성 완료!\n📍 {location}\n🎁 {prize:,} AP\n"
             "📋 {count}문제 생성됨\n\n그룹에 공지 중..."
         ),
         "treasure_created_ok": (
             "✅ 보물 #{id} 등록 및 그룹 공지 완료!\n📍 위치: {location}\n"
-            "🎁 상금: {prize:,} P\n📋 문제: {count}개"
+            "🎁 상금: {prize:,} AP\n📋 문제: {count}개"
         ),
         "create_error": "❌ 오류 발생: {error}\n다시 /newtreasure 로 시도해주세요.",
         "cancelled": "❌ 보물 등록이 취소되었습니다.",
@@ -296,7 +328,7 @@ STRINGS: dict[str, dict[str, str]] = {
         "treasure_info": (
             "🗺 *Kho Báu #{id}*\n\n"
             "📍 Vị trí: 🔒 Hiển thị sau 10 câu đúng\n"
-            "🎁 Phần thưởng: *{prize:,} P*\n"
+            "🎁 Phần thưởng: *{prize:,} AP* (đổi được TonCoin)\n"
             "📝 {description}\n"
             "📋 Câu hỏi: {qtotal}{progress}"
         ),
@@ -309,7 +341,14 @@ STRINGS: dict[str, dict[str, str]] = {
             "✅ Đã hoàn thành!\n\n"
             "📍 *Tọa độ đầy đủ (sao chép & dán):*\n"
             "`{lat:.6f},{lon:.6f}`\n\n"
-            "🏪 Nhập tọa độ trên vào Jumpworld để nhận kho báu!\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "🏪 *Cách nhận thưởng trên Jumpworld:*\n\n"
+            "1️⃣ Nhấn nút *🏪 Ghé thăm Jumpworld* bên dưới\n"
+            "2️⃣ Tìm ô *Jump to:* ở cuối bản đồ\n"
+            "3️⃣ Dán tọa độ trên vào ô đó\n"
+            "4️⃣ Nhấn nút *⚡ Jump*\n"
+            "5️⃣ Di chuyển đến vị trí kho báu và nhận thưởng!\n"
+            "━━━━━━━━━━━━━━━━\n"
             "🌍 https://maps.google.com/?q={lat},{lon}"
         ),
         "game_ended": "❌ Trò chơi này đã kết thúc.",
@@ -320,16 +359,25 @@ STRINGS: dict[str, dict[str, str]] = {
         "wrong_count_display": "\nSai: {crosses} ({count}/3)",
         "correct_answer": (
             "✅ *Đúng rồi!* ({q}/{total})\n\n"
+            "💰 *+{reward_p:,} P* nhận được!\n\n"
             "📍 Gợi ý tọa độ:\n```\n{clue}\n```\n\nCâu tiếp theo!"
         ),
         "victory": (
             "🎉 *Tìm thấy Kho Báu! Chúc mừng!*\n\n"
-            "🏆 Trả lời đúng tất cả {total} câu!\n\n"
+            "🏆 Trả lời đúng tất cả {total} câu!\n"
+            "💰 *+{reward_p:,} P* nhận được!\n\n"
             "📍 *Tọa độ đầy đủ (sao chép & dán):*\n"
             "`{lat:.6f},{lon:.6f}`\n\n"
-            "🏪 Nhập tọa độ trên vào Jumpworld để nhận kho báu!\n"
-            "🌍 https://maps.google.com/?q={lat},{lon}\n\n"
-            "🎁 Phần thưởng: *{prize:,} P*\n{description}"
+            "━━━━━━━━━━━━━━━━\n"
+            "🏪 *Cách nhận thưởng trên Jumpworld:*\n\n"
+            "1️⃣ Nhấn nút *🏪 Ghé thăm Jumpworld* bên dưới\n"
+            "2️⃣ Tìm ô *Jump to:* ở cuối bản đồ\n"
+            "3️⃣ Dán tọa độ trên vào ô đó\n"
+            "4️⃣ Nhấn nút *⚡ Jump*\n"
+            "5️⃣ Di chuyển đến vị trí kho báu và nhận thưởng!\n"
+            "━━━━━━━━━━━━━━━━\n"
+            "🎁 Phần thưởng: *{prize:,} AP* (đổi được TonCoin)\n"
+            "🌍 https://maps.google.com/?q={lat},{lon}\n{description}"
         ),
         "wrong_answer": "❌ *Sai rồi!*\n\nCơ hội còn lại: *{remaining}*\n\nHãy thử lại!",
         "game_over": (
@@ -373,22 +421,22 @@ STRINGS: dict[str, dict[str, str]] = {
         "invalid_coords_range": "❌ Phạm vi tọa độ không hợp lệ (vĩ độ ±90, kinh độ ±180).",
         "coords_confirmed": (
             "✅ Tọa độ: `{lat:.6f}, {lon:.6f}`\n\n"
-            "Nhập số tiền thưởng bằng P.\nVí dụ: `5000`"
+            "Nhập số tiền thưởng bằng AP.\nVí dụ: `5000`"
         ),
         "invalid_prize": "❌ Vui lòng nhập số dương. Ví dụ: `5000`",
         "prize_confirmed": (
-            "✅ Phần thưởng: *{prize:,} P*\n\n"
+            "✅ Phần thưởng: *{prize:,} AP*\n\n"
             "Nhập mô tả kho báu.\n(Nhập `-` để dùng mặc định)"
         ),
         "generating": "⏳ AI đang tạo câu hỏi...\n(~20–40 giây)",
         "ai_failed": "❌ Tạo câu hỏi AI thất bại. Vui lòng thử lại.",
         "treasure_created_progress": (
-            "✅ Đã tạo Kho Báu #{id}!\n📍 {location}\n🎁 {prize:,} P\n"
+            "✅ Đã tạo Kho Báu #{id}!\n📍 {location}\n🎁 {prize:,} AP\n"
             "📋 {count} câu hỏi\n\nĐang thông báo nhóm..."
         ),
         "treasure_created_ok": (
             "✅ Kho Báu #{id} đã đăng ký!\n📍 {location}\n"
-            "🎁 {prize:,} P\n📋 {count} câu hỏi"
+            "🎁 {prize:,} AP\n📋 {count} câu hỏi"
         ),
         "create_error": "❌ Lỗi: {error}\nVui lòng thử /newtreasure lại.",
         "cancelled": "❌ Đã hủy đăng ký kho báu.",

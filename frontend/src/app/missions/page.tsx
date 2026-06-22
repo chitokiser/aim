@@ -22,9 +22,18 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type RawMission = Record<string, unknown>;
 
+function fakeParticipants(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) {
+    h = (Math.imul(31, h) + id.charCodeAt(i)) | 0;
+  }
+  return 50 + Math.abs(h) % 251;
+}
+
 function toCardMission(m: RawMission) {
+  const id = String(m.id ?? "");
   return {
-    id: String(m.id ?? ""),
+    id,
     title: String(m.title ?? ""),
     description: String(m.description ?? ""),
     reward: Number(m.reward ?? 0),
@@ -32,7 +41,7 @@ function toCardMission(m: RawMission) {
     totalBudget: Number(m.totalBudget ?? 0),
     endDate: new Date(String(m.endDate ?? Date.now())),
     requiredTags: (m.requiredTags as string[]) ?? [],
-    participantCount: Number(m.participantCount ?? 0),
+    participantCount: fakeParticipants(id),
     missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao",
     status: String(m.status ?? "active") as "active" | "ended" | "pending",
     advertiserName: String(m.advertiserName ?? ""),
@@ -214,10 +223,12 @@ export default function MissionsPage() {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((ms) => {
             const card = toCardMission(ms);
+            const isOwner = user?.id && String(ms.advertiserId) === String(user.id);
+            const canEdit = isAdmin || !!isOwner;
             return (
               <div key={card.id} className="relative group">
                 <MissionCard mission={card} onJoin={setJoinMission} />
-                {isAdmin && (
+                {canEdit && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => setAdminModal({ open: true, mission: toFormData(ms) })}
@@ -225,12 +236,14 @@ export default function MissionsPage() {
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
-                    <button
-                      onClick={() => void handleDelete(card.id, card.title)}
-                      className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow border border-border text-muted-foreground hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => void handleDelete(card.id, card.title)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow border border-border text-muted-foreground hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

@@ -356,6 +356,8 @@ export class MainBotService extends BaseTelegrafBotService {
       );
     });
 
+    this.bot.command('wallet', async (ctx) => { await this.handleWalletCommand(ctx); });
+
     this.bot.command('login', async (ctx) => {
       if (ctx.chat?.type !== 'private') {
         await ctx.reply('봇 DM에서 /login 을 입력하면 로그인 링크를 받을 수 있습니다.');
@@ -568,6 +570,44 @@ export class MainBotService extends BaseTelegrafBotService {
         { reply_markup: this.mainKeyboard(loginToken) },
       );
     });
+  }
+
+  private async handleWalletCommand(ctx: {
+    chat?: { type: string };
+    from?: { id: number };
+    message: { text: string };
+    reply: (text: string, extra?: Record<string, unknown>) => Promise<unknown>;
+  }) {
+    if (ctx.chat?.type !== 'private') return;
+    const telegramId = String(ctx.from?.id);
+    const user = (await this.usersService.findByTelegramId(telegramId)) as Record<string, unknown> | null;
+    if (!user) {
+      await ctx.reply('Please send /start to register first.');
+      return;
+    }
+
+    const address = ctx.message.text.split(/\s+/)[1]?.trim();
+    if (!address) {
+      const current = user.tronWallet as string | undefined;
+      await ctx.reply(
+        current
+          ? `💳 *Registered TRON wallet:*\n\`${current}\`\n\nTo change: \`/wallet <new address>\``
+          : `💳 *Register your TRON wallet for USDT auto top-up:*\n\nUsage: \`/wallet <TRON address>\`\nExample: \`/wallet TXyz...\`\n\n_Address must start with T and be 34 characters long._`,
+        { parse_mode: 'Markdown' },
+      );
+      return;
+    }
+
+    if (!address.startsWith('T') || address.length !== 34) {
+      await ctx.reply('❌ Invalid TRON address. Must start with T and be 34 characters long.');
+      return;
+    }
+
+    await this.usersService.update(user.id as string, { tronWallet: address });
+    await ctx.reply(
+      `✅ *TRON wallet registered!*\n\n\`${address}\`\n\nSend USDT (TRC20) from this address → AP will be credited automatically within 5 minutes.`,
+      { parse_mode: 'Markdown' },
+    );
   }
 
   private async sendStarsInvoice(

@@ -210,17 +210,17 @@ async def init_db() -> None:
 # User functions
 # ---------------------------------------------------------------------------
 
-async def get_or_create_user(session, telegram_id: int, username: str = "", first_name: str = "") -> User:
+async def get_or_create_user(session, telegram_id: int, username: str = "", first_name: str = "", language: str = "en", welcome_p: int = 0) -> tuple["User", bool]:
     ref = db.collection("fp_users").document(str(telegram_id))
     doc = await ref.get()
     if doc.exists:
-        return _to_user(doc.to_dict())
+        return _to_user(doc.to_dict()), False
     data = {
         "telegram_id": telegram_id,
         "username": username,
         "first_name": first_name,
-        "language": "en",
-        "p_balance": 0,
+        "language": language,
+        "p_balance": welcome_p,
         "correct_predictions": 0,
         "total_predicted": 0,
         "total_ap_won": 0,
@@ -229,7 +229,7 @@ async def get_or_create_user(session, telegram_id: int, username: str = "", firs
         "last_daily": None,
     }
     await ref.set(data)
-    return _to_user(data)
+    return _to_user(data), True
 
 
 async def get_user(session, telegram_id: int) -> Optional[User]:

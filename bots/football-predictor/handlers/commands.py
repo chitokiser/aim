@@ -88,7 +88,6 @@ async def cmd_daily(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     tg_user = update.effective_user
-    today = datetime.now(KST).strftime("%Y-%m-%d")
 
     async with AsyncSessionLocal() as session:
         user = await get_user(session, tg_user.id)
@@ -97,7 +96,7 @@ async def cmd_daily(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         lang = user.language
-        claimed = await claim_daily(session, user, today, daily_p=DAILY_P)
+        claimed, _ = await claim_daily(session, user, DAILY_P)
         p_balance = user.p_balance
         streak = user.streak_days
 
@@ -203,14 +202,12 @@ async def cb_main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             lang = user.language
 
     if action == "daily":
-        from datetime import datetime
-        today = datetime.now(KST).strftime("%Y-%m-%d")
         async with AsyncSessionLocal() as session:
             user = await get_user(session, tg_user.id)
             if not user:
                 return
             lang = user.language
-            claimed = await claim_daily(session, user, today, daily_p=DAILY_P)
+            claimed, _ = await claim_daily(session, user, DAILY_P)
             p_balance = user.p_balance
             streak = user.streak_days
 

@@ -88,7 +88,7 @@ async def cmd_gp(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     lang = await get_lang(user.id)
     gp = await get_gp(user.id, user.username)
     await update.message.reply_text(
-        t("gp_balance_body", lang, balance=gp.balance),
+        t("gp_balance_body", lang, balance=gp.gp),
         parse_mode=ParseMode.MARKDOWN,
     )
 
