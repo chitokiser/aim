@@ -191,9 +191,11 @@ export class MissionsService {
         submittedAt: new Date().toISOString(),
       });
 
+      const newRemainingBudget = remainingBudget - reward;
       await this.firebase.collection('missions').doc(missionId).update({
         remainingBudget: FieldValue.increment(-reward),
         participantCount: FieldValue.increment(1),
+        ...(newRemainingBudget <= 0 ? { status: 'ended', endedAt: new Date().toISOString() } : {}),
       });
 
       results.push({ missionId, userId, reward: userShare });
@@ -310,9 +312,11 @@ export class MissionsService {
       createdAt: new Date().toISOString(),
     });
 
+    const newRemainingBudget = remainingBudget - rewardPerUnit;
     await missionRef.update({
       remainingBudget: FieldValue.increment(-rewardPerUnit),
       participantCount: FieldValue.increment(1),
+      ...(newRemainingBudget <= 0 ? { status: 'ended', endedAt: new Date().toISOString() } : {}),
     });
 
     await subRef.update({ status: 'approved', approvedAt: new Date().toISOString() });
@@ -512,31 +516,21 @@ export class MissionsService {
       0,
     );
 
-    // Refund advertiser if nobody submitted or nobody voted
+    // Budget is non-refundable — just end the mission if nobody submitted or voted
     if (submissions.length === 0 || totalLikes === 0) {
-      const advertiserId = data.advertiserId as string;
-      if (advertiserId && totalBudget > 0) {
-        await this.points.award(
-          advertiserId,
-          totalBudget,
-          'mission_refund',
-          `미션 환불: ${data.title as string}`,
-          missionId,
-        );
-      }
       if (data.escrowId) {
         await this.firebase
           .collection('escrow_wallets')
           .doc(data.escrowId as string)
-          .update({ settled: true, refunded: true, settledAt: new Date().toISOString() });
+          .update({ settled: true, settledAt: new Date().toISOString() });
       }
       await this.firebase
         .collection('missions')
         .doc(missionId)
-        .update({ status: 'refunded', settledAt: new Date().toISOString() });
+        .update({ status: 'ended', settledAt: new Date().toISOString() });
       return {
         settled: false,
-        refunded: true,
+        refunded: false,
         reason: submissions.length === 0 ? 'no_submissions' : 'no_votes',
       };
     }

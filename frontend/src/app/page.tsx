@@ -1,10 +1,17 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MissionCard } from "@/components/mission-card";
+import {
+  AdvertiserListModal,
+  MissionDetailSheet,
+  SubmitLinksModal,
+  type MissionFlowData,
+} from "@/components/mission-join-flow";
 import { useLanguage } from "@/lib/i18n";
 import {
   Coins,
@@ -68,6 +75,10 @@ const SAMPLE_MISSIONS = [
 export default function HomePage() {
   const { t } = useLanguage();
   const h = t.home;
+
+  const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
+  const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
+  const [submitMission, setSubmitMission] = useState<MissionFlowData | null>(null);
 
   const STATS = [
     { label: h.statsAuctions, value: "128+", icon: Gavel },
@@ -261,7 +272,7 @@ export default function HomePage() {
         </div>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {SAMPLE_MISSIONS.map((mission) => (
-            <MissionCard key={mission.id} mission={mission} />
+            <MissionCard key={mission.id} mission={mission} onJoin={setJoinMission} />
           ))}
         </div>
       </section>
@@ -297,6 +308,29 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+
+      {/* Mission Join Flow */}
+      <AdvertiserListModal
+        mission={joinMission}
+        open={!!joinMission}
+        onClose={() => setJoinMission(null)}
+        onViewDetail={(adv) => { setJoinMission(null); setDetailMission(adv); }}
+        onSubmitWork={(adv) => { setJoinMission(null); setSubmitMission(adv); }}
+      />
+      <MissionDetailSheet
+        mission={detailMission}
+        open={!!detailMission}
+        onClose={() => setDetailMission(null)}
+        onSubmit={() => {
+          if (detailMission) setSubmitMission(detailMission);
+          setDetailMission(null);
+        }}
+      />
+      <SubmitLinksModal
+        mission={submitMission}
+        open={!!submitMission}
+        onClose={() => setSubmitMission(null)}
+      />
 
       {/* Footer */}
       <footer className="border-t py-10">

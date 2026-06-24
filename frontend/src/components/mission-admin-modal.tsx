@@ -81,7 +81,8 @@ interface Props {
 }
 
 export function MissionAdminModal({ open, mission, onClose, onSaved }: Props) {
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
+  const isAdmin = user?.isAdmin === true;
   const [form, setForm] = useState<MissionFormData>(DEFAULT_FORM);
   const [tagInput, setTagInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -227,18 +228,22 @@ export function MissionAdminModal({ open, mission, onClose, onSaved }: Props) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label>총 예산 (AP)</Label>
+              <Label>총 예산 (AP){!isAdmin && mission?.id ? " 🔒" : ""}</Label>
               <Input
                 type="number"
                 value={form.totalBudget}
                 onChange={(e) => set("totalBudget", Number(e.target.value))}
                 min={0}
+                disabled={!isAdmin && !!mission?.id}
               />
+              {!isAdmin && mission?.id && (
+                <p className="text-xs text-muted-foreground">보증금은 변경할 수 없습니다</p>
+              )}
             </div>
           </div>
 
-          {/* Remaining budget (edit only) */}
-          {mission?.id && (
+          {/* Remaining budget (edit only, admin only) */}
+          {mission?.id && isAdmin && (
             <div className="space-y-1.5">
               <Label>잔여 예산 (AP)</Label>
               <Input
