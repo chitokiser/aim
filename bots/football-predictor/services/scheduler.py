@@ -85,6 +85,11 @@ async def sync_odds() -> None:
                 odds.get("odds_draw") or 0,
                 odds.get("odds_away") or 0,
             )
+        else:
+            logger.warning(
+                "No odds matched for: %s vs %s (match_time=%s)",
+                match.home_team, match.away_team, match.match_time,
+            )
 
     logger.info("Odds sync complete: %d/%d matches updated", updated, len(matches))
 
@@ -171,7 +176,7 @@ async def broadcast_pre_match_alert(app: Application) -> None:
         predict_url = (
             f"https://t.me/{bot_username}?start=predict"
             if bot_username
-            else "https://t.me/ai119"
+            else "https://t.me/ai119link"
         )
 
         if hours_before == 1:
@@ -254,7 +259,7 @@ async def broadcast_live_update(app: Application) -> None:
     predict_url = (
         f"https://t.me/{bot_username}?start=predict"
         if bot_username
-        else "https://t.me/ai119"
+        else "https://t.me/ai119link"
     )
 
     for match in live_matches:
@@ -367,7 +372,7 @@ async def broadcast_settlement_result(
     predict_url = (
         f"https://t.me/{bot_username}?start=predict"
         if bot_username
-        else "https://t.me/ai119"
+        else "https://t.me/ai119link"
     )
 
     keyboard = InlineKeyboardMarkup([

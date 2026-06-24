@@ -25,6 +25,9 @@ MORNING_HOUR = int(os.getenv("MORNING_HOUR", "9"))
 EVENING_HOUR = int(os.getenv("EVENING_HOUR", "18"))
 TIMEZONE = os.getenv("TIMEZONE", "Asia/Seoul")
 
+# JWT — must match the backend JWT_SECRET for ?tg= auto-login to work
+JWT_SECRET = os.getenv("JWT_SECRET", "aim-secret-key")
+
 # Partner links
 PARTNER_PLATFORM_URL = "https://ai119.netlify.app/"
-PARTNER_COMMUNITY_URL = "https://t.me/ai119"
+PARTNER_COMMUNITY_URL = "https://t.me/ai119link"

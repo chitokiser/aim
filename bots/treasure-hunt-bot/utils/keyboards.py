@@ -29,6 +29,8 @@ def treasure_list_keyboard(treasures: list, user_attempts: dict, lang: str = "ko
         attempt = user_attempts.get(tr.id)
         if attempt and attempt.is_completed:
             icon = "✅"
+        elif attempt and attempt.is_failed:
+            icon = "🚫"
         elif attempt:
             icon = "▶️"
         else:

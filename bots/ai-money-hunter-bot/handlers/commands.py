@@ -9,6 +9,7 @@ from i18n import detect_lang, t
 from services.ai_service import generate_hustle_idea, format_hustle_message, analyze_trends
 from services.market_service import get_market_brief, get_crypto_brief, get_gold_price, get_stock_info
 from utils.keyboards import with_partner, refresh_keyboard
+from utils.auth import create_login_url
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -28,7 +29,16 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key = "welcome_group" if is_group else "welcome_user"
     text = t(lang, key, name=name)
 
-    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=with_partner(lang))
+    login_url = None
+    if not is_group and user:
+        login_url = create_login_url(
+            user_id=user.id,
+            first_name=user.first_name or "",
+            last_name=user.last_name or "",
+            username=user.username or "",
+        )
+
+    await update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=with_partner(lang, login_url=login_url))
 
 
 async def cmd_today(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -107,7 +117,16 @@ async def cmd_stock(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(t(lang, "loading_stock", query=query), parse_mode=ParseMode.MARKDOWN)
     try:
         text = await get_stock_info(query)
-        await msg.edit_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=with_partner(lang))
+        is_group = update.effective_chat.type in ("group", "supergroup")
+        stock_login_url = None
+        if not is_group and user:
+            stock_login_url = create_login_url(
+                user_id=user.id,
+                first_name=user.first_name or "",
+                last_name=user.last_name or "",
+                username=user.username or "",
+            )
+        await msg.edit_text(text, parse_mode=ParseMode.MARKDOWN, reply_markup=with_partner(lang, login_url=stock_login_url))
     except Exception as e:
         await msg.edit_text(t(lang, "error", e=e))
 

@@ -20,7 +20,7 @@ COINGECKO_BASE = "https://api.coingecko.com/api/v3"
 CRYPTORANK_BASE = "https://api.cryptorank.io/v1"
 GITHUB_BASE = "https://api.github.com"
 
-AI119_COMMUNITY_URL = "https://t.me/ai119"
+AI119_COMMUNITY_URL = "https://t.me/ai119link"
 AIM_SITE_URL = "https://ai119.netlify.app"
 
 FREE_DAILY_LIMIT = 20

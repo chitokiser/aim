@@ -451,7 +451,24 @@ export class MainBotService extends BaseTelegrafBotService {
 
       const userData = user as Record<string, unknown>;
 
-      await ctx.telegram.approveChatJoinRequest(chatId, applicant.id);
+      try {
+        await ctx.telegram.approveChatJoinRequest(chatId, applicant.id);
+      } catch (err) {
+        const adminId = this.config.get<string>('ADMIN_TELEGRAM_ID');
+        this.logger.error(`[JoinRequest] approveChatJoinRequest failed for ${applicant.id}`, err);
+        if (adminId) {
+          await ctx.telegram.sendMessage(
+            adminId,
+            `⚠️ *가입 승인 실패*\n\n` +
+              `유저: ${applicant.first_name}${applicant.username ? ` (@${applicant.username})` : ''}\n` +
+              `ID: ${applicant.id}\n\n` +
+              `봇이 그룹 관리자 권한을 잃었거나 그룹 설정이 변경되었을 수 있습니다.\n` +
+              `그룹에서 봇의 관리자 권한을 확인해주세요.`,
+            { parse_mode: 'Markdown' },
+          ).catch(() => {});
+        }
+        return;
+      }
 
       const joinRewards = await this.missionsService.awardFollowJoin(String(applicant.id), chatId).catch(() => null);
       if (joinRewards && joinRewards.length > 0) {

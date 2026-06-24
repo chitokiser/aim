@@ -499,7 +499,7 @@ async def count_predictions_for_match(session, match_id: int) -> int:
 
 def _evaluate_prediction(pred: Prediction, home_score: int, away_score: int) -> bool:
     v = pred.pred_value
-    if pred.pred_type == "result":
+    if pred.pred_type in ("result", "1x2"):
         if v == "home" and home_score > away_score:
             return True
         if v == "draw" and home_score == away_score:

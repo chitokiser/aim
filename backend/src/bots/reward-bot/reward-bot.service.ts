@@ -1,11 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { GroupJoinsService } from '../../group-joins/group-joins.service';
 import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
+import { AuthService } from '../../auth/auth.service';
 import { Markup } from 'telegraf';
+
+const SITE = 'https://ai119.netlify.app';
+const COMMUNITY = 'https://t.me/ai119link';
 
 @Injectable()
 export class RewardBotService extends BaseTelegrafBotService {
-  constructor(private readonly groupJoins: GroupJoinsService) {
+  constructor(
+    private readonly groupJoins: GroupJoinsService,
+    private readonly authService: AuthService,
+  ) {
     super();
   }
 
@@ -15,6 +22,41 @@ export class RewardBotService extends BaseTelegrafBotService {
 
   protected registerHandlers() {
     if (!this.bot) return;
+
+    this.bot.command('start', async (ctx) => {
+      const chat = ctx.chat;
+      const user = ctx.from;
+      const isPrivate = chat.type === 'private';
+
+      if (isPrivate && user) {
+        const loginToken = this.authService.createBotLoginToken(String(user.id), {
+          first_name: user.first_name,
+          last_name: user.last_name,
+          username: user.username,
+        });
+        await ctx.reply(
+          `👋 *AI119 Reward Bot*에 오신 걸 환영합니다!\n\n그룹 참여 미션을 완료하면 AP 포인트를 획득할 수 있습니다.\n\n아래 버튼으로 AI119 플랫폼에 자동 로그인하세요 👇`,
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.webApp('🚀 AI119 플랫폼 입장', `${SITE}?tg=${loginToken}`)],
+              [Markup.button.url('💬 AI119 커뮤니티', COMMUNITY)],
+            ]),
+          },
+        );
+      } else {
+        await ctx.reply(
+          `👋 *AI119 Reward Bot*\n\n그룹 참여 미션 완료 시 AP 포인트를 자동 지급합니다.\n\n아래 버튼으로 AI119 플랫폼을 방문하세요 👇`,
+          {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard([
+              [Markup.button.url('🚀 AI119 플랫폼', SITE)],
+              [Markup.button.url('💬 AI119 커뮤니티', COMMUNITY)],
+            ]),
+          },
+        );
+      }
+    });
 
     this.bot.on('new_chat_members', async (ctx) => {
       const chatId = String(ctx.chat.id);
