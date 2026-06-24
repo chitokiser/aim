@@ -207,12 +207,12 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("🚀 AI119 플랫폼 입장", web_app={"url": f"{AIM_SITE_URL}?tg={login_token}"}),
-                InlineKeyboardButton("💬 AIM 커뮤니티", url=AI119_COMMUNITY_URL),
+                InlineKeyboardButton("💬 AI119 커뮤니티", url=AI119_COMMUNITY_URL),
             ],
         ])
     else:
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💬 AIM 커뮤니티", url=AI119_COMMUNITY_URL)],
+            [InlineKeyboardButton("💬 AI119 커뮤니티", url=AI119_COMMUNITY_URL)],
         ])
 
     await update.message.reply_text(

@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from config import AIM_SITE_URL, BOT_USERNAME
+from config import AIM_SITE_URL, AI119_COMMUNITY_URL, BOT_USERNAME
 from i18n import t
 
 
@@ -7,8 +7,12 @@ def _site_btn(lang: str) -> InlineKeyboardButton:
     return InlineKeyboardButton(t(lang, "site_btn"), url=AIM_SITE_URL)
 
 
+def _community_btn(lang: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(t(lang, "community_btn"), url=AI119_COMMUNITY_URL)
+
+
 def community_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[_site_btn(lang)]])
+    return InlineKeyboardMarkup([[_site_btn(lang), _community_btn(lang)]])
 
 
 def main_menu_keyboard(lang: str = "en") -> InlineKeyboardMarkup:
