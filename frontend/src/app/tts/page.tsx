@@ -42,6 +42,7 @@ export default function TtsPage() {
   const [modelId, setModelId] = useState("eleven_multilingual_v2");
   const [stability, setStability] = useState(0.5);
   const [similarityBoost, setSimilarityBoost] = useState(0.75);
+  const [speed, setSpeed] = useState(1.0);
   const [voices, setVoices] = useState<ElevenVoice[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -75,7 +76,7 @@ export default function TtsPage() {
       const res = await fetch(`${API}/api/tts/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voiceId, modelId, stability, similarityBoost }),
+        body: JSON.stringify({ text, voiceId, modelId, stability, similarityBoost, speed }),
       });
 
       if (!res.ok) {
@@ -230,6 +231,23 @@ export default function TtsPage() {
                 className="w-full accent-cyan-600"
               />
               <p className="text-xs text-muted-foreground">{tt.similarityHint}</p>
+            </div>
+
+            <div className="space-y-3 sm:col-span-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">{tt.speedLabel}</Label>
+                <span className="text-xs font-mono text-muted-foreground">{speed.toFixed(2)}x</span>
+              </div>
+              <input
+                type="range"
+                min={0.7}
+                max={1.2}
+                step={0.05}
+                value={speed}
+                onChange={(e) => setSpeed(Number(e.target.value))}
+                className="w-full accent-emerald-600"
+              />
+              <p className="text-xs text-muted-foreground">{tt.speedHint}</p>
             </div>
           </div>
         </div>

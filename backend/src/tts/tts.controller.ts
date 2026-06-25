@@ -12,6 +12,7 @@ interface GenerateDto {
   modelId?: string;
   stability?: number;
   similarityBoost?: number;
+  speed?: number;
 }
 
 @Controller('tts')
@@ -46,6 +47,7 @@ export class TtsController {
       modelId = 'eleven_multilingual_v2',
       stability = 0.5,
       similarityBoost = 0.75,
+      speed = 1.0,
     } = body;
 
     if (!text?.trim() || !voiceId) {
@@ -59,6 +61,7 @@ export class TtsController {
           text,
           model_id: modelId,
           voice_settings: { stability, similarity_boost: similarityBoost },
+          speed,
         },
         {
           headers: {
