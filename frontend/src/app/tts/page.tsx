@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Mic, Download, Play, Square, Loader2, Volume2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app";
 
 const MAX_CHARS = 5000;
 
