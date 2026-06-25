@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application
 
-from config import GROUP_CHAT_ID, SITE_URL
+from config import BROADCAST_GROUP_IDS, SITE_URL
 from database import (
     AsyncSessionLocal,
     Match,
@@ -35,6 +35,7 @@ async def sync_api_matches() -> None:
 
     matches = await fetch_upcoming_matches(days_ahead=3)
     if not matches:
+        logger.warning("sync_api_matches: API returned 0 eligible matches — no data to sync")
         return
 
     for m in matches:
@@ -112,7 +113,7 @@ async def auto_settle_finished(app: Application | None = None) -> None:
             "Auto-settled match %d (%s vs %s): %d winners, %d AP paid",
             match.id, match.home_team, match.away_team, winners, payout,
         )
-        if app and GROUP_CHAT_ID:
+        if app and BROADCAST_GROUP_IDS:
             await broadcast_settlement_result(
                 app, match, data["home_score"], data["away_score"], winners, payout
             )
@@ -141,12 +142,12 @@ async def daily_reminder(app: Application) -> None:
 
 
 async def broadcast_pre_match_alert(app: Application) -> None:
-    """Broadcast hourly pre-match marketing to GROUP_CHAT_ID for 12 hours before kick-off.
+    """Broadcast hourly pre-match marketing to all BROADCAST_GROUP_IDS for 12 hours before kick-off.
 
     Each match gets one broadcast per hour: 12h, 11h, 10h, ... 1h before kick-off.
     The job runs every 5 minutes; we fire when we're within ±5 min of the target slot.
     """
-    if not GROUP_CHAT_ID:
+    if not BROADCAST_GROUP_IDS:
         return
 
     now_utc = datetime.now(timezone.utc)
@@ -212,18 +213,22 @@ async def broadcast_pre_match_alert(app: Application) -> None:
             [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
         ])
 
+        _pre_alert_sent.add((match.id, hours_before))
+        for gid in BROADCAST_GROUP_IDS:
+            try:
+                await app.bot.send_message(
+                    chat_id=gid,
+                    text=text,
+                    parse_mode="Markdown",
+                    reply_markup=keyboard,
+                )
+                logger.info(
+                    "Pre-match alert sent to %s for match %d (%s vs %s) — %dh before",
+                    gid, match.id, match.home_team, match.away_team, hours_before,
+                )
+            except Exception as exc:
+                logger.error("Failed to send pre-match alert to %s: %s", gid, exc)
         try:
-            await app.bot.send_message(
-                chat_id=GROUP_CHAT_ID,
-                text=text,
-                parse_mode="Markdown",
-                reply_markup=keyboard,
-            )
-            _pre_alert_sent.add((match.id, hours_before))
-            logger.info(
-                "Pre-match alert sent for match %d (%s vs %s) — %dh before",
-                match.id, match.home_team, match.away_team, hours_before,
-            )
             from services.blogger import post_blogger
             from services.tumblr import post_tumblr
             await post_blogger(
@@ -235,12 +240,12 @@ async def broadcast_pre_match_alert(app: Application) -> None:
                 text,
             )
         except Exception as exc:
-            logger.error("Failed to send pre-match alert: %s", exc)
+            logger.error("Blog/Tumblr post failed: %s", exc)
 
 
 async def broadcast_live_update(app: Application) -> None:
-    """Send live score briefing to GROUP_CHAT_ID every 15 minutes for ongoing matches."""
-    if not GROUP_CHAT_ID:
+    """Send live score briefing to all BROADCAST_GROUP_IDS every 15 minutes for ongoing matches."""
+    if not BROADCAST_GROUP_IDS:
         return
 
     from services.football_api import fetch_live_score
@@ -308,17 +313,21 @@ async def broadcast_live_update(app: Application) -> None:
             [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
         ])
 
+        for gid in BROADCAST_GROUP_IDS:
+            try:
+                await app.bot.send_message(
+                    chat_id=gid,
+                    text=text,
+                    parse_mode="Markdown",
+                    reply_markup=keyboard,
+                )
+                logger.info(
+                    "Live briefing sent to %s for match %d (%s vs %s)",
+                    gid, match.id, match.home_team, match.away_team,
+                )
+            except Exception as exc:
+                logger.error("Failed to send live briefing to %s: %s", gid, exc)
         try:
-            await app.bot.send_message(
-                chat_id=GROUP_CHAT_ID,
-                text=text,
-                parse_mode="Markdown",
-                reply_markup=keyboard,
-            )
-            logger.info(
-                "Live briefing sent for match %d (%s vs %s)",
-                match.id, match.home_team, match.away_team,
-            )
             from services.blogger import post_blogger
             from services.tumblr import post_tumblr
             await post_blogger(
@@ -330,7 +339,7 @@ async def broadcast_live_update(app: Application) -> None:
                 text,
             )
         except Exception as exc:
-            logger.error("Failed to send live briefing: %s", exc)
+            logger.error("Blog/Tumblr post failed: %s", exc)
 
 
 async def broadcast_settlement_result(
@@ -341,8 +350,8 @@ async def broadcast_settlement_result(
     winners: int,
     payout: int,
 ) -> None:
-    """Send settlement result to GROUP_CHAT_ID after a match is settled."""
-    if not GROUP_CHAT_ID:
+    """Send settlement result to all BROADCAST_GROUP_IDS after a match is settled."""
+    if not BROADCAST_GROUP_IDS:
         return
 
     if home_score > away_score:
@@ -383,17 +392,21 @@ async def broadcast_settlement_result(
         [InlineKeyboardButton("🌐 AI119 유료 서비스 / Premium", url=SITE_URL)],
     ])
 
+    for gid in BROADCAST_GROUP_IDS:
+        try:
+            await app.bot.send_message(
+                chat_id=gid,
+                text=text,
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+            logger.info(
+                "Settlement broadcast sent to %s for match %d (%s %d-%d %s): %d winners, %d AP",
+                gid, match.id, match.home_team, home_score, away_score, match.away_team, winners, payout,
+            )
+        except Exception as exc:
+            logger.error("Failed to send settlement broadcast to %s: %s", gid, exc)
     try:
-        await app.bot.send_message(
-            chat_id=GROUP_CHAT_ID,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=keyboard,
-        )
-        logger.info(
-            "Settlement broadcast sent for match %d (%s %d-%d %s): %d winners, %d AP",
-            match.id, match.home_team, home_score, away_score, match.away_team, winners, payout,
-        )
         from services.blogger import post_blogger
         from services.tumblr import post_tumblr
         await post_blogger(
@@ -405,4 +418,4 @@ async def broadcast_settlement_result(
             text,
         )
     except Exception as exc:
-        logger.error("Failed to send settlement broadcast: %s", exc)
+        logger.error("Blog/Tumblr post failed: %s", exc)

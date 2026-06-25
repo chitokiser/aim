@@ -116,6 +116,26 @@ export class UsersService {
     });
   }
 
+  async deductPoints(userId: string, amount: number): Promise<void> {
+    const ref = this.firebase.collection('users').doc(userId);
+    const current = ((await ref.get()).data()?.points as number) ?? 0;
+    if (current < amount) throw new Error('Insufficient AP');
+    await ref.update({ points: current - amount });
+  }
+
+  async deductFreePoints(userId: string, amount: number): Promise<void> {
+    const ref = this.firebase.collection('users').doc(userId);
+    const current = ((await ref.get()).data()?.freePoints as number) ?? 0;
+    if (current < amount) throw new Error('Insufficient P');
+    await ref.update({ freePoints: current - amount });
+  }
+
+  async addFreePoints(userId: string, amount: number): Promise<void> {
+    const ref = this.firebase.collection('users').doc(userId);
+    const current = ((await ref.get()).data()?.freePoints as number) ?? 0;
+    await ref.update({ freePoints: current + amount });
+  }
+
   async findAll(search?: string): Promise<Array<Record<string, unknown>>> {
     const snap = await this.firebase.collection('users').orderBy('createdAt', 'desc').limit(500).get();
     const all = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as Record<string, unknown>));

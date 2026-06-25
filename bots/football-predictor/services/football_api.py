@@ -27,21 +27,27 @@ async def fetch_upcoming_matches(days_ahead: int = 3) -> list[dict]:
     date_to = (now_utc + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
 
     url = f"{FOOTBALL_API_BASE}/matches"
-    params = {"dateFrom": date_from, "dateTo": date_to, "status": "SCHEDULED"}
+    params = {"dateFrom": date_from, "dateTo": date_to}
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=HEADERS, params=params, timeout=aiohttp.ClientTimeout(total=10)) as resp:
                 if resp.status != 200:
-                    logger.warning("football-data.org returned %s", resp.status)
+                    text = await resp.text()
+                    logger.warning("football-data.org returned %s: %s", resp.status, text[:200])
                     return []
                 data = await resp.json()
     except Exception as exc:
         logger.error("football-data.org fetch error: %s", exc)
         return []
 
+    all_matches = data.get("matches", [])
+    logger.info("football-data.org returned %d total matches for %s–%s", len(all_matches), date_from, date_to)
+
     matches = []
-    for m in data.get("matches", []):
+    for m in all_matches:
+        if m.get("status") in ("FINISHED", "CANCELLED", "POSTPONED", "SUSPENDED", "AWARDED"):
+            continue
         competition_code = m.get("competition", {}).get("code", "")
         if competition_code not in COMPETITIONS:
             continue

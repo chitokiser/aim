@@ -12,12 +12,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Mic, Download, Play, Square, Loader2, Volume2 } from "lucide-react";
+import { Mic, Download, Play, Square, Loader2, Volume2, Coins, Lock } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
+import { useAuthStore } from "@/lib/store";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app";
 
 const MAX_CHARS = 5000;
+const TTS_COST_AP = 50;
+const TTS_COST_P = 500;
 
 const MODELS = [
   { value: "eleven_multilingual_v2", label: "Multilingual v2" },
@@ -36,6 +41,7 @@ interface ElevenVoice {
 export default function TtsPage() {
   const { t } = useLanguage();
   const tt = t.tts;
+  const { user, token, setUser } = useAuthStore();
 
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState("");
@@ -43,6 +49,7 @@ export default function TtsPage() {
   const [stability, setStability] = useState(0.5);
   const [similarityBoost, setSimilarityBoost] = useState(0.75);
   const [speed, setSpeed] = useState(1.0);
+  const [currency, setCurrency] = useState<"ap" | "p">("p");
   const [voices, setVoices] = useState<ElevenVoice[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -61,11 +68,32 @@ export default function TtsPage() {
       .finally(() => setLoadingVoices(false));
   }, [tt.toastVoiceError]);
 
+  const refreshBalance = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json() as typeof user;
+        if (data) setUser(data);
+      }
+    } catch { /* ignore */ }
+  };
+
   const handleGenerate = async () => {
     if (!text.trim()) { toast.error(tt.toastNoText); return; }
     if (!voiceId) { toast.error(tt.toastNoVoice); return; }
     if (text.length > MAX_CHARS) {
       toast.error(tt.toastOverLimit.replace("{{max}}", MAX_CHARS.toLocaleString()));
+      return;
+    }
+    if (currency === "ap" && (user?.points ?? 0) < TTS_COST_AP) {
+      toast.error(tt.toastInsufficientAp);
+      return;
+    }
+    if (currency === "p" && (user?.freePoints ?? 0) < TTS_COST_P) {
+      toast.error(tt.toastInsufficientP);
       return;
     }
 
@@ -75,8 +103,11 @@ export default function TtsPage() {
     try {
       const res = await fetch(`${API}/api/tts/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, voiceId, modelId, stability, similarityBoost, speed }),
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ text, voiceId, modelId, stability, similarityBoost, speed, currency }),
       });
 
       if (!res.ok) {
@@ -87,6 +118,7 @@ export default function TtsPage() {
       const blob = await res.blob();
       setAudioUrl(URL.createObjectURL(blob));
       toast.success(tt.toastSuccess);
+      await refreshBalance();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tt.toastGenerateError);
     } finally {
@@ -115,6 +147,23 @@ export default function TtsPage() {
   const charsLeft = MAX_CHARS - text.length;
   const isOverLimit = text.length > MAX_CHARS;
 
+  if (!user) {
+    return (
+      <div className="container mx-auto max-w-3xl px-4 py-20 flex flex-col items-center text-center gap-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-lg">
+          <Lock className="h-8 w-8 text-white" />
+        </div>
+        <h1 className="text-2xl font-black">{tt.title}</h1>
+        <p className="text-muted-foreground max-w-sm">{tt.loginRequired}</p>
+        <Link href="/auth">
+          <Button className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 px-8">
+            {tt.goToLogin}
+          </Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto max-w-3xl px-4 py-10">
       <div className="mb-8">
@@ -128,6 +177,46 @@ export default function TtsPage() {
           </div>
         </div>
         <p className="text-muted-foreground mt-1">{tt.desc}</p>
+      </div>
+
+      {/* Currency & Balance Panel */}
+      <div className="rounded-xl border bg-gradient-to-r from-violet-50/60 to-cyan-50/60 dark:from-violet-950/20 dark:to-cyan-950/20 p-4 mb-6 space-y-3">
+        <p className="text-sm font-semibold flex items-center gap-2">
+          <Coins className="h-4 w-4 text-violet-600" />
+          {tt.costTitle}
+        </p>
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => setCurrency("p")}
+            className={cn(
+              "flex-1 min-w-[160px] rounded-lg border-2 px-4 py-3 text-left transition-colors",
+              currency === "p"
+                ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                : "border-border hover:border-violet-300"
+            )}
+          >
+            <p className="text-sm font-semibold">{tt.currencyP}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{tt.costP}</p>
+            <p className="text-xs font-mono text-violet-700 dark:text-violet-400 mt-1">
+              {tt.balanceP}: {(user.freePoints ?? 0).toLocaleString()} P
+            </p>
+          </button>
+          <button
+            onClick={() => setCurrency("ap")}
+            className={cn(
+              "flex-1 min-w-[160px] rounded-lg border-2 px-4 py-3 text-left transition-colors",
+              currency === "ap"
+                ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-950/30"
+                : "border-border hover:border-cyan-300"
+            )}
+          >
+            <p className="text-sm font-semibold">{tt.currencyAp}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{tt.costAp}</p>
+            <p className="text-xs font-mono text-cyan-700 dark:text-cyan-400 mt-1">
+              {tt.balanceAp}: {(user.points ?? 0).toLocaleString()} AP
+            </p>
+          </button>
+        </div>
       </div>
 
       <div className="space-y-6">
@@ -166,10 +255,7 @@ export default function TtsPage() {
                 <SelectContent className="max-h-64">
                   {voices.map((v) => (
                     <SelectItem key={v.voice_id} value={v.voice_id}>
-                      <span className="font-medium">{v.name}</span>
-                      {v.labels?.accent && (
-                        <span className="ml-1.5 text-xs text-muted-foreground">{v.labels.accent}</span>
-                      )}
+                      {v.name}{v.labels?.accent ? ` · ${v.labels.accent}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -269,6 +355,9 @@ export default function TtsPage() {
             <>
               <Mic className="h-5 w-5 mr-2" />
               {tt.generateBtn}
+              <span className="ml-2 text-xs opacity-80">
+                ({currency === "ap" ? `${TTS_COST_AP} AP` : `${TTS_COST_P} P`})
+              </span>
             </>
           )}
         </Button>

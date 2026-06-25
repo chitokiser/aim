@@ -19,7 +19,11 @@ FIREBASE_PRIVATE_KEY = os.getenv("FIREBASE_PRIVATE_KEY", "").replace("\\n", "\n"
 TIMEZONE = os.getenv("TIMEZONE", "Asia/Seoul")
 DAILY_P = int(os.getenv("DAILY_P", "10000"))
 WELCOME_BONUS_P = int(os.getenv("WELCOME_BONUS_P", "10000"))
-GROUP_CHAT_ID = os.getenv("GROUP_CHAT_ID", "")
+# Comma-separated list of group chat IDs to broadcast to.
+# Supports both GROUP_CHAT_IDS (new) and GROUP_CHAT_ID (legacy single value).
+_raw_group_ids = os.getenv("GROUP_CHAT_IDS", os.getenv("GROUP_CHAT_ID", ""))
+BROADCAST_GROUP_IDS: list[str] = [g.strip() for g in _raw_group_ids.split(",") if g.strip()]
+GROUP_CHAT_ID = BROADCAST_GROUP_IDS[0] if BROADCAST_GROUP_IDS else ""
 
 TUMBLR_CONSUMER_KEY = os.getenv("TUMBLR_CONSUMER_KEY", "")
 TUMBLR_CONSUMER_SECRET = os.getenv("TUMBLR_CONSUMER_SECRET", "")

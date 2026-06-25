@@ -19,6 +19,7 @@ import { AuctionModule } from './auction/auction.module';
 import { AdminModule } from './admin/admin.module';
 import { TopupModule } from './topup/topup.module';
 import { TtsModule } from './tts/tts.module';
+import { MusicVideoModule } from './music-video/music-video.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { TtsModule } from './tts/tts.module';
     AdminModule,
     TopupModule,
     TtsModule,
+    MusicVideoModule,
   ],
   controllers: [AppController],
   providers: [AppService],

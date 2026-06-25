@@ -1,10 +1,15 @@
 import {
   Controller, Post, Get, Body, Res, HttpException, HttpStatus,
+  UseGuards, Request,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import axios from 'axios';
+import { JwtAuthGuard } from '../auth/jwt.guard';
+import { UsersService } from '../users/users.service';
 
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1';
+const TTS_COST_AP = 50;
+const TTS_COST_P = 500;
 
 interface GenerateDto {
   text: string;
@@ -13,10 +18,13 @@ interface GenerateDto {
   stability?: number;
   similarityBoost?: number;
   speed?: number;
+  currency?: 'ap' | 'p';
 }
 
 @Controller('tts')
 export class TtsController {
+  constructor(private readonly usersService: UsersService) {}
+
   private get apiKey(): string {
     const key = process.env.ELEVENLABS_API_KEY;
     if (!key) throw new HttpException('ElevenLabs API key not configured', HttpStatus.SERVICE_UNAVAILABLE);
@@ -40,7 +48,12 @@ export class TtsController {
   }
 
   @Post('generate')
-  async generate(@Body() body: GenerateDto, @Res() res: Response) {
+  @UseGuards(JwtAuthGuard)
+  async generate(
+    @Body() body: GenerateDto,
+    @Res() res: Response,
+    @Request() req: { user: { sub: string } },
+  ) {
     const {
       text,
       voiceId,
@@ -48,10 +61,27 @@ export class TtsController {
       stability = 0.5,
       similarityBoost = 0.75,
       speed = 1.0,
+      currency = 'p',
     } = body;
 
     if (!text?.trim() || !voiceId) {
       throw new HttpException('text and voiceId are required', HttpStatus.BAD_REQUEST);
+    }
+
+    // Verify balance before calling ElevenLabs
+    const userData = await this.usersService.findById(req.user.sub) as {
+      points?: number;
+      freePoints?: number;
+    };
+
+    if (currency === 'ap') {
+      if ((userData.points ?? 0) < TTS_COST_AP) {
+        throw new HttpException('Insufficient AP', HttpStatus.PAYMENT_REQUIRED);
+      }
+    } else {
+      if ((userData.freePoints ?? 0) < TTS_COST_P) {
+        throw new HttpException('Insufficient P', HttpStatus.PAYMENT_REQUIRED);
+      }
     }
 
     try {
@@ -74,6 +104,13 @@ export class TtsController {
           responseType: 'arraybuffer',
         },
       );
+
+      // Deduct points only after successful generation
+      if (currency === 'ap') {
+        await this.usersService.deductPoints(req.user.sub, TTS_COST_AP);
+      } else {
+        await this.usersService.deductFreePoints(req.user.sub, TTS_COST_P);
+      }
 
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Content-Disposition', 'attachment; filename="tts-output.mp3"');

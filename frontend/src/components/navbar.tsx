@@ -16,7 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
-  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic,
+  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -59,10 +59,15 @@ export function Navbar() {
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
     { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
     { href: "/auction", label: t.nav.auction, icon: Gavel },
+  ];
+
+  const aiServiceLinks = [
     { href: "/tts", label: t.nav.tts, icon: Mic },
+    { href: "/music-video", label: t.nav.musicVideo, icon: Film },
   ];
 
   const isServiceActive = serviceLinks.some((l) => pathname === l.href);
+  const isAiServiceActive = aiServiceLinks.some((l) => pathname === l.href);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -110,6 +115,34 @@ export function Navbar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               {serviceLinks.map(({ href, label, icon: Icon }) => (
+                <DropdownMenuItem key={href} asChild>
+                  <Link href={href} className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* AI Services dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                  isAiServiceActive
+                    ? "bg-accent text-accent-foreground"
+                    : "text-muted-foreground"
+                )}
+              >
+                <Bot className="h-4 w-4" />
+                {t.nav.aiServices}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {aiServiceLinks.map(({ href, label, icon: Icon }) => (
                 <DropdownMenuItem key={href} asChild>
                   <Link href={href} className="flex items-center gap-2">
                     <Icon className="h-4 w-4" />
@@ -260,6 +293,26 @@ export function Navbar() {
           ))}
           <div className="pt-1 border-t mt-1">
             {serviceLinks.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent",
+                  pathname === href ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </div>
+          <div className="pt-1 border-t mt-1">
+            <p className="px-3 py-1 text-xs font-semibold text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+              <Bot className="h-3.5 w-3.5" />
+              {t.nav.aiServices}
+            </p>
+            {aiServiceLinks.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
