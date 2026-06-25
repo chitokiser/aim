@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  Film, Download, Loader2, Coins, Lock, Upload, CheckCircle2,
+  Film, Download, Loader2, Coins, Upload, CheckCircle2,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
@@ -17,6 +17,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.
 
 const MV_COST_AP = 1000;
 const MV_COST_P = 10000;
+const POLL_INTERVAL_MS = 4000;
 
 type Step = "idle" | "step1" | "step2" | "step3" | "done";
 
@@ -32,8 +33,16 @@ export default function MusicVideoPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isGenerating = step !== "idle" && step !== "done";
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
 
   const refreshBalance = async () => {
     if (!token) return;
@@ -47,6 +56,47 @@ export default function MusicVideoPage() {
       }
     } catch { /* ignore */ }
   };
+
+  const downloadVideo = useCallback(async (jobId: string) => {
+    const res = await fetch(`${API}/api/music-video/download/${jobId}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+    const blob = await res.blob();
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoUrl(URL.createObjectURL(blob));
+    setStep("done");
+    toast.success(mv.toastSuccess);
+    await refreshBalance();
+  }, [token, videoUrl, mv.toastSuccess]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pollStatus = useCallback((jobId: string) => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`${API}/api/music-video/status/${jobId}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+
+        const data = await res.json() as { status: string; step: number; error?: string };
+
+        if (data.step === 1) setStep("step1");
+        else if (data.step === 2) setStep("step2");
+        else if (data.step === 3) setStep("step3");
+
+        if (data.status === "done") {
+          stopPolling();
+          await downloadVideo(jobId);
+        } else if (data.status === "error") {
+          stopPolling();
+          setStep("idle");
+          toast.error(data.error ?? mv.toastError);
+        }
+      } catch {
+        // network blip — keep polling
+      }
+    }, POLL_INTERVAL_MS);
+  }, [token, downloadVideo, mv.toastError]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,8 +116,8 @@ export default function MusicVideoPage() {
       return;
     }
 
+    stopPolling();
     if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(null); }
-
     setStep("step1");
 
     try {
@@ -76,30 +126,21 @@ export default function MusicVideoPage() {
       formData.append("text", text);
       formData.append("currency", currency);
 
-      // Simulate step progression during the long request
-      const stepTimer1 = setTimeout(() => setStep("step2"), 8000);
-      const stepTimer2 = setTimeout(() => setStep("step3"), 25000);
-
       const res = await fetch(`${API}/api/music-video/generate`, {
         method: "POST",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
 
-      clearTimeout(stepTimer1);
-      clearTimeout(stepTimer2);
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { message?: string };
         throw new Error(err.message ?? `Error ${res.status}`);
       }
 
-      const blob = await res.blob();
-      setVideoUrl(URL.createObjectURL(blob));
-      setStep("done");
-      toast.success(mv.toastSuccess);
-      await refreshBalance();
+      const { jobId } = await res.json() as { jobId: string };
+      pollStatus(jobId);
     } catch (e) {
+      stopPolling();
       setStep("idle");
       toast.error(e instanceof Error ? e.message : mv.toastError);
     }
@@ -275,8 +316,11 @@ export default function MusicVideoPage() {
               const isDone = stepNum < currentStepNum;
               const isActive = stepNum === currentStepNum;
               return (
-                <div key={s} className={cn("flex items-center gap-3 text-sm", isDone ? "text-muted-foreground" : isActive ? "text-foreground font-medium" : "text-muted-foreground/40")}>
-                  <div className={cn("h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
+                <div key={s} className={cn("flex items-center gap-3 text-sm",
+                  isDone ? "text-muted-foreground" : isActive ? "text-foreground font-medium" : "text-muted-foreground/40"
+                )}>
+                  <div className={cn(
+                    "h-5 w-5 rounded-full flex items-center justify-center text-xs font-bold shrink-0",
                     isDone ? "bg-green-500 text-white" : isActive ? "bg-pink-500 text-white animate-pulse" : "bg-muted text-muted-foreground"
                   )}>
                     {isDone ? "✓" : stepNum}

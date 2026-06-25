@@ -9,7 +9,7 @@ import axios from 'axios';
 
 interface PanelScene {
   scene: number;
-  description: string; // short, ≤10 words
+  description: string;
 }
 
 interface AnalysisResult {
@@ -20,36 +20,45 @@ interface AnalysisResult {
 
 const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt';
 
-// 4 columns × 3 rows = 12 panels
+// 4 columns × 3 rows = 12 panels — smaller grid for faster generation & less memory
 const GRID_COLS = 4;
 const GRID_ROWS = 3;
 const PANEL_COUNT = GRID_COLS * GRID_ROWS;
-const PANEL_SIZE = 512;
-const GRID_W = GRID_COLS * PANEL_SIZE; // 2048
-const GRID_H = GRID_ROWS * PANEL_SIZE; // 1536
+const PANEL_SIZE = 256;              // each cell 256×256
+const GRID_W = GRID_COLS * PANEL_SIZE; // 1024
+const GRID_H = GRID_ROWS * PANEL_SIZE; // 768
 
 @Injectable()
 export class MusicVideoService {
   private readonly anthropic = new Anthropic();
 
-  async generate(mp3Buffer: Buffer, text: string): Promise<Buffer> {
+  /**
+   * Runs generation and writes output.mp4 inside a tmpDir managed by the caller.
+   * onStep(1|2|3) is called as each phase starts so the controller can track progress.
+   * Returns { outputPath, tmpDir } — caller is responsible for cleanup.
+   */
+  async generateToFile(
+    mp3Buffer: Buffer,
+    text: string,
+    onStep: (step: 1 | 2 | 3) => void,
+  ): Promise<{ outputPath: string; tmpDir: string }> {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mv-'));
+    const mp3Path = path.join(tmpDir, 'audio.mp3');
+    await fs.writeFile(mp3Path, mp3Buffer);
 
-    try {
-      const mp3Path = path.join(tmpDir, 'audio.mp3');
-      await fs.writeFile(mp3Path, mp3Buffer);
+    onStep(1);
+    const duration = await this.getAudioDuration(mp3Path);
+    const analysis = await this.analyzeText(text);
 
-      const duration = await this.getAudioDuration(mp3Path);
-      const analysis = await this.analyzeText(text);
-      const gridImageBuffer = await this.generateGridImage(analysis);
-      const panelPaths = await this.sliceGrid(gridImageBuffer, tmpDir);
-      const outputPath = path.join(tmpDir, 'output.mp4');
-      await this.createVideo(panelPaths, mp3Path, duration, outputPath);
+    onStep(2);
+    const gridImageBuffer = await this.generateGridImage(analysis);
+    const panelPaths = await this.sliceGrid(gridImageBuffer, tmpDir);
 
-      return await fs.readFile(outputPath);
-    } finally {
-      await fs.rm(tmpDir, { recursive: true, force: true });
-    }
+    onStep(3);
+    const outputPath = path.join(tmpDir, 'output.mp4');
+    await this.createVideo(panelPaths, mp3Path, duration, outputPath);
+
+    return { outputPath, tmpDir };
   }
 
   private async analyzeText(text: string): Promise<AnalysisResult> {
@@ -68,12 +77,11 @@ Return ONLY valid JSON (no markdown):
   "overallMood": "mood",
   "panels": [
     { "scene": 1, "description": "max 8 words, vivid visual" },
-    { "scene": 2, "description": "..." },
-    ...up to 12
+    { "scene": 2, "description": "..." }
   ]
 }
 
-Keep each description under 8 words. Focus on visual imagery: subject, action, lighting, color.`,
+Provide exactly 12 panels. Keep each description under 8 words. Focus on visual imagery.`,
       }],
     });
 
@@ -84,7 +92,6 @@ Keep each description under 8 words. Focus on visual imagery: subject, action, l
     if (!jsonMatch) throw new HttpException('Failed to parse scene analysis', HttpStatus.INTERNAL_SERVER_ERROR);
 
     const result = JSON.parse(jsonMatch[0]) as AnalysisResult;
-    // Ensure exactly 12 panels
     while (result.panels.length < PANEL_COUNT) {
       const last = result.panels[result.panels.length - 1];
       result.panels.push({ scene: result.panels.length + 1, description: last.description });
@@ -95,16 +102,11 @@ Keep each description under 8 words. Focus on visual imagery: subject, action, l
 
   private async generateGridImage(analysis: AnalysisResult): Promise<Buffer> {
     const { panels, style, overallMood } = analysis;
-
-    const panelList = panels
-      .map((p) => `${p.scene}.${p.description}`)
-      .join(', ');
-
+    const panelList = panels.map((p) => `${p.scene}.${p.description}`).join(', ');
     const prompt =
-      `12-panel storyboard comic grid, 4 columns 3 rows, thin black borders separating each panel, ` +
-      `${style} art style, ${overallMood} mood, consistent visual style throughout. ` +
-      `Panels left-to-right top-to-bottom: ${panelList}. ` +
-      `High quality illustration, clear composition in each panel.`;
+      `12-panel storyboard comic grid, 4 columns 3 rows, thin black borders separating panels, ` +
+      `${style} art style, ${overallMood} mood, consistent visual style. ` +
+      `Panels left-to-right top-to-bottom: ${panelList}. High quality illustration.`;
 
     const encodedPrompt = encodeURIComponent(prompt);
     const url =
@@ -120,13 +122,11 @@ Keep each description under 8 words. Focus on visual imagery: subject, action, l
   }
 
   private async sliceGrid(imageBuffer: Buffer, tmpDir: string): Promise<string[]> {
-    // Ensure the downloaded image is exactly GRID_W × GRID_H before slicing
     const resized = await (sharp as unknown as (input: Buffer) => sharp.Sharp)(imageBuffer)
       .resize(GRID_W, GRID_H, { fit: 'fill' })
       .toBuffer();
 
     const paths: string[] = [];
-
     for (let row = 0; row < GRID_ROWS; row++) {
       for (let col = 0; col < GRID_COLS; col++) {
         const idx = row * GRID_COLS + col;
@@ -134,12 +134,11 @@ Keep each description under 8 words. Focus on visual imagery: subject, action, l
         await (sharp as unknown as (input: Buffer) => sharp.Sharp)(resized)
           .extract({ left: col * PANEL_SIZE, top: row * PANEL_SIZE, width: PANEL_SIZE, height: PANEL_SIZE })
           .resize(1280, 720, { fit: 'cover' })
-          .jpeg({ quality: 92 })
+          .jpeg({ quality: 88 })
           .toFile(panelPath);
         paths.push(panelPath);
       }
     }
-
     return paths;
   }
 
@@ -151,7 +150,6 @@ Keep each description under 8 words. Focus on visual imagery: subject, action, l
         '-of', 'default=noprint_wrappers=1:nokey=1',
         mp3Path,
       ]);
-
       let stdout = '';
       proc.stdout.on('data', (d: Buffer) => { stdout += d.toString(); });
       proc.on('close', (code) => {
@@ -199,11 +197,11 @@ Keep each description under 8 words. Focus on visual imagery: subject, action, l
         '-map', '[video]',
         '-map', `${panelCount}:a`,
         '-c:v', 'libx264',
-        '-preset', 'fast',
-        '-crf', '23',
+        '-preset', 'ultrafast',
+        '-crf', '26',
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac',
-        '-b:a', '192k',
+        '-b:a', '128k',
         '-shortest',
         outputPath,
       ];
