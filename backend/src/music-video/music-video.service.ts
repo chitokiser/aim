@@ -168,23 +168,38 @@ Provide exactly 12 panels. Keep each description under 8 words. Focus on visual 
     outputPath: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
-      const fps = 25;
       const panelCount = panelPaths.length;
       const panelDuration = totalDuration / panelCount;
-      const panelFrames = Math.round(panelDuration * fps);
-      const zoomInc = (0.3 / panelFrames).toFixed(6);
+      const dt = panelDuration.toFixed(3);
+
+      // Scale each panel 1.3× then crop with time-varying offset — same Ken Burns look
+      // but processed as a vectorised crop instead of frame-by-frame zoompan (much faster)
+      const scaledW = 1664; // 1280 * 1.3
+      const scaledH = 936;  // 720  * 1.3
+      const maxPX = scaledW - 1280; // 384
+      const maxPY = scaledH - 720;  // 216
 
       const inputArgs: string[] = [];
       panelPaths.forEach((p) => {
-        inputArgs.push('-loop', '1', '-t', panelDuration.toFixed(3), '-i', p);
+        inputArgs.push('-loop', '1', '-t', dt, '-i', p);
       });
 
-      const filterParts = panelPaths.map((_, i) =>
-        `[${i}:v]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,` +
-        `zoompan=z='min(zoom+${zoomInc},1.3)':` +
-        `x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':` +
-        `d=${panelFrames}:s=1280x720:fps=${fps}[v${i}]`,
-      );
+      const filterParts = panelPaths.map((_, i) => {
+        const dir = i % 4;
+        const cropX =
+          dir === 0 ? `${maxPX}*t/${dt}` :
+          dir === 1 ? `${maxPX}*(1-t/${dt})` :
+          String(Math.floor(maxPX / 2));
+        const cropY =
+          dir === 2 ? `${maxPY}*t/${dt}` :
+          dir === 3 ? `${maxPY}*(1-t/${dt})` :
+          String(Math.floor(maxPY / 2));
+        return (
+          `[${i}:v]scale=${scaledW}:${scaledH},` +
+          `crop=1280:720:x='${cropX}':y='${cropY}',` +
+          `setpts=PTS-STARTPTS[v${i}]`
+        );
+      });
 
       const concatInputs = panelPaths.map((_, i) => `[v${i}]`).join('');
       const filterComplex = filterParts.join('; ') + `; ${concatInputs}concat=n=${panelCount}:v=1:a=0[video]`;

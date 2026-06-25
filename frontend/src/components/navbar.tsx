@@ -16,7 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
-  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film,
+  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film, Music,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -64,6 +64,7 @@ export function Navbar() {
   const aiServiceLinks = [
     { href: "/tts", label: t.nav.tts, icon: Mic },
     { href: "/music-video", label: t.nav.musicVideo, icon: Film },
+    { href: "/music-gen", label: t.nav.musicGen, icon: Music },
   ];
 
   const isServiceActive = serviceLinks.some((l) => pathname === l.href);

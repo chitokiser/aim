@@ -20,6 +20,7 @@ import { AdminModule } from './admin/admin.module';
 import { TopupModule } from './topup/topup.module';
 import { TtsModule } from './tts/tts.module';
 import { MusicVideoModule } from './music-video/music-video.module';
+import { MusicGenModule } from './music-gen/music-gen.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { MusicVideoModule } from './music-video/music-video.module';
     TopupModule,
     TtsModule,
     MusicVideoModule,
+    MusicGenModule,
   ],
   controllers: [AppController],
   providers: [AppService],
