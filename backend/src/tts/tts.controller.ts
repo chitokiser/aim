@@ -55,14 +55,16 @@ export class TtsController {
     }
 
     try {
+      const requestBody: Record<string, unknown> = {
+        text,
+        model_id: modelId,
+        voice_settings: { stability, similarity_boost: similarityBoost },
+      };
+      if (speed !== 1.0) requestBody.speed = speed;
+
       const elevenRes = await axios.post<ArrayBuffer>(
         `${ELEVENLABS_BASE}/text-to-speech/${voiceId}`,
-        {
-          text,
-          model_id: modelId,
-          voice_settings: { stability, similarity_boost: similarityBoost },
-          speed,
-        },
+        requestBody,
         {
           headers: {
             'xi-api-key': this.apiKey,

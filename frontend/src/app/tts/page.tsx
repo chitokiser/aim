@@ -248,6 +248,9 @@ export default function TtsPage() {
                 className="w-full accent-emerald-600"
               />
               <p className="text-xs text-muted-foreground">{tt.speedHint}</p>
+              {speed !== 1.0 && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">⚠ {tt.speedPaidNote}</p>
+              )}
             </div>
           </div>
         </div>
