@@ -18,6 +18,7 @@ import { BizMatchBotModule } from './bots/bizmatch-bot/bizmatch-bot.module';
 import { AuctionModule } from './auction/auction.module';
 import { AdminModule } from './admin/admin.module';
 import { TopupModule } from './topup/topup.module';
+import { TtsModule } from './tts/tts.module';
 
 @Module({
   imports: [
@@ -38,6 +39,7 @@ import { TopupModule } from './topup/topup.module';
     AuctionModule,
     AdminModule,
     TopupModule,
+    TtsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

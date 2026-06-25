@@ -16,7 +16,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
-  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown,
+  Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -59,6 +59,7 @@ export function Navbar() {
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
     { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
     { href: "/auction", label: t.nav.auction, icon: Gavel },
+    { href: "/tts", label: t.nav.tts, icon: Mic },
   ];
 
   const isServiceActive = serviceLinks.some((l) => pathname === l.href);
