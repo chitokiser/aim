@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from telegram.constants import ParseMode
 
-from config import ADMIN_IDS, GROUP_CHAT_ID, COMMUNITY_URL, JUMPWORLD_URL
+from config import ADMIN_IDS, BROADCAST_GROUP_IDS, GROUP_CHAT_ID, COMMUNITY_URL, JUMPWORLD_URL
 from database import create_treasure, save_questions, get_treasure, get_lang
 from services.ai_service import reverse_geocode, generate_questions, build_coordinate_clues
 from utils.i18n import t
@@ -162,12 +162,11 @@ async def handle_desc(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 
 async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_count: int, bot_username: str) -> None:
-    if not GROUP_CHAT_ID:
-        logger.warning("GROUP_CHAT_ID not set — skipping group announcement")
+    if not BROADCAST_GROUP_IDS:
+        logger.warning("No group IDs configured — skipping group announcement")
         return
 
     deeplink = f"https://t.me/{bot_username}?start=treasure_{treasure.id}" if bot_username else ""
-    # Group announcements are Korean-only per project convention
     text = (
         f"🗺 *새로운 보물이 등장했습니다!* 🎉\n\n"
         f"🔢 보물 번호: *#{treasure.id}*\n"
@@ -190,15 +189,16 @@ async def _announce_in_group(context: ContextTypes.DEFAULT_TYPE, treasure, q_cou
         [keyboard_buttons[2]] if len(keyboard_buttons) > 2 else [],
     ])
 
-    try:
-        await context.bot.send_message(
-            chat_id=GROUP_CHAT_ID,
-            text=text,
-            parse_mode=ParseMode.MARKDOWN,
-            reply_markup=keyboard,
-        )
-    except Exception as e:
-        logger.error("Failed to send group announcement: %s", e)
+    for gid in BROADCAST_GROUP_IDS:
+        try:
+            await context.bot.send_message(
+                chat_id=gid,
+                text=text,
+                parse_mode=ParseMode.MARKDOWN,
+                reply_markup=keyboard,
+            )
+        except Exception as e:
+            logger.error("Failed to send group announcement to %s: %s", gid, e)
 
     tg_username = context.bot_data.get("username", "AITreasureHuntBot")
     bot_url = f"https://t.me/{tg_username}?start=treasure_{treasure.id}" if tg_username else ""

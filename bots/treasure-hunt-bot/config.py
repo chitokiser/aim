@@ -4,8 +4,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN", "")
-GROUP_CHAT_ID = int(os.getenv("GROUP_CHAT_ID", "0"))
 ADMIN_IDS = [int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip()]
+
+_raw_group_ids = os.getenv("GROUP_CHAT_IDS", os.getenv("GROUP_CHAT_ID", "0"))
+BROADCAST_GROUP_IDS: list[int] = [int(g.strip()) for g in _raw_group_ids.split(",") if g.strip() and g.strip() != "0"]
+GROUP_CHAT_ID = BROADCAST_GROUP_IDS[0] if BROADCAST_GROUP_IDS else 0
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
