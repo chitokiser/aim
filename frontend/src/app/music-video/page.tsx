@@ -15,8 +15,8 @@ import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app";
 
-const MV_COST_AP = 1000;
-const MV_COST_P = 10000;
+const MV_COST_AP = 50;
+const MV_COST_P = 50;
 const POLL_INTERVAL_MS = 4000;
 
 type Step = "idle" | "step1" | "step2" | "step3" | "done";

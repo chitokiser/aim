@@ -12,8 +12,8 @@ import { UsersService } from '../users/users.service';
 import { MusicVideoService } from './music-video.service';
 import { randomUUID } from 'crypto';
 
-const MV_COST_AP = 1000;
-const MV_COST_P = 10000;
+const MV_COST_AP = 50;
+const MV_COST_P = 50;
 const JOB_TTL_MS = 15 * 60 * 1000; // keep finished jobs for 15 minutes
 
 type JobStatus = 'processing' | 'done' | 'error';
