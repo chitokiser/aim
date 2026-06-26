@@ -1,5 +1,4 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import Anthropic from '@anthropic-ai/sdk';
 import * as sharp from 'sharp';
 import * as path from 'path';
 import * as fs from 'fs/promises';
@@ -28,14 +27,10 @@ const PANEL_SIZE = 256;              // each cell 256×256
 const GRID_W = GRID_COLS * PANEL_SIZE; // 1024
 const GRID_H = GRID_ROWS * PANEL_SIZE; // 768
 
+const POLLINATIONS_TEXT = 'https://text.pollinations.ai';
+
 @Injectable()
 export class MusicVideoService {
-  private get anthropic(): Anthropic {
-    const key = process.env.ANTHROPIC_API_KEY;
-    if (!key) throw new HttpException('ANTHROPIC_API_KEY not configured', HttpStatus.INTERNAL_SERVER_ERROR);
-    return new Anthropic({ apiKey: key });
-  }
-
   /**
    * Runs generation and writes output.mp4 inside a tmpDir managed by the caller.
    * onStep(1|2|3) is called as each phase starts so the controller can track progress.
@@ -65,43 +60,46 @@ export class MusicVideoService {
     return { outputPath, tmpDir };
   }
 
-  private async analyzeText(text: string): Promise<AnalysisResult> {
-    const message = await this.anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{
-        role: 'user',
-        content: `Analyze this song lyrics/text and create exactly 12 short visual scene descriptions for a music video storyboard.
+  private buildScenePrompt(text: string): string {
+    return `Analyze this song lyrics/text and create exactly 12 short visual scene descriptions for a music video storyboard.\n\nText: "${text.slice(0, 800)}"\n\nReturn ONLY valid JSON (no markdown):\n{\n  "style": "art style keyword (e.g. 'cinematic noir', 'anime', 'watercolor', 'vibrant pop art')",\n  "overallMood": "mood",\n  "panels": [\n    { "scene": 1, "description": "max 8 words, vivid visual" },\n    { "scene": 2, "description": "..." }\n  ]\n}\n\nProvide exactly 12 panels. Keep each description under 8 words. Focus on visual imagery.`;
+  }
 
-Text: "${text}"
-
-Return ONLY valid JSON (no markdown):
-{
-  "style": "art style keyword (e.g. 'cinematic noir', 'anime', 'watercolor', 'vibrant pop art')",
-  "overallMood": "mood",
-  "panels": [
-    { "scene": 1, "description": "max 8 words, vivid visual" },
-    { "scene": 2, "description": "..." }
-  ]
-}
-
-Provide exactly 12 panels. Keep each description under 8 words. Focus on visual imagery.`,
-      }],
-    });
-
-    const content = message.content[0];
-    if (content.type !== 'text') throw new HttpException('AI analysis failed', HttpStatus.INTERNAL_SERVER_ERROR);
-
-    const jsonMatch = content.text.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new HttpException('Failed to parse scene analysis', HttpStatus.INTERNAL_SERVER_ERROR);
-
-    const result = JSON.parse(jsonMatch[0]) as AnalysisResult;
+  private padPanels(result: AnalysisResult): AnalysisResult {
     while (result.panels.length < PANEL_COUNT) {
       const last = result.panels[result.panels.length - 1];
-      result.panels.push({ scene: result.panels.length + 1, description: last.description });
+      result.panels.push({ scene: result.panels.length + 1, description: last?.description ?? 'vivid scene' });
     }
     result.panels = result.panels.slice(0, PANEL_COUNT);
     return result;
+  }
+
+  private fallbackAnalysis(text: string): AnalysisResult {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    const panels: PanelScene[] = [];
+    for (let i = 0; i < PANEL_COUNT; i++) {
+      const lineIdx = Math.floor((i / PANEL_COUNT) * lines.length);
+      const words = (lines[lineIdx] ?? `scene ${i + 1}`).split(/\s+/).slice(0, 8).join(' ');
+      panels.push({ scene: i + 1, description: words });
+    }
+    return { style: 'cinematic', overallMood: 'emotional', panels };
+  }
+
+  private async analyzeText(text: string): Promise<AnalysisResult> {
+    const prompt = this.buildScenePrompt(text);
+    try {
+      const res = await axios.get<string>(
+        `${POLLINATIONS_TEXT}/${encodeURIComponent(prompt)}?model=openai&seed=42`,
+        { timeout: 30000 },
+      );
+      const raw = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('no JSON in response');
+      const result = JSON.parse(jsonMatch[0]) as AnalysisResult;
+      if (!Array.isArray(result.panels) || result.panels.length === 0) throw new Error('no panels');
+      return this.padPanels(result);
+    } catch {
+      return this.fallbackAnalysis(text);
+    }
   }
 
   private async generateGridImage(analysis: AnalysisResult): Promise<Buffer> {
