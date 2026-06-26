@@ -28,6 +28,7 @@ export default function MusicVideoPage() {
   const { user, token, setUser } = useAuthStore();
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [title, setTitle] = useState("");
@@ -109,7 +110,11 @@ export default function MusicVideoPage() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setAudioFile(file);
+    if (file) {
+      if (audioPreviewUrl) URL.revokeObjectURL(audioPreviewUrl);
+      setAudioFile(file);
+      setAudioPreviewUrl(URL.createObjectURL(file));
+    }
   };
 
   const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,6 +328,14 @@ export default function MusicVideoPage() {
               </>
             )}
           </button>
+          {audioPreviewUrl && (
+            <audio
+              src={audioPreviewUrl}
+              controls
+              autoPlay
+              className="w-full mt-2"
+            />
+          )}
         </div>
 
         {/* YouTube Title */}

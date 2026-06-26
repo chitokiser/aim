@@ -51,23 +51,20 @@ export class MusicVideoService {
     onStep(2);
     const panelPaths = await this.generatePanelImages(analysis, tmpDir, panelW, panelH, userImages);
 
-    // Build intro title card from the first still cut before lyrics overlay
+    // Build intro title card from the first still cut (clean, no text overlay)
     let introPath: string | undefined;
     if (title?.trim() && panelPaths.length > 0) {
       introPath = await this.generateTitleCard(title.trim(), text, panelPaths[0], tmpDir, panelW, panelH);
     }
 
-    // Overlay lyrics text on each panel
-    const lyricsPanelPaths = await this.overlayLyricsOnPanels(text, panelPaths, tmpDir, panelW, panelH);
-
-    // Thumbnail: intro card preferred, else first lyrics panel
-    const thumbSrc = introPath ?? lyricsPanelPaths[0] ?? panelPaths[0];
+    // Thumbnail: intro card preferred, else first panel
+    const thumbSrc = introPath ?? panelPaths[0];
     const thumbnailPath = path.join(os.tmpdir(), `mv-thumb-${Date.now()}.jpg`);
     await fs.copyFile(thumbSrc, thumbnailPath);
 
     onStep(3);
     const outputPath = path.join(tmpDir, 'output.mp4');
-    await this.createVideo(lyricsPanelPaths, mp3Path, duration, outputPath, panelW, panelH, introPath);
+    await this.createVideo(panelPaths, mp3Path, duration, outputPath, panelW, panelH, introPath);
 
     return { outputPath, tmpDir, thumbnailPath };
   }
