@@ -18,12 +18,16 @@ interface AnalysisResult {
   panels: PanelScene[];
 }
 
+export type AspectRatio = '16:9' | '9:16';
+
 const POLLINATIONS_IMAGE = 'https://image.pollinations.ai/prompt';
 const POLLINATIONS_TEXT = 'https://text.pollinations.ai';
 const PANEL_COUNT = 12;
-const PANEL_W = 1280;
-const PANEL_H = 720;
 const INTRO_DURATION = 5;
+
+function dims(ratio: AspectRatio): { w: number; h: number } {
+  return ratio === '9:16' ? { w: 720, h: 1280 } : { w: 1280, h: 720 };
+}
 
 @Injectable()
 export class MusicVideoService {
@@ -31,8 +35,11 @@ export class MusicVideoService {
     mp3Buffer: Buffer,
     text: string,
     title: string | undefined,
+    ratio: AspectRatio,
+    userImages: Buffer[],
     onStep: (step: 1 | 2 | 3) => void,
-  ): Promise<{ outputPath: string; tmpDir: string }> {
+  ): Promise<{ outputPath: string; tmpDir: string; thumbnailPath: string }> {
+    const { w: panelW, h: panelH } = dims(ratio);
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mv-'));
     const mp3Path = path.join(tmpDir, 'audio.mp3');
     await fs.writeFile(mp3Path, mp3Buffer);
@@ -42,19 +49,97 @@ export class MusicVideoService {
     const analysis = await this.analyzeText(text);
 
     onStep(2);
-    const panelPaths = await this.generatePanelImages(analysis, tmpDir);
+    const panelPaths = await this.generatePanelImages(analysis, tmpDir, panelW, panelH, userImages);
 
-    // Build intro title card from the first story-matched still cut
+    // Build intro title card from the first still cut before lyrics overlay
     let introPath: string | undefined;
     if (title?.trim() && panelPaths.length > 0) {
-      introPath = await this.generateTitleCard(title.trim(), text, panelPaths[0], tmpDir);
+      introPath = await this.generateTitleCard(title.trim(), text, panelPaths[0], tmpDir, panelW, panelH);
     }
+
+    // Overlay lyrics text on each panel
+    const lyricsPanelPaths = await this.overlayLyricsOnPanels(text, panelPaths, tmpDir, panelW, panelH);
+
+    // Thumbnail: intro card preferred, else first lyrics panel
+    const thumbSrc = introPath ?? lyricsPanelPaths[0] ?? panelPaths[0];
+    const thumbnailPath = path.join(os.tmpdir(), `mv-thumb-${Date.now()}.jpg`);
+    await fs.copyFile(thumbSrc, thumbnailPath);
 
     onStep(3);
     const outputPath = path.join(tmpDir, 'output.mp4');
-    await this.createVideo(panelPaths, mp3Path, duration, outputPath, introPath);
+    await this.createVideo(lyricsPanelPaths, mp3Path, duration, outputPath, panelW, panelH, introPath);
 
-    return { outputPath, tmpDir };
+    return { outputPath, tmpDir, thumbnailPath };
+  }
+
+  private splitLyricsIntoChunks(text: string, count: number): string[] {
+    const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return new Array(count).fill('') as string[];
+    const chunks: string[] = [];
+    for (let i = 0; i < count; i++) {
+      const start = Math.floor((i / count) * lines.length);
+      const end = Math.ceil(((i + 1) / count) * lines.length);
+      chunks.push(lines.slice(start, end).slice(0, 2).join('\n'));
+    }
+    return chunks;
+  }
+
+  private async overlayLyricsOnPanels(
+    text: string,
+    panelPaths: string[],
+    tmpDir: string,
+    panelW: number,
+    panelH: number,
+  ): Promise<string[]> {
+    const chunks = this.splitLyricsIntoChunks(text, panelPaths.length);
+    const result: string[] = [];
+
+    for (let i = 0; i < panelPaths.length; i++) {
+      const chunk = chunks[i];
+      if (!chunk.trim()) {
+        result.push(panelPaths[i]);
+        continue;
+      }
+
+      const lines = chunk.split('\n').filter(Boolean);
+      const maxChars = panelW >= 1000 ? 56 : 40;
+      const fontSize = panelW >= 1000 ? 36 : 32;
+      const lineHeight = fontSize + 12;
+      const totalTextH = lines.length * lineHeight;
+      const startY = panelH - 60 - totalTextH;
+      const gradTop = Math.max(0, Math.floor(((startY - 20) / panelH) * 100));
+
+      const textElems = lines
+        .map(
+          (line, li) =>
+            `<text x="${panelW / 2}" y="${startY + li * lineHeight}" ` +
+            `text-anchor="middle" font-family="Arial,sans-serif" font-size="${fontSize}" ` +
+            `fill="white" font-weight="600" ` +
+            `paint-order="stroke" stroke="#000" stroke-width="3" stroke-linejoin="round">` +
+            `${this.escapeXml(line.slice(0, maxChars))}</text>`,
+        )
+        .join('\n');
+
+      const svg = `<svg width="${panelW}" height="${panelH}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="lg${i}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="${gradTop}%" stop-color="#000" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#000" stop-opacity="0.72"/>
+          </linearGradient>
+        </defs>
+        <rect width="${panelW}" height="${panelH}" fill="url(#lg${i})"/>
+        ${textElems}
+      </svg>`;
+
+      const outPath = path.join(tmpDir, `panel_${i}_lyr.jpg`);
+      await sharp(panelPaths[i])
+        .composite([{ input: Buffer.from(svg), blend: 'over' }])
+        .jpeg({ quality: 92 })
+        .toFile(outPath);
+      result.push(outPath);
+    }
+
+    return result;
   }
 
   private escapeXml(text: string): string {
@@ -71,12 +156,17 @@ export class MusicVideoService {
     text: string,
     firstPanelPath: string,
     tmpDir: string,
+    panelW: number,
+    panelH: number,
   ): Promise<string> {
     const shortDesc = text.split('\n').filter(Boolean).slice(0, 2).join(' · ').slice(0, 90);
-    const safeTitle = this.escapeXml(title.slice(0, 55));
-    const safeDesc = this.escapeXml(shortDesc);
+    const titleFontSize = panelW >= 1000 ? 54 : 36;
+    const descFontSize = panelW >= 1000 ? 26 : 20;
+    const titleMaxChars = panelW >= 1000 ? 55 : 35;
+    const safeTitle = this.escapeXml(title.slice(0, titleMaxChars));
+    const safeDesc = this.escapeXml(shortDesc.slice(0, panelW >= 1000 ? 90 : 55));
 
-    const svg = `<svg width="${PANEL_W}" height="${PANEL_H}" xmlns="http://www.w3.org/2000/svg">
+    const svg = `<svg width="${panelW}" height="${panelH}" xmlns="http://www.w3.org/2000/svg">
       <defs>
         <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stop-color="#000" stop-opacity="0"/>
@@ -84,9 +174,9 @@ export class MusicVideoService {
           <stop offset="100%" stop-color="#000" stop-opacity="0.88"/>
         </linearGradient>
       </defs>
-      <rect width="${PANEL_W}" height="${PANEL_H}" fill="url(#g)"/>
-      <text x="64" y="${PANEL_H - 100}" font-family="Arial Black,Arial,sans-serif" font-size="54" font-weight="bold" fill="white" opacity="0.97">${safeTitle}</text>
-      <text x="64" y="${PANEL_H - 44}" font-family="Arial,sans-serif" font-size="26" fill="#e8e8e8" opacity="0.82">${safeDesc}</text>
+      <rect width="${panelW}" height="${panelH}" fill="url(#g)"/>
+      <text x="64" y="${panelH - 100}" font-family="Arial Black,Arial,sans-serif" font-size="${titleFontSize}" font-weight="bold" fill="white" opacity="0.97">${safeTitle}</text>
+      <text x="64" y="${panelH - 44}" font-family="Arial,sans-serif" font-size="${descFontSize}" fill="#e8e8e8" opacity="0.82">${safeDesc}</text>
     </svg>`;
 
     const cardPath = path.join(tmpDir, 'intro_card.jpg');
@@ -139,8 +229,23 @@ export class MusicVideoService {
     }
   }
 
-  private async generatePanelImages(analysis: AnalysisResult, tmpDir: string): Promise<string[]> {
+  private async generatePanelImages(
+    analysis: AnalysisResult,
+    tmpDir: string,
+    panelW: number,
+    panelH: number,
+    userImages: Buffer[] = [],
+  ): Promise<string[]> {
     const { style, overallMood, panels } = analysis;
+
+    const saveUserImage = async (imgBuffer: Buffer, idx: number): Promise<string> => {
+      const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
+      await sharp(imgBuffer)
+        .resize(panelW, panelH, { fit: 'cover' })
+        .jpeg({ quality: 95 })
+        .toFile(panelPath);
+      return panelPath;
+    };
 
     const generateOne = async (panel: PanelScene, idx: number, attempt = 0): Promise<string> => {
       const prompt =
@@ -148,7 +253,7 @@ export class MusicVideoService {
         `music video scene, cinematic composition, high resolution, detailed`;
       const url =
         `${POLLINATIONS_IMAGE}/${encodeURIComponent(prompt)}` +
-        `?width=${PANEL_W}&height=${PANEL_H}&seed=${idx * 13 + 7}&model=flux&nologo=true&enhance=true`;
+        `?width=${panelW}&height=${panelH}&seed=${idx * 13 + 7}&model=flux&nologo=true&enhance=true`;
 
       try {
         const res = await axios.get<ArrayBuffer>(url, {
@@ -157,7 +262,7 @@ export class MusicVideoService {
         });
         const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
         await sharp(Buffer.from(res.data))
-          .resize(PANEL_W, PANEL_H, { fit: 'cover' })
+          .resize(panelW, panelH, { fit: 'cover' })
           .jpeg({ quality: 95 })
           .toFile(panelPath);
         return panelPath;
@@ -171,12 +276,18 @@ export class MusicVideoService {
       }
     };
 
-    // Sequential with 2s gap to stay well under Pollinations rate limits
+    // Use user-uploaded images first; AI-generate the rest sequentially
     const paths: string[] = [];
+    let aiRequestCount = 0;
     for (let i = 0; i < panels.length; i++) {
-      paths.push(await generateOne(panels[i], i));
-      if (i < panels.length - 1) {
-        await new Promise((r) => setTimeout(r, 2000));
+      if (userImages[i]) {
+        paths.push(await saveUserImage(userImages[i], i));
+      } else {
+        if (aiRequestCount > 0) {
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+        paths.push(await generateOne(panels[i], i));
+        aiRequestCount++;
       }
     }
     return paths;
@@ -206,6 +317,8 @@ export class MusicVideoService {
     audioPath: string,
     totalDuration: number,
     outputPath: string,
+    panelW: number,
+    panelH: number,
     introPath?: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -213,10 +326,10 @@ export class MusicVideoService {
       const panelDuration = totalDuration / panelCount;
       const dt = panelDuration.toFixed(3);
 
-      const scaledW = 1664;
-      const scaledH = 936;
-      const maxPX = scaledW - 1280;
-      const maxPY = scaledH - 720;
+      const scaledW = Math.round(panelW * 1.3);
+      const scaledH = Math.round(panelH * 1.3);
+      const maxPX = scaledW - panelW;
+      const maxPY = scaledH - panelH;
 
       const inputArgs: string[] = [];
 
@@ -233,18 +346,16 @@ export class MusicVideoService {
 
       const filterParts: string[] = [];
 
-      // Intro card: subtle slow zoom-in for 5 seconds
       if (introPath) {
         const introPX = Math.floor(maxPX / 2);
         const introPY = Math.floor(maxPY / 2);
         filterParts.push(
           `[0:v]scale=${scaledW}:${scaledH},` +
-          `crop=1280:720:x='${introPX}*t/${INTRO_DURATION}':y='${introPY}*t/${INTRO_DURATION}',` +
+          `crop=${panelW}:${panelH}:x='${introPX}*t/${INTRO_DURATION}':y='${introPY}*t/${INTRO_DURATION}',` +
           `setpts=PTS-STARTPTS[v_intro]`,
         );
       }
 
-      // Panel Ken Burns
       panelPaths.forEach((_, i) => {
         const inputIdx = panelOffset + i;
         const dir = i % 4;
@@ -258,7 +369,7 @@ export class MusicVideoService {
           String(Math.floor(maxPY / 2));
         filterParts.push(
           `[${inputIdx}:v]scale=${scaledW}:${scaledH},` +
-          `crop=1280:720:x='${cropX}':y='${cropY}',` +
+          `crop=${panelW}:${panelH}:x='${cropX}':y='${cropY}',` +
           `setpts=PTS-STARTPTS[v${i}]`,
         );
       });
@@ -267,7 +378,6 @@ export class MusicVideoService {
       const panelConcat = panelPaths.map((_, i) => `[v${i}]`).join('');
       const totalSegments = (introPath ? 1 : 0) + panelCount;
 
-      // Delay audio by intro duration so it starts after the title card
       const audioFilter = introPath
         ? `; [${audioInputIdx}:a]adelay=${INTRO_DURATION * 1000}|${INTRO_DURATION * 1000}[audio]`
         : '';

@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
-  Film, Download, Loader2, Coins, Upload, CheckCircle2,
+  Film, Download, Loader2, Coins, Upload, CheckCircle2, ImagePlus, X,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
@@ -28,13 +28,19 @@ export default function MusicVideoPage() {
   const { user, token, setUser } = useAuthStore();
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [currency, setCurrency] = useState<"ap" | "p">("p");
+  const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
   const [step, setStep] = useState<Step>("idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [hasThumbnail, setHasThumbnail] = useState(false);
+  const [jobIdRef, setJobIdRef] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const imagesInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isGenerating = step !== "idle" && step !== "done";
@@ -80,7 +86,7 @@ export default function MusicVideoPage() {
         });
         if (!res.ok) return;
 
-        const data = await res.json() as { status: string; step: number; error?: string };
+        const data = await res.json() as { status: string; step: number; hasThumbnail?: boolean; error?: string };
 
         if (data.step === 1) setStep("step1");
         else if (data.step === 2) setStep("step2");
@@ -88,6 +94,7 @@ export default function MusicVideoPage() {
 
         if (data.status === "done") {
           stopPolling();
+          if (data.hasThumbnail) setHasThumbnail(true);
           await downloadVideo(jobId);
         } else if (data.status === "error") {
           stopPolling();
@@ -105,6 +112,26 @@ export default function MusicVideoPage() {
     if (file) setAudioFile(file);
   };
 
+  const handleImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+    const merged = [...imageFiles, ...selected].slice(0, 12);
+    if (imageFiles.length + selected.length > 12) {
+      toast.error(mv.imagesTooMany);
+    }
+    const previews = merged.map((f) => URL.createObjectURL(f));
+    imagePreviews.forEach((u) => URL.revokeObjectURL(u));
+    setImageFiles(merged);
+    setImagePreviews(previews);
+    e.target.value = "";
+  };
+
+  const removeImage = (idx: number) => {
+    URL.revokeObjectURL(imagePreviews[idx]);
+    setImageFiles((prev) => prev.filter((_, i) => i !== idx));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const handleGenerate = async () => {
     if (!audioFile) { toast.error(mv.toastNoFile); return; }
     if (!text.trim()) { toast.error(mv.toastNoText); return; }
@@ -120,6 +147,8 @@ export default function MusicVideoPage() {
 
     stopPolling();
     if (videoUrl) { URL.revokeObjectURL(videoUrl); setVideoUrl(null); }
+    setHasThumbnail(false);
+    setJobIdRef(null);
     setStep("step1");
 
     try {
@@ -127,7 +156,9 @@ export default function MusicVideoPage() {
       formData.append("audio", audioFile);
       formData.append("text", text);
       if (title.trim()) formData.append("title", title.trim());
+      formData.append("ratio", ratio);
       formData.append("currency", currency);
+      imageFiles.forEach((img) => formData.append("images", img));
 
       const res = await fetch(`${API}/api/music-video/generate`, {
         method: "POST",
@@ -141,6 +172,7 @@ export default function MusicVideoPage() {
       }
 
       const { jobId } = await res.json() as { jobId: string };
+      setJobIdRef(jobId);
       pollStatus(jobId);
     } catch (e) {
       stopPolling();
@@ -155,6 +187,23 @@ export default function MusicVideoPage() {
     a.href = videoUrl;
     a.download = "music-video.mp4";
     a.click();
+  };
+
+  const handleThumbnailDownload = async () => {
+    if (!jobIdRef) return;
+    try {
+      const res = await fetch(`${API}/api/music-video/thumbnail/${jobIdRef}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) return;
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "thumbnail.jpg";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
   };
 
   const stepLabels: Record<Exclude<Step, "idle" | "done">, string> = {
@@ -294,6 +343,88 @@ export default function MusicVideoPage() {
           <p className="text-xs text-muted-foreground">{mv.titleHint}</p>
         </div>
 
+        {/* Aspect Ratio */}
+        <div className="space-y-2">
+          <Label className="text-base font-semibold">{mv.ratioLabel}</Label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setRatio("16:9")}
+              className={cn(
+                "flex-1 rounded-lg border-2 px-4 py-3 text-left transition-colors",
+                ratio === "16:9"
+                  ? "border-violet-500 bg-violet-50 dark:bg-violet-950/30"
+                  : "border-border hover:border-violet-300"
+              )}
+            >
+              <p className="text-sm font-semibold">⬛ {mv.ratio16_9}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{mv.ratioHint16_9}</p>
+            </button>
+            <button
+              onClick={() => setRatio("9:16")}
+              className={cn(
+                "flex-1 rounded-lg border-2 px-4 py-3 text-left transition-colors",
+                ratio === "9:16"
+                  ? "border-pink-500 bg-pink-50 dark:bg-pink-950/30"
+                  : "border-border hover:border-pink-300"
+              )}
+            >
+              <p className="text-sm font-semibold">📱 {mv.ratio9_16}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{mv.ratioHint9_16}</p>
+            </button>
+          </div>
+        </div>
+
+        {/* Panel Background Images */}
+        <div className="space-y-2">
+          <Label className="text-base font-semibold">{mv.imagesLabel}</Label>
+          <p className="text-xs text-muted-foreground">{mv.imagesHint}</p>
+          <input
+            ref={imagesInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImagesChange}
+            className="hidden"
+          />
+          <button
+            onClick={() => imagesInputRef.current?.click()}
+            disabled={imageFiles.length >= 12}
+            className={cn(
+              "w-full rounded-lg border-2 border-dashed px-4 py-5 transition-colors flex items-center justify-center gap-2",
+              imageFiles.length >= 12
+                ? "border-border opacity-50 cursor-not-allowed"
+                : "border-border hover:border-violet-300 hover:bg-muted/30"
+            )}
+          >
+            <ImagePlus className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              {imageFiles.length > 0
+                ? `${imageFiles.length} ${mv.imagesSelected}`
+                : `+ ${mv.imagesLabel}`}
+            </span>
+            <span className="text-xs text-muted-foreground ml-1">({imageFiles.length}/12)</span>
+          </button>
+          {imagePreviews.length > 0 && (
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {imagePreviews.map((src, idx) => (
+                <div key={idx} className="relative group rounded-lg overflow-hidden aspect-square border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt={`panel ${idx + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => removeImage(idx)}
+                    className="absolute top-1 right-1 h-5 w-5 rounded-full bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3 text-white" />
+                  </button>
+                  <span className="absolute bottom-0 left-0 right-0 text-center text-[10px] text-white bg-black/40 py-0.5">
+                    #{idx + 1}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Text / Lyrics */}
         <div className="space-y-2">
           <Label className="text-base font-semibold">{mv.textLabel}</Label>
@@ -366,14 +497,26 @@ export default function MusicVideoPage() {
               className="w-full rounded-lg"
               style={{ maxHeight: 360 }}
             />
-            <Button
-              onClick={handleDownload}
-              variant="outline"
-              className="w-full h-11 border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-950/30"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              {mv.downloadBtn}
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleDownload}
+                variant="outline"
+                className="flex-1 h-11 border-pink-300 dark:border-pink-700 text-pink-700 dark:text-pink-300 hover:bg-pink-50 dark:hover:bg-pink-950/30"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {mv.downloadBtn}
+              </Button>
+              {hasThumbnail && (
+                <Button
+                  onClick={handleThumbnailDownload}
+                  variant="outline"
+                  className="flex-1 h-11 border-violet-300 dark:border-violet-700 text-violet-700 dark:text-violet-300 hover:bg-violet-50 dark:hover:bg-violet-950/30"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {mv.thumbnailBtn}
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
