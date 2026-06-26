@@ -52,14 +52,38 @@ export class MissionsService {
     const tData = template as Record<string, unknown>;
     if (tData.status !== 'template') throw new BadRequestException('Not a valid template');
 
+    const totalBudget = (dto.totalBudget ?? dto.budget) as number | undefined;
+    let escrowId: string | undefined;
+
+    // Escrow AP upfront so admin approval is never blocked by insufficient AP
+    if (totalBudget && totalBudget > 0) {
+      const advertiserDoc = await this.firebase.collection('users').doc(advertiserId).get();
+      if (!advertiserDoc.exists) throw new NotFoundException('Advertiser not found');
+      const currentPoints = (advertiserDoc.data()?.points ?? 0) as number;
+      if (currentPoints < totalBudget) throw new BadRequestException('Insufficient AP to create campaign');
+
+      await this.firebase.collection('users').doc(advertiserId).update({
+        points: currentPoints - totalBudget,
+      });
+
+      const escrowRef = await this.firebase.collection('escrow_wallets').add({
+        advertiserId,
+        lockedAP: totalBudget,
+        createdAt: new Date().toISOString(),
+        settled: false,
+      });
+      escrowId = escrowRef.id;
+    }
+
     const campaign = {
       ...dto,
       templateId,
       missionType: dto.missionType ?? tData.missionType,
       rewardPerUnit: dto.rewardPerUnit ?? tData.rewardPerUnit,
-      totalBudget: dto.totalBudget ?? dto.budget,
-      remainingBudget: dto.totalBudget ?? dto.budget,
+      totalBudget: totalBudget ?? null,
+      remainingBudget: totalBudget ?? null,
       advertiserId,
+      ...(escrowId ? { escrowId } : {}),
       status: 'pending',
       participantCount: 0,
       createdAt: new Date().toISOString(),
@@ -73,38 +97,19 @@ export class MissionsService {
     const data = mission as Record<string, unknown>;
     if (data.status !== 'pending') throw new BadRequestException('Mission is not pending');
 
+    // AP was already escrowed at campaign creation time via requestCampaign.
+    // Admin approval simply activates the mission.
     const totalBudget = (data.totalBudget as number) ?? 0;
-    const advertiserId = data.advertiserId as string;
+    await this.firebase.collection('missions').doc(missionId).update({
+      status: 'active',
+      remainingBudget: totalBudget > 0 ? totalBudget : null,
+      approvedAt: new Date().toISOString(),
+    });
 
-    if (totalBudget > 0 && advertiserId) {
-      const advertiserDoc = await this.firebase.collection('users').doc(advertiserId).get();
-      if (!advertiserDoc.exists) throw new NotFoundException('Advertiser not found');
-      const currentPoints = (advertiserDoc.data()?.points ?? 0) as number;
-      if (currentPoints < totalBudget) throw new BadRequestException('Advertiser has insufficient AP');
-
-      await this.firebase.collection('users').doc(advertiserId).update({
-        points: currentPoints - totalBudget,
-      });
-
-      const escrowRef = await this.firebase.collection('escrow_wallets').add({
-        advertiserId,
-        lockedAP: totalBudget,
-        missionId,
-        createdAt: new Date().toISOString(),
-        settled: false,
-      });
-
-      await this.firebase.collection('missions').doc(missionId).update({
-        status: 'active',
-        escrowId: escrowRef.id,
-        remainingBudget: totalBudget,
-        approvedAt: new Date().toISOString(),
-      });
-    } else {
-      await this.firebase.collection('missions').doc(missionId).update({
-        status: 'active',
-        approvedAt: new Date().toISOString(),
-      });
+    // Update escrow wallet with missionId if it was created without one
+    const escrowId = data.escrowId as string | undefined;
+    if (escrowId) {
+      await this.firebase.collection('escrow_wallets').doc(escrowId).update({ missionId });
     }
 
     const updated = await this.firebase.collection('missions').doc(missionId).get();
@@ -115,6 +120,30 @@ export class MissionsService {
     const mission = await this.findById(missionId);
     const data = mission as Record<string, unknown>;
     if (data.status !== 'pending') throw new BadRequestException('Mission is not pending');
+
+    // Refund escrowed AP back to advertiser
+    const escrowId = data.escrowId as string | undefined;
+    const advertiserId = data.advertiserId as string | undefined;
+    if (escrowId && advertiserId) {
+      const escrowDoc = await this.firebase.collection('escrow_wallets').doc(escrowId).get();
+      if (escrowDoc.exists && !escrowDoc.data()?.settled) {
+        const lockedAP = (escrowDoc.data()?.lockedAP as number) ?? 0;
+        if (lockedAP > 0) {
+          const advertiserDoc = await this.firebase.collection('users').doc(advertiserId).get();
+          if (advertiserDoc.exists) {
+            const currentPoints = (advertiserDoc.data()?.points ?? 0) as number;
+            await this.firebase.collection('users').doc(advertiserId).update({
+              points: currentPoints + lockedAP,
+            });
+          }
+        }
+        await this.firebase.collection('escrow_wallets').doc(escrowId).update({
+          settled: true,
+          refunded: true,
+          settledAt: new Date().toISOString(),
+        });
+      }
+    }
 
     await this.firebase.collection('missions').doc(missionId).update({
       status: 'rejected',

@@ -348,11 +348,14 @@ export default function AdminPage() {
     setActioningId(id);
     try {
       const res = await fetch(`${API}/api/missions/${id}/approve`, { method: "PATCH", headers: authHeader() });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || `HTTP ${res.status}`);
+      }
       toast.success(t.admin.approveSuccess);
       setPending((prev) => prev.filter((m) => m.id !== id));
-    } catch {
-      toast.error("Failed to approve mission");
+    } catch (err) {
+      toast.error(`Failed to approve: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setActioningId(null);
     }
@@ -366,13 +369,16 @@ export default function AdminPage() {
         headers: authHeader(),
         body: JSON.stringify({ reason: rejectReason.trim() || undefined }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || `HTTP ${res.status}`);
+      }
       toast.success(t.admin.rejectSuccess);
       setPending((prev) => prev.filter((m) => m.id !== id));
       setRejectTargetId(null);
       setRejectReason("");
-    } catch {
-      toast.error("Failed to reject mission");
+    } catch (err) {
+      toast.error(`Failed to reject: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setActioningId(null);
     }
