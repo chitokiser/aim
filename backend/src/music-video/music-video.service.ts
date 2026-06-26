@@ -18,17 +18,11 @@ interface AnalysisResult {
   panels: PanelScene[];
 }
 
-const POLLINATIONS_BASE = 'https://image.pollinations.ai/prompt';
-
-// 4 columns × 3 rows = 12 panels — smaller grid for faster generation & less memory
-const GRID_COLS = 4;
-const GRID_ROWS = 3;
-const PANEL_COUNT = GRID_COLS * GRID_ROWS;
-const PANEL_SIZE = 256;              // each cell 256×256
-const GRID_W = GRID_COLS * PANEL_SIZE; // 1024
-const GRID_H = GRID_ROWS * PANEL_SIZE; // 768
-
+const POLLINATIONS_IMAGE = 'https://image.pollinations.ai/prompt';
 const POLLINATIONS_TEXT = 'https://text.pollinations.ai';
+const PANEL_COUNT = 12;
+const PANEL_W = 1280;
+const PANEL_H = 720;
 
 @Injectable()
 export class MusicVideoService {
@@ -51,8 +45,7 @@ export class MusicVideoService {
     const analysis = await this.analyzeText(text);
 
     onStep(2);
-    const gridImageBuffer = await this.generateGridImage(analysis);
-    const panelPaths = await this.sliceGrid(gridImageBuffer, tmpDir);
+    const panelPaths = await this.generatePanelImages(analysis, tmpDir);
 
     onStep(3);
     const outputPath = path.join(tmpDir, 'output.mp4');
@@ -103,46 +96,32 @@ export class MusicVideoService {
     }
   }
 
-  private async generateGridImage(analysis: AnalysisResult): Promise<Buffer> {
-    const { panels, style, overallMood } = analysis;
-    const panelList = panels.map((p) => `${p.scene}.${p.description}`).join(', ');
-    const prompt =
-      `12-panel storyboard comic grid, 4 columns 3 rows, thin black borders separating panels, ` +
-      `${style} art style, ${overallMood} mood, consistent visual style. ` +
-      `Panels left-to-right top-to-bottom: ${panelList}. High quality illustration.`;
+  private async generatePanelImages(analysis: AnalysisResult, tmpDir: string): Promise<string[]> {
+    const { style, overallMood, panels } = analysis;
 
-    const encodedPrompt = encodeURIComponent(prompt);
-    const url =
-      `${POLLINATIONS_BASE}/${encodedPrompt}` +
-      `?width=${GRID_W}&height=${GRID_H}&seed=42&nologo=true&enhance=true`;
+    const generateOne = async (panel: PanelScene, idx: number): Promise<string> => {
+      const prompt =
+        `${panel.description}, ${style} art style, ${overallMood} mood, ` +
+        `music video scene, cinematic composition, high resolution, detailed`;
+      const url =
+        `${POLLINATIONS_IMAGE}/${encodeURIComponent(prompt)}` +
+        `?width=${PANEL_W}&height=${PANEL_H}&seed=${idx * 13 + 7}&model=flux&nologo=true&enhance=true`;
 
-    const res = await axios.get<ArrayBuffer>(url, {
-      responseType: 'arraybuffer',
-      timeout: 90000,
-    });
+      const res = await axios.get<ArrayBuffer>(url, {
+        responseType: 'arraybuffer',
+        timeout: 120000,
+      });
 
-    return Buffer.from(res.data);
-  }
+      const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
+      await sharp(Buffer.from(res.data))
+        .resize(PANEL_W, PANEL_H, { fit: 'cover' })
+        .jpeg({ quality: 95 })
+        .toFile(panelPath);
+      return panelPath;
+    };
 
-  private async sliceGrid(imageBuffer: Buffer, tmpDir: string): Promise<string[]> {
-    const resized = await sharp(imageBuffer)
-      .resize(GRID_W, GRID_H, { fit: 'fill' })
-      .toBuffer();
-
-    const paths: string[] = [];
-    for (let row = 0; row < GRID_ROWS; row++) {
-      for (let col = 0; col < GRID_COLS; col++) {
-        const idx = row * GRID_COLS + col;
-        const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
-        await sharp(resized)
-          .extract({ left: col * PANEL_SIZE, top: row * PANEL_SIZE, width: PANEL_SIZE, height: PANEL_SIZE })
-          .resize(1280, 720, { fit: 'cover' })
-          .jpeg({ quality: 88 })
-          .toFile(panelPath);
-        paths.push(panelPath);
-      }
-    }
-    return paths;
+    // Generate all 12 panels in parallel for speed
+    return Promise.all(panels.map((panel, idx) => generateOne(panel, idx)));
   }
 
   private getAudioDuration(mp3Path: string): Promise<number> {
