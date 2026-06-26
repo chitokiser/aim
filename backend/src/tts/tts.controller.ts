@@ -4,12 +4,16 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import axios from 'axios';
+import { spawn } from 'child_process';
+import { writeFile, unlink } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { UsersService } from '../users/users.service';
 
 const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1';
-const TTS_COST_AP = 50;
-const TTS_COST_P = 500;
+const COST_PER_10S_AP = 50;
+const COST_PER_10S_P = 500;
 
 interface GenerateDto {
   text: string;
@@ -24,6 +28,30 @@ interface GenerateDto {
 @Controller('tts')
 export class TtsController {
   constructor(private readonly usersService: UsersService) {}
+
+  private async getAudioDuration(buffer: Buffer): Promise<number> {
+    const tmpFile = join(tmpdir(), `tts-${Date.now()}.mp3`);
+    try {
+      await writeFile(tmpFile, buffer);
+      return await new Promise<number>((resolve) => {
+        const proc = spawn('ffprobe', [
+          '-v', 'error',
+          '-show_entries', 'format=duration',
+          '-of', 'default=noprint_wrappers=1:nokey=1',
+          tmpFile,
+        ]);
+        let out = '';
+        proc.stdout.on('data', (d: Buffer) => { out += d.toString(); });
+        proc.on('close', () => {
+          const sec = parseFloat(out.trim());
+          resolve(isNaN(sec) ? 10 : sec);
+        });
+        proc.on('error', () => resolve(10));
+      });
+    } finally {
+      await unlink(tmpFile).catch(() => undefined);
+    }
+  }
 
   private get apiKey(): string {
     const key = process.env.ELEVENLABS_API_KEY;
@@ -68,18 +96,18 @@ export class TtsController {
       throw new HttpException('text and voiceId are required', HttpStatus.BAD_REQUEST);
     }
 
-    // Verify balance before calling ElevenLabs
+    // Verify minimum balance (at least 1 block = 10s) before calling ElevenLabs
     const userData = await this.usersService.findById(req.user.sub) as {
       points?: number;
       freePoints?: number;
     };
 
     if (currency === 'ap') {
-      if ((userData.points ?? 0) < TTS_COST_AP) {
+      if ((userData.points ?? 0) < COST_PER_10S_AP) {
         throw new HttpException('Insufficient AP', HttpStatus.PAYMENT_REQUIRED);
       }
     } else {
-      if ((userData.freePoints ?? 0) < TTS_COST_P) {
+      if ((userData.freePoints ?? 0) < COST_PER_10S_P) {
         throw new HttpException('Insufficient P', HttpStatus.PAYMENT_REQUIRED);
       }
     }
@@ -105,16 +133,34 @@ export class TtsController {
         },
       );
 
-      // Deduct points only after successful generation
+      const audioBuffer = Buffer.from(elevenRes.data);
+      const durationSec = await this.getAudioDuration(audioBuffer);
+      const blocks = Math.ceil(durationSec / 10);
+      const costAp = blocks * COST_PER_10S_AP;
+      const costP = blocks * COST_PER_10S_P;
+
+      // Re-fetch balance and check actual cost after knowing duration
+      const freshUser = await this.usersService.findById(req.user.sub) as {
+        points?: number;
+        freePoints?: number;
+      };
       if (currency === 'ap') {
-        await this.usersService.deductPoints(req.user.sub, TTS_COST_AP);
+        if ((freshUser.points ?? 0) < costAp) {
+          throw new HttpException('Insufficient AP', HttpStatus.PAYMENT_REQUIRED);
+        }
+        await this.usersService.deductPoints(req.user.sub, costAp);
       } else {
-        await this.usersService.deductFreePoints(req.user.sub, TTS_COST_P);
+        if ((freshUser.freePoints ?? 0) < costP) {
+          throw new HttpException('Insufficient P', HttpStatus.PAYMENT_REQUIRED);
+        }
+        await this.usersService.deductFreePoints(req.user.sub, costP);
       }
 
       res.setHeader('Content-Type', 'audio/mpeg');
       res.setHeader('Content-Disposition', 'attachment; filename="tts-output.mp3"');
-      res.send(Buffer.from(elevenRes.data));
+      res.setHeader('X-Audio-Duration', durationSec.toFixed(2));
+      res.setHeader('X-Cost', currency === 'ap' ? costAp : costP);
+      res.send(audioBuffer);
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       throw new HttpException(

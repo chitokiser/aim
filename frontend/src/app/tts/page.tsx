@@ -21,8 +21,8 @@ import { cn } from "@/lib/utils";
 const API = process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app";
 
 const MAX_CHARS = 5000;
-const TTS_COST_AP = 50;
-const TTS_COST_P = 500;
+const MIN_AP = 50;   // minimum 1 block = 10 seconds
+const MIN_P = 500;
 
 const MODELS = [
   { value: "eleven_multilingual_v2", label: "Multilingual v2" },
@@ -88,11 +88,11 @@ export default function TtsPage() {
       toast.error(tt.toastOverLimit.replace("{{max}}", MAX_CHARS.toLocaleString()));
       return;
     }
-    if (currency === "ap" && (user?.points ?? 0) < TTS_COST_AP) {
+    if (currency === "ap" && (user?.points ?? 0) < MIN_AP) {
       toast.error(tt.toastInsufficientAp);
       return;
     }
-    if (currency === "p" && (user?.freePoints ?? 0) < TTS_COST_P) {
+    if (currency === "p" && (user?.freePoints ?? 0) < MIN_P) {
       toast.error(tt.toastInsufficientP);
       return;
     }
@@ -356,7 +356,7 @@ export default function TtsPage() {
               <Mic className="h-5 w-5 mr-2" />
               {tt.generateBtn}
               <span className="ml-2 text-xs opacity-80">
-                ({currency === "ap" ? `${TTS_COST_AP} AP` : `${TTS_COST_P} P`})
+                ({currency === "ap" ? "50 AP / 10s" : "500 P / 10s"})
               </span>
             </>
           )}
