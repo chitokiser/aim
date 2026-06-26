@@ -162,6 +162,7 @@ export class TtsController {
       res.setHeader('X-Cost', currency === 'ap' ? costAp : costP);
       res.send(audioBuffer);
     } catch (e: unknown) {
+      if (e instanceof HttpException) throw e;
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       throw new HttpException(
         err.message ?? 'ElevenLabs error',

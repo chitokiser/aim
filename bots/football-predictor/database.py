@@ -207,6 +207,24 @@ async def init_db() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Main platform freePoints sync
+# ---------------------------------------------------------------------------
+
+async def _sync_main_freepoints(telegram_id: int, delta: int) -> None:
+    """Mirror a P delta to the main users collection's freePoints field."""
+    if delta == 0:
+        return
+    try:
+        async for doc in db.collection("users").where("telegramId", "==", str(telegram_id)).limit(1).stream():
+            current = doc.to_dict().get("freePoints", 0) or 0
+            new_val = max(0, current + delta)
+            await db.collection("users").document(doc.id).update({"freePoints": new_val})
+            return
+    except Exception:
+        pass  # never crash the bot if sync fails
+
+
+# ---------------------------------------------------------------------------
 # User functions
 # ---------------------------------------------------------------------------
 
@@ -249,6 +267,7 @@ async def add_welcome_bonus(session, user: User, bonus: int) -> None:
     current = doc.to_dict().get("p_balance", 0) if doc.exists else 0
     await ref.update({"p_balance": current + bonus})
     user.p_balance = current + bonus
+    await _sync_main_freepoints(user.telegram_id, bonus)
 
 
 async def claim_daily(session, user: User, amount: int) -> tuple[bool, str]:
@@ -266,6 +285,7 @@ async def claim_daily(session, user: User, amount: int) -> tuple[bool, str]:
     user.p_balance = new_balance
     user.last_daily = today
     user.streak_days = new_streak
+    await _sync_main_freepoints(user.telegram_id, amount)
     return True, "ok"
 
 
@@ -455,10 +475,12 @@ async def create_prediction(
     doc = await ref.get()
     current_balance = doc.to_dict().get("p_balance", 0) if doc.exists else 0
     current_total = doc.to_dict().get("total_predicted", 0) if doc.exists else 0
+    actual_deduct = min(stake_ap, current_balance)
     await ref.update({
         "p_balance": max(0, current_balance - stake_ap),
         "total_predicted": current_total + 1,
     })
+    await _sync_main_freepoints(user.telegram_id, -actual_deduct)
     return Prediction(
         user_id=user.telegram_id,
         match_id=match_id,
@@ -550,6 +572,7 @@ async def settle_match(session, match: Match, home_score: int, away_score: int) 
                     "correct_predictions": udata.get("correct_predictions", 0) + 1,
                     "total_ap_won": udata.get("total_ap_won", 0) + pred.payout_ap,
                 })
+                await _sync_main_freepoints(pred.user_id, pred.payout_ap)
             winners.append(pred.user_id)
             total_payout += pred.payout_ap
 
@@ -569,6 +592,7 @@ async def cancel_match_predictions(session, match: Match) -> int:
         if user_doc.exists:
             current = user_doc.to_dict().get("p_balance", 0)
             await user_ref.update({"p_balance": current + pred.stake_ap})
+            await _sync_main_freepoints(pred.user_id, pred.stake_ap)
         count += 1
     await update_match_status(session, match.id, "cancelled")
     return count
