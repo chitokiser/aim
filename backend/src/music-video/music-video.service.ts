@@ -142,7 +142,7 @@ export class MusicVideoService {
   private async generatePanelImages(analysis: AnalysisResult, tmpDir: string): Promise<string[]> {
     const { style, overallMood, panels } = analysis;
 
-    const generateOne = async (panel: PanelScene, idx: number): Promise<string> => {
+    const generateOne = async (panel: PanelScene, idx: number, attempt = 0): Promise<string> => {
       const prompt =
         `${panel.description}, ${style} art style, ${overallMood} mood, ` +
         `music video scene, cinematic composition, high resolution, detailed`;
@@ -150,21 +150,38 @@ export class MusicVideoService {
         `${POLLINATIONS_IMAGE}/${encodeURIComponent(prompt)}` +
         `?width=${PANEL_W}&height=${PANEL_H}&seed=${idx * 13 + 7}&model=flux&nologo=true&enhance=true`;
 
-      const res = await axios.get<ArrayBuffer>(url, {
-        responseType: 'arraybuffer',
-        timeout: 120000,
-      });
-
-      const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
-      await sharp(Buffer.from(res.data))
-        .resize(PANEL_W, PANEL_H, { fit: 'cover' })
-        .jpeg({ quality: 95 })
-        .toFile(panelPath);
-      return panelPath;
+      try {
+        const res = await axios.get<ArrayBuffer>(url, {
+          responseType: 'arraybuffer',
+          timeout: 120000,
+        });
+        const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
+        await sharp(Buffer.from(res.data))
+          .resize(PANEL_W, PANEL_H, { fit: 'cover' })
+          .jpeg({ quality: 95 })
+          .toFile(panelPath);
+        return panelPath;
+      } catch (e: unknown) {
+        const status = (e as { response?: { status?: number } }).response?.status;
+        if (attempt < 3 && (status === 429 || status === 503 || status === 502)) {
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 3000));
+          return generateOne(panel, idx, attempt + 1);
+        }
+        throw e;
+      }
     };
 
-    // Generate all 12 panels in parallel for speed
-    return Promise.all(panels.map((panel, idx) => generateOne(panel, idx)));
+    // Process in batches of 3 to stay under Pollinations rate limits
+    const paths: string[] = new Array(panels.length) as string[];
+    for (let i = 0; i < panels.length; i += 3) {
+      const chunk = panels.slice(i, i + 3);
+      const chunkPaths = await Promise.all(chunk.map((panel, j) => generateOne(panel, i + j)));
+      chunkPaths.forEach((p, j) => { paths[i + j] = p; });
+      if (i + 3 < panels.length) {
+        await new Promise((r) => setTimeout(r, 500));
+      }
+    }
+    return paths;
   }
 
   private getAudioDuration(mp3Path: string): Promise<number> {

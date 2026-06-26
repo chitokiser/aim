@@ -47,7 +47,7 @@ export class MusicVideoController {
 
   @Post('generate')
   @UseGuards(JwtAuthGuard)
-  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: 50 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('audio', { limits: { fileSize: 100 * 1024 * 1024 } }))
   async generate(
     @UploadedFile() file: Express.Multer.File,
     @Body() body: GenerateDto,

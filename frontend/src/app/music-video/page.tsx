@@ -237,14 +237,14 @@ export default function MusicVideoPage() {
       </div>
 
       <div className="space-y-6">
-        {/* MP3 Upload */}
+        {/* Audio Upload */}
         <div className="space-y-2">
           <Label className="text-base font-semibold">{mv.audioLabel}</Label>
           <p className="text-xs text-muted-foreground">{mv.audioHint}</p>
           <input
             ref={fileInputRef}
             type="file"
-            accept="audio/mpeg,audio/mp3,.mp3"
+            accept="audio/mpeg,audio/mp3,.mp3,audio/wav,.wav,audio/x-wav"
             onChange={handleFileChange}
             className="hidden"
           />
