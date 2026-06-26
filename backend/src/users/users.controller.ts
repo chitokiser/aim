@@ -40,6 +40,18 @@ export class UsersController {
     return this.pointsService.award(id, body.amount, 'admin_charge', body.reason ?? 'Admin charge');
   }
 
+  @Post(':id/charge-p')
+  @UseGuards(JwtAuthGuard)
+  async chargeP(
+    @Request() req: { user: { sub: string } },
+    @Param('id') id: string,
+    @Body() body: { amount: number },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    await this.usersService.addFreePoints(id, body.amount);
+    return this.usersService.findById(id);
+  }
+
   @Get(':id/transactions')
   @UseGuards(JwtAuthGuard)
   async getUserTransactions(

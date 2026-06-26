@@ -94,6 +94,7 @@ export class UsersService {
       referralCode,
       mentorId: mentor?.id ?? null,
       points: 0,
+      freePoints: 10000,
       postCount: 0,
       role: 'member',
       createdAt: now,
