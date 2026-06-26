@@ -1,5 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
-import * as sharp from 'sharp';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const sharp = require('sharp') as (input: Buffer | string) => import('sharp').Sharp;
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import * as os from 'os';
@@ -124,7 +125,7 @@ export class MusicVideoService {
   }
 
   private async sliceGrid(imageBuffer: Buffer, tmpDir: string): Promise<string[]> {
-    const resized = await (sharp as unknown as (input: Buffer) => sharp.Sharp)(imageBuffer)
+    const resized = await sharp(imageBuffer)
       .resize(GRID_W, GRID_H, { fit: 'fill' })
       .toBuffer();
 
@@ -133,7 +134,7 @@ export class MusicVideoService {
       for (let col = 0; col < GRID_COLS; col++) {
         const idx = row * GRID_COLS + col;
         const panelPath = path.join(tmpDir, `panel_${idx}.jpg`);
-        await (sharp as unknown as (input: Buffer) => sharp.Sharp)(resized)
+        await sharp(resized)
           .extract({ left: col * PANEL_SIZE, top: row * PANEL_SIZE, width: PANEL_SIZE, height: PANEL_SIZE })
           .resize(1280, 720, { fit: 'cover' })
           .jpeg({ quality: 88 })
