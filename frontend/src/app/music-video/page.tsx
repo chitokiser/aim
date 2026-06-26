@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
@@ -27,6 +28,7 @@ export default function MusicVideoPage() {
   const { user, token, setUser } = useAuthStore();
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [currency, setCurrency] = useState<"ap" | "p">("p");
   const [step, setStep] = useState<Step>("idle");
@@ -124,6 +126,7 @@ export default function MusicVideoPage() {
       const formData = new FormData();
       formData.append("audio", audioFile);
       formData.append("text", text);
+      if (title.trim()) formData.append("title", title.trim());
       formData.append("currency", currency);
 
       const res = await fetch(`${API}/api/music-video/generate`, {
@@ -271,6 +274,24 @@ export default function MusicVideoPage() {
               </>
             )}
           </button>
+        </div>
+
+        {/* YouTube Title */}
+        <div className="space-y-2">
+          <Label className="text-base font-semibold flex items-center gap-2">
+            {mv.titleLabel}
+            <span className="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              YouTube
+            </span>
+          </Label>
+          <Input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={mv.titlePlaceholder}
+            maxLength={80}
+            className="font-medium"
+          />
+          <p className="text-xs text-muted-foreground">{mv.titleHint}</p>
         </div>
 
         {/* Text / Lyrics */}

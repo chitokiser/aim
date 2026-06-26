@@ -23,17 +23,14 @@ const POLLINATIONS_TEXT = 'https://text.pollinations.ai';
 const PANEL_COUNT = 12;
 const PANEL_W = 1280;
 const PANEL_H = 720;
+const INTRO_DURATION = 5;
 
 @Injectable()
 export class MusicVideoService {
-  /**
-   * Runs generation and writes output.mp4 inside a tmpDir managed by the caller.
-   * onStep(1|2|3) is called as each phase starts so the controller can track progress.
-   * Returns { outputPath, tmpDir } — caller is responsible for cleanup.
-   */
   async generateToFile(
     mp3Buffer: Buffer,
     text: string,
+    title: string | undefined,
     onStep: (step: 1 | 2 | 3) => void,
   ): Promise<{ outputPath: string; tmpDir: string }> {
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mv-'));
@@ -47,11 +44,57 @@ export class MusicVideoService {
     onStep(2);
     const panelPaths = await this.generatePanelImages(analysis, tmpDir);
 
+    // Build intro title card from the first story-matched still cut
+    let introPath: string | undefined;
+    if (title?.trim() && panelPaths.length > 0) {
+      introPath = await this.generateTitleCard(title.trim(), text, panelPaths[0], tmpDir);
+    }
+
     onStep(3);
     const outputPath = path.join(tmpDir, 'output.mp4');
-    await this.createVideo(panelPaths, mp3Path, duration, outputPath);
+    await this.createVideo(panelPaths, mp3Path, duration, outputPath, introPath);
 
     return { outputPath, tmpDir };
+  }
+
+  private escapeXml(text: string): string {
+    return text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  }
+
+  private async generateTitleCard(
+    title: string,
+    text: string,
+    firstPanelPath: string,
+    tmpDir: string,
+  ): Promise<string> {
+    const shortDesc = text.split('\n').filter(Boolean).slice(0, 2).join(' · ').slice(0, 90);
+    const safeTitle = this.escapeXml(title.slice(0, 55));
+    const safeDesc = this.escapeXml(shortDesc);
+
+    const svg = `<svg width="${PANEL_W}" height="${PANEL_H}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+          <stop offset="55%" stop-color="#000" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#000" stop-opacity="0.88"/>
+        </linearGradient>
+      </defs>
+      <rect width="${PANEL_W}" height="${PANEL_H}" fill="url(#g)"/>
+      <text x="64" y="${PANEL_H - 100}" font-family="Arial Black,Arial,sans-serif" font-size="54" font-weight="bold" fill="white" opacity="0.97">${safeTitle}</text>
+      <text x="64" y="${PANEL_H - 44}" font-family="Arial,sans-serif" font-size="26" fill="#e8e8e8" opacity="0.82">${safeDesc}</text>
+    </svg>`;
+
+    const cardPath = path.join(tmpDir, 'intro_card.jpg');
+    await sharp(firstPanelPath)
+      .composite([{ input: Buffer.from(svg), blend: 'over' }])
+      .jpeg({ quality: 95 })
+      .toFile(cardPath);
+    return cardPath;
   }
 
   private buildScenePrompt(text: string): string {
@@ -148,25 +191,47 @@ export class MusicVideoService {
     audioPath: string,
     totalDuration: number,
     outputPath: string,
+    introPath?: string,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const panelCount = panelPaths.length;
       const panelDuration = totalDuration / panelCount;
       const dt = panelDuration.toFixed(3);
 
-      // Scale each panel 1.3× then crop with time-varying offset — same Ken Burns look
-      // but processed as a vectorised crop instead of frame-by-frame zoompan (much faster)
-      const scaledW = 1664; // 1280 * 1.3
-      const scaledH = 936;  // 720  * 1.3
-      const maxPX = scaledW - 1280; // 384
-      const maxPY = scaledH - 720;  // 216
+      const scaledW = 1664;
+      const scaledH = 936;
+      const maxPX = scaledW - 1280;
+      const maxPY = scaledH - 720;
 
       const inputArgs: string[] = [];
+
+      if (introPath) {
+        inputArgs.push('-loop', '1', '-t', String(INTRO_DURATION), '-i', introPath);
+      }
+
       panelPaths.forEach((p) => {
         inputArgs.push('-loop', '1', '-t', dt, '-i', p);
       });
 
-      const filterParts = panelPaths.map((_, i) => {
+      const panelOffset = introPath ? 1 : 0;
+      const audioInputIdx = panelOffset + panelCount;
+
+      const filterParts: string[] = [];
+
+      // Intro card: subtle slow zoom-in for 5 seconds
+      if (introPath) {
+        const introPX = Math.floor(maxPX / 2);
+        const introPY = Math.floor(maxPY / 2);
+        filterParts.push(
+          `[0:v]scale=${scaledW}:${scaledH},` +
+          `crop=1280:720:x='${introPX}*t/${INTRO_DURATION}':y='${introPY}*t/${INTRO_DURATION}',` +
+          `setpts=PTS-STARTPTS[v_intro]`,
+        );
+      }
+
+      // Panel Ken Burns
+      panelPaths.forEach((_, i) => {
+        const inputIdx = panelOffset + i;
         const dir = i % 4;
         const cropX =
           dir === 0 ? `${maxPX}*t/${dt}` :
@@ -176,15 +241,27 @@ export class MusicVideoService {
           dir === 2 ? `${maxPY}*t/${dt}` :
           dir === 3 ? `${maxPY}*(1-t/${dt})` :
           String(Math.floor(maxPY / 2));
-        return (
-          `[${i}:v]scale=${scaledW}:${scaledH},` +
+        filterParts.push(
+          `[${inputIdx}:v]scale=${scaledW}:${scaledH},` +
           `crop=1280:720:x='${cropX}':y='${cropY}',` +
-          `setpts=PTS-STARTPTS[v${i}]`
+          `setpts=PTS-STARTPTS[v${i}]`,
         );
       });
 
-      const concatInputs = panelPaths.map((_, i) => `[v${i}]`).join('');
-      const filterComplex = filterParts.join('; ') + `; ${concatInputs}concat=n=${panelCount}:v=1:a=0[video]`;
+      const introConcat = introPath ? '[v_intro]' : '';
+      const panelConcat = panelPaths.map((_, i) => `[v${i}]`).join('');
+      const totalSegments = (introPath ? 1 : 0) + panelCount;
+
+      // Delay audio by intro duration so it starts after the title card
+      const audioFilter = introPath
+        ? `; [${audioInputIdx}:a]adelay=${INTRO_DURATION * 1000}|${INTRO_DURATION * 1000}[audio]`
+        : '';
+      const audioMap = introPath ? '[audio]' : `${audioInputIdx}:a`;
+
+      const filterComplex =
+        filterParts.join('; ') +
+        `; ${introConcat}${panelConcat}concat=n=${totalSegments}:v=1:a=0[video]` +
+        audioFilter;
 
       const args = [
         '-y',
@@ -192,7 +269,7 @@ export class MusicVideoService {
         '-i', audioPath,
         '-filter_complex', filterComplex,
         '-map', '[video]',
-        '-map', `${panelCount}:a`,
+        '-map', audioMap,
         '-c:v', 'libx264',
         '-preset', 'ultrafast',
         '-crf', '26',

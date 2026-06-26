@@ -29,6 +29,7 @@ interface Job {
 
 interface GenerateDto {
   text: string;
+  title?: string;
   currency?: 'ap' | 'p';
 }
 
@@ -89,7 +90,7 @@ export class MusicVideoController {
     // Run generation in background — do NOT await here
     const mp3Buffer = Buffer.from(file.buffer);
     this.musicVideoService
-      .generateToFile(mp3Buffer, body.text, (step) => {
+      .generateToFile(mp3Buffer, body.text, body.title, (step) => {
         const j = this.jobs.get(jobId);
         if (j) j.step = step;
       })
