@@ -31,6 +31,7 @@ interface Member {
   firstName?: string;
   telegramId?: string;
   points?: number;
+  freePoints?: number;
   postCount?: number;
   isAdmin?: boolean;
   createdAt?: string;
@@ -91,6 +92,11 @@ export default function AdminPage() {
   const [chargeAmount, setChargeAmount] = useState("");
   const [chargeReason, setChargeReason] = useState("");
   const [charging, setCharging] = useState(false);
+
+  // Charge P dialog
+  const [chargePTarget, setChargePTarget] = useState<Member | null>(null);
+  const [chargePAmount, setChargePAmount] = useState("");
+  const [chargingP, setChargingP] = useState(false);
 
   // History dialog
   const [historyTarget, setHistoryTarget] = useState<Member | null>(null);
@@ -397,6 +403,28 @@ export default function AdminPage() {
       toast.error(t.admin.chargeFail);
     } finally {
       setCharging(false);
+    }
+  };
+
+  const submitChargeP = async () => {
+    if (!chargePTarget || !chargePAmount) return;
+    const amount = Number(chargePAmount);
+    if (isNaN(amount) || amount <= 0) return;
+    setChargingP(true);
+    try {
+      const res = await fetch(`${API}/api/users/${chargePTarget.id}/charge-p`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ amount }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(`${chargePTarget.firstName ?? chargePTarget.username} — ${amount.toLocaleString()} P 지급 완료`);
+      setChargePTarget(null);
+      loadMembers(search);
+    } catch {
+      toast.error("P 지급에 실패했습니다");
+    } finally {
+      setChargingP(false);
     }
   };
 
@@ -855,6 +883,7 @@ export default function AdminPage() {
                         <div className="flex gap-3 mt-1 text-xs text-muted-foreground flex-wrap">
                           {member.telegramId && <span>TG: {member.telegramId}</span>}
                           <span className="font-medium text-foreground">{(member.points ?? 0).toLocaleString()} AP</span>
+                          <span className="font-medium text-violet-600">{(member.freePoints ?? 0).toLocaleString()} P</span>
                           {member.postCount !== undefined && <span>{member.postCount} posts</span>}
                           {member.createdAt && (
                             <span>{member.createdAt.slice(0, 10)}</span>
@@ -870,6 +899,15 @@ export default function AdminPage() {
                         >
                           <Zap className="h-3.5 w-3.5" />
                           {t.admin.chargeAp}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1 border-violet-400 text-violet-600 hover:bg-violet-50"
+                          onClick={() => { setChargePTarget(member); setChargePAmount(""); }}
+                        >
+                          <Zap className="h-3.5 w-3.5" />
+                          P 지급
                         </Button>
                         <Button
                           size="sm"
@@ -966,6 +1004,61 @@ export default function AdminPage() {
                   <Button variant="outline" onClick={() => setChargeTarget(null)}>
                     Cancel
                   </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* Charge P Dialog */}
+          <Dialog open={!!chargePTarget} onOpenChange={(o) => !o && setChargePTarget(null)}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-violet-500" />
+                  P 포인트 지급
+                  {chargePTarget && (
+                    <span className="font-normal text-muted-foreground text-sm ml-1">
+                      — {chargePTarget.firstName || chargePTarget.username}
+                    </span>
+                  )}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                {chargePTarget && (
+                  <div className="rounded-lg bg-muted p-3 text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">현재 P 잔액</span>
+                      <span className="font-bold text-violet-600">{(chargePTarget.freePoints ?? 0).toLocaleString()} P</span>
+                    </div>
+                  </div>
+                )}
+                <div className="space-y-1.5">
+                  <Label>지급 금액 (P)</Label>
+                  <Input
+                    type="number"
+                    placeholder="예: 10000"
+                    value={chargePAmount}
+                    onChange={(e) => setChargePAmount(e.target.value)}
+                  />
+                  {chargePAmount && !isNaN(Number(chargePAmount)) && (
+                    <p className="text-xs text-muted-foreground">
+                      지급 후: {((chargePTarget?.freePoints ?? 0) + Number(chargePAmount)).toLocaleString()} P
+                    </p>
+                  )}
+                </div>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    className="flex-1 bg-gradient-to-r from-violet-500 to-violet-600 text-white hover:opacity-90"
+                    disabled={chargingP || !chargePAmount || Number(chargePAmount) <= 0}
+                    onClick={submitChargeP}
+                  >
+                    {chargingP ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />지급 중...</>
+                    ) : (
+                      <><Zap className="h-4 w-4 mr-2" />P 지급</>
+                    )}
+                  </Button>
+                  <Button variant="outline" onClick={() => setChargePTarget(null)}>취소</Button>
                 </div>
               </div>
             </DialogContent>
