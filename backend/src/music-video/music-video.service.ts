@@ -163,22 +163,20 @@ export class MusicVideoService {
         return panelPath;
       } catch (e: unknown) {
         const status = (e as { response?: { status?: number } }).response?.status;
-        if (attempt < 3 && (status === 429 || status === 503 || status === 502)) {
-          await new Promise((r) => setTimeout(r, (attempt + 1) * 3000));
+        if (attempt < 5 && (status === 429 || status === 503 || status === 502)) {
+          await new Promise((r) => setTimeout(r, (attempt + 1) * 5000));
           return generateOne(panel, idx, attempt + 1);
         }
         throw e;
       }
     };
 
-    // Process in batches of 3 to stay under Pollinations rate limits
-    const paths: string[] = new Array(panels.length) as string[];
-    for (let i = 0; i < panels.length; i += 3) {
-      const chunk = panels.slice(i, i + 3);
-      const chunkPaths = await Promise.all(chunk.map((panel, j) => generateOne(panel, i + j)));
-      chunkPaths.forEach((p, j) => { paths[i + j] = p; });
-      if (i + 3 < panels.length) {
-        await new Promise((r) => setTimeout(r, 500));
+    // Sequential with 2s gap to stay well under Pollinations rate limits
+    const paths: string[] = [];
+    for (let i = 0; i < panels.length; i++) {
+      paths.push(await generateOne(panels[i], i));
+      if (i < panels.length - 1) {
+        await new Promise((r) => setTimeout(r, 2000));
       }
     }
     return paths;
