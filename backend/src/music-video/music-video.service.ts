@@ -331,11 +331,11 @@ export class MusicVideoService {
       const inputArgs: string[] = [];
 
       if (introPath) {
-        inputArgs.push('-loop', '1', '-t', String(INTRO_DURATION), '-i', introPath);
+        inputArgs.push('-r', '25', '-loop', '1', '-t', String(INTRO_DURATION), '-i', introPath);
       }
 
       panelPaths.forEach((p) => {
-        inputArgs.push('-loop', '1', '-t', dt, '-i', p);
+        inputArgs.push('-r', '25', '-loop', '1', '-t', dt, '-i', p);
       });
 
       const panelOffset = introPath ? 1 : 0;
@@ -375,15 +375,11 @@ export class MusicVideoService {
       const panelConcat = panelPaths.map((_, i) => `[v${i}]`).join('');
       const totalSegments = (introPath ? 1 : 0) + panelCount;
 
-      const audioFilter = introPath
-        ? `; [${audioInputIdx}:a]adelay=${INTRO_DURATION * 1000}|${INTRO_DURATION * 1000}[audio]`
-        : '';
-      const audioMap = introPath ? '[audio]' : `${audioInputIdx}:a`;
+      const audioMap = `${audioInputIdx}:a`;
 
       const filterComplex =
         filterParts.join('; ') +
-        `; ${introConcat}${panelConcat}concat=n=${totalSegments}:v=1:a=0[video]` +
-        audioFilter;
+        `; ${introConcat}${panelConcat}concat=n=${totalSegments}:v=1:a=0[video]`;
 
       const args = [
         '-y',
@@ -395,9 +391,12 @@ export class MusicVideoService {
         '-c:v', 'libx264',
         '-preset', 'ultrafast',
         '-crf', '26',
+        '-r', '25',
+        '-g', '50',
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac',
         '-b:a', '128k',
+        '-movflags', '+faststart',
         '-shortest',
         outputPath,
       ];
