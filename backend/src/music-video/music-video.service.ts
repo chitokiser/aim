@@ -30,7 +30,11 @@ const GRID_H = GRID_ROWS * PANEL_SIZE; // 768
 
 @Injectable()
 export class MusicVideoService {
-  private readonly anthropic = new Anthropic();
+  private get anthropic(): Anthropic {
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) throw new HttpException('ANTHROPIC_API_KEY not configured', HttpStatus.INTERNAL_SERVER_ERROR);
+    return new Anthropic({ apiKey: key });
+  }
 
   /**
    * Runs generation and writes output.mp4 inside a tmpDir managed by the caller.
