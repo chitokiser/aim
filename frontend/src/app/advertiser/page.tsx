@@ -15,8 +15,8 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
-  Megaphone, Coins, Plus, TrendingUp,
-  Users, Eye, MousePointerClick, Tag, Copy, ExternalLink, LayoutTemplate, Loader2, ArrowLeft,
+  Megaphone, Coins, Plus,
+  Users, Eye, MousePointerClick, Copy, ExternalLink, LayoutTemplate, Loader2, ArrowLeft,
   CheckCircle, XCircle, Clock, ChevronRight,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
@@ -33,11 +33,6 @@ const MISSION_TYPES_EN = [
   { value: "signup", label: "Sign Up", price: "1,000 AP/signup", desc: "Reward on service sign-up" },
 ];
 
-const MY_MISSIONS = [
-  { id: "1", title: "AI CF Video Production", type: "cf_video", budget: 5000000, spent: 2500000, participants: 234, status: "active" },
-  { id: "2", title: "Blog AI Review", type: "blog_post", budget: 3000000, spent: 1800000, participants: 567, status: "active" },
-  { id: "3", title: "Instagram Follow", type: "follow", budget: 1000000, spent: 1000000, participants: 2000, status: "ended" },
-];
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -312,20 +307,14 @@ export default function AdvertiserPage() {
     }
   };
 
-  const stats = [
-    { label: t.advertiser.statActiveMissions, value: "2", icon: Megaphone, color: "text-violet-500" },
-    { label: t.advertiser.statParticipants, value: "801", icon: Users, color: "text-cyan-500" },
-    { label: t.advertiser.statViews, value: "45,200", icon: Eye, color: "text-amber-500" },
-    { label: t.advertiser.statClicks, value: "8,340", icon: MousePointerClick, color: "text-green-500" },
-  ];
+  const activeMissionsCount = myCampaigns.filter((c) => c.status === "active").length;
+  const totalParticipants = myCampaigns.reduce((s, c) => s + (c.participantCount ?? 0), 0);
 
-  const statRows = [
-    { label: t.advertiser.statsParticipants, value: "801", icon: Users, change: "+12.3%" },
-    { label: t.advertiser.statsPosts, value: "1,240", icon: Tag, change: "+8.7%" },
-    { label: t.advertiser.statsViews, value: "45,200", icon: Eye, change: "+23.1%" },
-    { label: t.advertiser.statsClicks, value: "8,340", icon: MousePointerClick, change: "+15.4%" },
-    { label: t.advertiser.statsTags, value: "#AIM: 1,890", icon: Tag, change: "+31.2%" },
-    { label: t.advertiser.statsROI, value: "340%", icon: TrendingUp, change: "+45.0%" },
+  const stats = [
+    { label: t.advertiser.statActiveMissions, value: String(activeMissionsCount), icon: Megaphone, color: "text-violet-500" },
+    { label: t.advertiser.statParticipants, value: totalParticipants.toLocaleString(), icon: Users, color: "text-cyan-500" },
+    { label: t.advertiser.statViews, value: "—", icon: Eye, color: "text-amber-500" },
+    { label: t.advertiser.statClicks, value: "—", icon: MousePointerClick, color: "text-green-500" },
   ];
 
   return (
@@ -366,7 +355,7 @@ export default function AdvertiserPage() {
           </TabsTrigger>
           <TabsTrigger value="create">{t.advertiser.tabCreate}</TabsTrigger>
           <TabsTrigger value="ai-content">{t.advertiser.tabAI}</TabsTrigger>
-          <TabsTrigger value="my-missions">{t.advertiser.tabMyMissions}</TabsTrigger>
+          <TabsTrigger value="my-missions" onClick={loadMyCampaigns}>{t.advertiser.tabMyMissions}</TabsTrigger>
           <TabsTrigger value="review" onClick={loadMyCampaigns}>
             <Clock className="h-3.5 w-3.5 mr-1" />
             제출 검토
@@ -802,45 +791,75 @@ export default function AdvertiserPage() {
         {/* My Missions */}
         <TabsContent value="my-missions">
           <div className="space-y-4">
-            {MY_MISSIONS.map((mission) => {
-              const spentPct = (mission.spent / mission.budget) * 100;
-              return (
-                <Card key={mission.id}>
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-bold">{mission.title}</h3>
-                        <Badge variant={mission.status === "active" ? "default" : "secondary"} className="mt-1 text-xs">
-                          {mission.status === "active" ? t.advertiser.active : t.advertiser.ended}
-                        </Badge>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-bold text-violet-600">{mission.spent.toLocaleString()} AP {t.advertiser.budgetSpent}</div>
-                        <div className="text-xs text-muted-foreground">/ {mission.budget.toLocaleString()} AP</div>
-                      </div>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex justify-between text-xs mb-1">
-                          <span className="text-muted-foreground">{t.advertiser.budgetProgress}</span>
-                          <span>{Math.round(spentPct)}%</span>
+            {campaignsLoading ? (
+              <div className="flex items-center justify-center py-16 gap-2 text-muted-foreground">
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span className="text-sm">Loading...</span>
+              </div>
+            ) : myCampaigns.length === 0 ? (
+              <div className="py-16 text-center text-sm text-muted-foreground">
+                <Megaphone className="h-10 w-10 mx-auto mb-3 text-muted-foreground/40" />
+                등록한 미션이 없습니다
+              </div>
+            ) : (
+              myCampaigns.map((mission) => {
+                const total = mission.totalBudget ?? 0;
+                const remaining = mission.remainingBudget ?? total;
+                const spent = total - remaining;
+                const spentPct = total > 0 ? Math.round((spent / total) * 100) : 0;
+                return (
+                  <Card key={mission.id}>
+                    <CardContent className="p-5">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <h3 className="font-bold">{mission.title}</h3>
+                          <Badge
+                            variant={mission.status === "active" ? "default" : "secondary"}
+                            className="mt-1 text-xs"
+                          >
+                            {mission.status === "active"
+                              ? t.advertiser.active
+                              : mission.status === "pending"
+                              ? "검토 중"
+                              : t.advertiser.ended}
+                          </Badge>
                         </div>
-                        <div className="h-2 rounded-full bg-muted overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full" style={{ width: `${spentPct}%` }} />
+                        <div className="text-right">
+                          <div className="text-sm font-bold text-violet-600">
+                            {spent.toLocaleString()} AP {t.advertiser.budgetSpent}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            / {total.toLocaleString()} AP
+                          </div>
                         </div>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <div className="flex items-center gap-1.5 text-muted-foreground">
-                          <Users className="h-4 w-4" />
-                          <span>{mission.participants.toLocaleString()} {t.advertiser.participants}</span>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-muted-foreground">{t.advertiser.budgetProgress}</span>
+                            <span>{spentPct}%</span>
+                          </div>
+                          <div className="h-2 rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-violet-500 to-cyan-500 rounded-full"
+                              style={{ width: `${spentPct}%` }}
+                            />
+                          </div>
                         </div>
-                        <Button variant="outline" size="sm">{t.advertiser.detailStats}</Button>
+                        <div className="flex justify-between text-sm">
+                          <div className="flex items-center gap-1.5 text-muted-foreground">
+                            <Users className="h-4 w-4" />
+                            <span>
+                              {(mission.participantCount ?? 0).toLocaleString()} {t.advertiser.participants}
+                            </span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
           </div>
         </TabsContent>
 
@@ -1145,22 +1164,52 @@ export default function AdvertiserPage() {
         {/* Stats */}
         <TabsContent value="stats">
           <div className="grid md:grid-cols-2 gap-6">
-            {statRows.map(({ label, value, icon: Icon, change }) => (
-              <Card key={label}>
-                <CardContent className="p-5 flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-violet-50 dark:bg-violet-950/20 flex items-center justify-center shrink-0">
-                    <Icon className="h-6 w-6 text-violet-500" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-2xl font-black">{value}</p>
-                    <p className="text-sm text-muted-foreground">{label}</p>
-                  </div>
-                  <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-0">
-                    {change}
-                  </Badge>
-                </CardContent>
-              </Card>
-            ))}
+            <Card>
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-violet-50 dark:bg-violet-950/20 flex items-center justify-center shrink-0">
+                  <Megaphone className="h-6 w-6 text-violet-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-2xl font-black">{myCampaigns.length}</p>
+                  <p className="text-sm text-muted-foreground">전체 미션</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-violet-50 dark:bg-violet-950/20 flex items-center justify-center shrink-0">
+                  <Megaphone className="h-6 w-6 text-cyan-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-2xl font-black">{activeMissionsCount}</p>
+                  <p className="text-sm text-muted-foreground">활성 미션</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-violet-50 dark:bg-violet-950/20 flex items-center justify-center shrink-0">
+                  <Users className="h-6 w-6 text-violet-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-2xl font-black">{totalParticipants.toLocaleString()}</p>
+                  <p className="text-sm text-muted-foreground">{t.advertiser.statsParticipants}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-5 flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-violet-50 dark:bg-violet-950/20 flex items-center justify-center shrink-0">
+                  <Coins className="h-6 w-6 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-2xl font-black">
+                    {myCampaigns.reduce((s, c) => s + ((c.totalBudget ?? 0) - (c.remainingBudget ?? c.totalBudget ?? 0)), 0).toLocaleString()} AP
+                  </p>
+                  <p className="text-sm text-muted-foreground">총 집행 예산</p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>

@@ -44,6 +44,7 @@ function toCardMission(m: RawMission) {
     missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao",
     status: String(m.status ?? "active") as "active" | "ended" | "pending",
     advertiserName: String(m.advertiserName ?? ""),
+    targetUrl: m.targetUrl ? String(m.targetUrl) : undefined,
   };
 }
 

@@ -8,7 +8,7 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ export interface MissionFlowData {
   missionType: string;
   status: "active" | "ended" | "pending";
   advertiserName: string;
+  targetUrl?: string;
 }
 
 // ─── Mock helpers ────────────────────────────────────────────────────────────
@@ -522,6 +523,19 @@ export function MissionDetailSheet({ mission, open, onClose, onSubmit }: Mission
             <p className="text-sm text-muted-foreground leading-relaxed">{mission.description}</p>
           </div>
 
+          {/* YouTube subscribe link */}
+          {mission.missionType === "youtube_sub" && mission.targetUrl && (
+            <a
+              href={mission.targetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={buttonVariants({ variant: "outline", size: "sm" }) + " w-full flex items-center justify-center gap-2 border-red-400 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"}
+            >
+              <ExternalLink className="h-4 w-4" />
+              YouTube 채널 구독하기
+            </a>
+          )}
+
           {/* Required tags */}
           <div>
             <p className="text-xs font-medium text-muted-foreground mb-2">{mf.missionConditions}</p>
@@ -628,6 +642,7 @@ export function AdvertiserListModal({
                 (m.advertiserName as string) ||
                 (m.advertiserId as string)?.slice(-6) ||
                 "Advertiser",
+              targetUrl: m.targetUrl ? String(m.targetUrl) : undefined,
             }));
 
           setAdvertisers(filtered.length > 0 ? filtered : mockAdvertisers(mission));
