@@ -23,6 +23,33 @@ export class MissionsController {
     return this.missionsService.getPlatformVaultBalance();
   }
 
+  @Get('admin/pending-submissions')
+  @UseGuards(JwtAuthGuard)
+  async getAllPendingSubmissions(@Request() req: { user: { sub: string } }) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.getAllPendingSubmissions();
+  }
+
+  @Patch('admin/submissions/:submissionId/approve')
+  @UseGuards(JwtAuthGuard)
+  async adminApproveSubmission(
+    @Param('submissionId') submissionId: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.adminApproveSubmission(submissionId);
+  }
+
+  @Patch('admin/submissions/:submissionId/reject')
+  @UseGuards(JwtAuthGuard)
+  async adminRejectSubmission(
+    @Param('submissionId') submissionId: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.adminRejectSubmission(submissionId);
+  }
+
   // ── Advertiser: submission review ──────────────────────────────────────────
   // All fixed-name routes must appear before :id param routes
 

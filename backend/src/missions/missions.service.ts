@@ -290,6 +290,109 @@ export class MissionsService {
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
+  // ── Admin: list all pending submissions across all missions ─────────────────
+
+  async getAllPendingSubmissions() {
+    const snap = await this.firebase
+      .collection('submissions')
+      .where('status', '==', 'pending')
+      .orderBy('createdAt', 'asc')
+      .get();
+    const submissions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+    // Enrich with mission title for display
+    const missionIds = [...new Set(submissions.map((s) => (s as Record<string, unknown>).missionId as string).filter(Boolean))];
+    const missionTitles: Record<string, string> = {};
+    await Promise.all(
+      missionIds.map(async (mid) => {
+        const doc = await this.firebase.collection('missions').doc(mid).get();
+        if (doc.exists) {
+          missionTitles[mid] = (doc.data()?.title as string) || mid;
+        }
+      }),
+    );
+
+    return submissions.map((s) => {
+      const rec = s as Record<string, unknown>;
+      return {
+        ...rec,
+        missionTitle: rec.missionId ? (missionTitles[rec.missionId as string] ?? null) : null,
+      };
+    });
+  }
+
+  // ── Admin: approve submission (bypasses advertiser ownership check) ──────────
+
+  async adminApproveSubmission(submissionId: string) {
+    const subRef = this.firebase.collection('submissions').doc(submissionId);
+    const subDoc = await subRef.get();
+    if (!subDoc.exists) throw new NotFoundException('Submission not found');
+
+    const sub = subDoc.data() as Record<string, unknown>;
+    if (sub.status !== 'pending') throw new BadRequestException('Submission is not pending');
+
+    const missionId = sub.missionId as string;
+    const missionRef = this.firebase.collection('missions').doc(missionId);
+    const missionDoc = await missionRef.get();
+    if (!missionDoc.exists) throw new NotFoundException('Mission not found');
+
+    const mission = missionDoc.data() as Record<string, unknown>;
+    const rewardPerUnit = (mission.rewardPerUnit ?? mission.reward ?? 0) as number;
+    const remainingBudget = (mission.remainingBudget ?? 0) as number;
+    if (remainingBudget < rewardPerUnit) throw new BadRequestException('Insufficient mission budget');
+
+    const userId = sub.userId as string;
+    const userDoc = await this.firebase.collection('users').doc(userId).get();
+    const mentorId = (userDoc.data()?.mentorId ?? null) as string | null;
+
+    const userShare = Math.floor(rewardPerUnit * 0.7);
+    const mentorShare = Math.floor(rewardPerUnit * 0.1);
+    const platformShare = rewardPerUnit - userShare - mentorShare;
+
+    await this.points.award(userId, userShare, 'mission_reward', `미션 보상: ${mission.title as string}`, missionId);
+
+    if (mentorId) {
+      await this.points.award(mentorId, mentorShare, 'mentor_bonus', `멘토 수당: ${mission.title as string}`, missionId);
+    } else {
+      await this.firebase.collection('platform_vault').add({
+        amount: mentorShare,
+        reason: 'no_mentor_bonus',
+        missionId,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
+    await this.firebase.collection('platform_vault').add({
+      amount: platformShare,
+      reason: 'platform_fee',
+      missionId,
+      createdAt: new Date().toISOString(),
+    });
+
+    await missionRef.update({
+      remainingBudget: FieldValue.increment(-rewardPerUnit),
+      participantCount: FieldValue.increment(1),
+      ...(remainingBudget - rewardPerUnit <= 0 ? { status: 'ended', endedAt: new Date().toISOString() } : {}),
+    });
+
+    await subRef.update({ status: 'approved', approvedAt: new Date().toISOString() });
+    return { approved: true, rewardedAP: userShare };
+  }
+
+  // ── Admin: reject submission (bypasses advertiser ownership check) ───────────
+
+  async adminRejectSubmission(submissionId: string) {
+    const subRef = this.firebase.collection('submissions').doc(submissionId);
+    const subDoc = await subRef.get();
+    if (!subDoc.exists) throw new NotFoundException('Submission not found');
+
+    const sub = subDoc.data() as Record<string, unknown>;
+    if (sub.status !== 'pending') throw new BadRequestException('Submission is not pending');
+
+    await subRef.update({ status: 'rejected', rejectedAt: new Date().toISOString() });
+    return { rejected: true };
+  }
+
   // ── Advertiser: approve a submission → award AP ───────────────────────────
 
   async approveSubmission(submissionId: string, advertiserId: string) {

@@ -138,6 +138,20 @@ export default function AdminPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [actioningId, setActioningId] = useState<string | null>(null);
 
+  // Pending submissions state
+  interface PendingSubmission {
+    id: string;
+    userId: string;
+    missionId: string;
+    missionTitle: string;
+    description: string;
+    status: string;
+    createdAt: string;
+  }
+  const [pendingSubmissions, setPendingSubmissions] = useState<PendingSubmission[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [submissionActioningId, setSubmissionActioningId] = useState<string | null>(null);
+
   // Tags state
   const [tags, setTags] = useState<string[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
@@ -384,6 +398,57 @@ export default function AdminPage() {
     }
   };
 
+  const loadPendingSubmissions = useCallback(async () => {
+    if (!token) return;
+    setSubmissionsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/missions/admin/pending-submissions`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setPendingSubmissions(await res.json());
+    } catch {
+      toast.error("Failed to load pending submissions");
+    } finally {
+      setSubmissionsLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const handleApproveSubmission = async (id: string) => {
+    setSubmissionActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/missions/admin/submissions/${id}/approve`, {
+        method: "PATCH",
+        headers: authHeader(),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.message || `HTTP ${res.status}`);
+      }
+      toast.success("Submission approved — AP distributed");
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== id));
+    } catch (err) {
+      toast.error(`Failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      setSubmissionActioningId(null);
+    }
+  };
+
+  const handleRejectSubmission = async (id: string) => {
+    setSubmissionActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/missions/admin/submissions/${id}/reject`, {
+        method: "PATCH",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Submission rejected");
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      toast.error("Failed to reject submission");
+    } finally {
+      setSubmissionActioningId(null);
+    }
+  };
+
   const openCharge = (member: Member) => {
     setChargeTarget(member);
     setChargeAmount("");
@@ -525,6 +590,10 @@ export default function AdminPage() {
           <TabsTrigger value="vault" onClick={loadVault}>{t.admin.tabVault}</TabsTrigger>
           <TabsTrigger value="points">{t.admin.tabPoints}</TabsTrigger>
           <TabsTrigger value="notice">{t.admin.tabNotice}</TabsTrigger>
+          <TabsTrigger value="submissions" onClick={loadPendingSubmissions}>
+            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+            제출 내역
+          </TabsTrigger>
           <TabsTrigger value="tags" onClick={loadTags}>{t.admin.tabTags}</TabsTrigger>
         </TabsList>
 
@@ -838,6 +907,95 @@ export default function AdminPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Submission Review */}
+        <TabsContent value="submissions">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                제출 내역 검토
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                회원이 제출한 미션 증빙을 확인하고 AP를 즉시 지급하거나 거절합니다.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {submissionsLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="text-sm">Loading...</span>
+                </div>
+              ) : pendingSubmissions.length === 0 ? (
+                <div className="py-12 text-center text-sm text-muted-foreground">검토 대기 중인 제출이 없습니다.</div>
+              ) : (
+                <div className="divide-y">
+                  {pendingSubmissions.map((s) => {
+                    let parsed: Record<string, string> = {};
+                    try { parsed = JSON.parse(s.description); } catch { /* raw string */ }
+                    const taskUrl = parsed.taskUrl ?? s.description;
+                    const myProfile = parsed.myProfile;
+                    const screenshot = parsed.screenshot;
+                    return (
+                      <div key={s.id} className="p-4 flex items-start gap-4 flex-wrap">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <p className="font-semibold text-sm">{s.missionTitle}</p>
+                          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                            <Badge variant="outline" className="text-xs">사용자 ID: {s.userId}</Badge>
+                            {s.createdAt && <span>{s.createdAt.slice(0, 16).replace("T", " ")}</span>}
+                          </div>
+                          {taskUrl && (
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">과제 URL: </span>
+                              <a href={taskUrl} target="_blank" rel="noopener noreferrer"
+                                className="text-violet-500 hover:underline break-all">{taskUrl}</a>
+                            </div>
+                          )}
+                          {myProfile && (
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">내 프로필: </span>
+                              <a href={myProfile} target="_blank" rel="noopener noreferrer"
+                                className="text-violet-500 hover:underline break-all">{myProfile}</a>
+                            </div>
+                          )}
+                          {screenshot && (
+                            <div className="text-xs">
+                              <span className="text-muted-foreground">스크린샷: </span>
+                              <a href={screenshot} target="_blank" rel="noopener noreferrer"
+                                className="text-violet-500 hover:underline break-all">{screenshot}</a>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            className="bg-green-500 hover:bg-green-600 text-white"
+                            disabled={submissionActioningId === s.id}
+                            onClick={() => handleApproveSubmission(s.id)}
+                          >
+                            {submissionActioningId === s.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <><CheckCircle className="h-3.5 w-3.5 mr-1" />승인 & AP 지급</>
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            disabled={submissionActioningId === s.id}
+                            onClick={() => handleRejectSubmission(s.id)}
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />거절
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </CardContent>

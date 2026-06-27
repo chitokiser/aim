@@ -243,6 +243,9 @@ function SubmissionsBoard({
   );
 }
 
+// Simple verification missions (admin reviews, then immediately rewards)
+const SIMPLE_VERIFY_TYPES = ["youtube_sub", "follow_join", "telegram_join", "sns_banner", "signup"];
+
 // ─── Submit Links Modal ───────────────────────────────────────────────────────
 
 interface SubmitLinksModalProps {
@@ -256,33 +259,29 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
   const mf = t.missionFlow;
   const { token } = useAuthStore();
 
+  const isSimple = mission ? SIMPLE_VERIFY_TYPES.includes(mission.missionType) : false;
+
   const [links, setLinks] = useState({ youtube: "", blog: "", comment: "", screenshot: "" });
+  const [simpleLinks, setSimpleLinks] = useState({ taskUrl: "", myProfile: "", screenshot: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitCreative = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!Object.values(links).some((l) => l.trim())) {
       toast.error(mf.atLeastOneLink);
       return;
     }
-    if (!token) {
-      toast.error(mf.loginToVote);
-      return;
-    }
+    if (!token) { toast.error(mf.loginToVote); return; }
 
     setSubmitting(true);
     try {
-      const primaryUrl =
-        links.youtube || links.blog || links.comment || links.screenshot || "";
+      const primaryUrl = links.youtube || links.blog || links.comment || links.screenshot || "";
       const platform = links.youtube ? "YouTube" : links.blog ? "Blog" : "Multi";
 
       const res = await fetch(`${API}/api/missions/submit-general`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           missionId: mission!.id,
           section: mission!.missionType,
@@ -293,12 +292,44 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
       });
 
       if (!res.ok) {
-        const err = (await res.json().catch(() => ({ message: "Submit failed" }))) as {
-          message?: string;
-        };
+        const err = (await res.json().catch(() => ({ message: "Submit failed" }))) as { message?: string };
         throw new Error(err.message || "Submit failed");
       }
+      setSubmitted(true);
+      toast.success(mf.submitted);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Submit failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
+  const handleSubmitSimple = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!simpleLinks.taskUrl.trim()) {
+      toast.error(mf.atLeastOneLink);
+      return;
+    }
+    if (!token) { toast.error(mf.loginToVote); return; }
+
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/missions/submit-general`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          missionId: mission!.id,
+          section: mission!.missionType,
+          platform: mission!.missionType,
+          postUrl: simpleLinks.taskUrl,
+          description: JSON.stringify(simpleLinks),
+        }),
+      });
+
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({ message: "Submit failed" }))) as { message?: string };
+        throw new Error(err.message || "Submit failed");
+      }
       setSubmitted(true);
       toast.success(mf.submitted);
     } catch (err) {
@@ -310,6 +341,7 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
 
   const handleClose = () => {
     setLinks({ youtube: "", blog: "", comment: "", screenshot: "" });
+    setSimpleLinks({ taskUrl: "", myProfile: "", screenshot: "" });
     setSubmitted(false);
     onClose();
   };
@@ -320,68 +352,136 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{submitted ? mf.submitted : mf.submitTitle}</DialogTitle>
+          <DialogTitle>{submitted ? mf.submitted : (isSimple ? mf.simpleSubmitTitle : mf.submitTitle)}</DialogTitle>
         </DialogHeader>
 
         {!submitted ? (
-          <form onSubmit={handleSubmit} className="space-y-4 mt-1">
-            <p className="text-sm text-muted-foreground">{mf.submitDesc}</p>
+          isSimple ? (
+            /* ── Simple verify form: task URL + my profile ── */
+            <form onSubmit={handleSubmitSimple} className="space-y-4 mt-1">
+              <p className="text-sm text-muted-foreground">{mf.simpleSubmitDesc}</p>
 
-            {(
-              [
-                { key: "youtube", label: mf.linkYoutube, placeholder: "https://youtube.com/..." },
-                { key: "blog", label: mf.linkBlog, placeholder: "https://instagram.com/p/..." },
-                { key: "comment", label: `${mf.linkComment} ${mf.optional}`, placeholder: "https://..." },
-                { key: "screenshot", label: `${mf.linkScreenshot} ${mf.optional}`, placeholder: "https://drive.google.com/..." },
-              ] as const
-            ).map(({ key, label, placeholder }) => (
-              <div key={key} className="space-y-1.5">
-                <Label className="text-sm">{label}</Label>
+              <div className="space-y-1.5">
+                <Label className="text-sm">{mf.linkTaskUrl} *</Label>
                 <div className="relative">
                   <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
+                    required
                     type="url"
-                    placeholder={placeholder}
-                    value={links[key as keyof typeof links]}
-                    onChange={(e) =>
-                      setLinks((p) => ({ ...p, [key]: e.target.value }))
-                    }
+                    placeholder="https://youtube.com/watch?v=..."
+                    value={simpleLinks.taskUrl}
+                    onChange={(e) => setSimpleLinks((p) => ({ ...p, taskUrl: e.target.value }))}
                     className="pl-9"
                   />
                 </div>
               </div>
-            ))}
 
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-              <Wallet className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <p className="text-xs text-amber-700 dark:text-amber-400">{mf.escrowNote}</p>
-            </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">{mf.linkMyProfile} {mf.optional}</Label>
+                <div className="relative">
+                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="url"
+                    placeholder="https://youtube.com/@mychannel"
+                    value={simpleLinks.myProfile}
+                    onChange={(e) => setSimpleLinks((p) => ({ ...p, myProfile: e.target.value }))}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
-              disabled={submitting}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {mf.submitting}
-                </>
-              ) : (
-                mf.submitBtn
-              )}
-            </Button>
-          </form>
+              <div className="space-y-1.5">
+                <Label className="text-sm">{mf.linkScreenshot} {mf.optional}</Label>
+                <div className="relative">
+                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="url"
+                    placeholder="https://drive.google.com/..."
+                    value={simpleLinks.screenshot}
+                    onChange={(e) => setSimpleLinks((p) => ({ ...p, screenshot: e.target.value }))}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                <CheckCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                <p className="text-xs text-blue-700 dark:text-blue-400">{mf.simpleSubmittedDesc}</p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{mf.submitting}</>
+                ) : (
+                  mf.submitBtn
+                )}
+              </Button>
+            </form>
+          ) : (
+            /* ── Creative work form: multiple link fields ── */
+            <form onSubmit={handleSubmitCreative} className="space-y-4 mt-1">
+              <p className="text-sm text-muted-foreground">{mf.submitDesc}</p>
+
+              {(
+                [
+                  { key: "youtube", label: mf.linkYoutube, placeholder: "https://youtube.com/..." },
+                  { key: "blog", label: mf.linkBlog, placeholder: "https://instagram.com/p/..." },
+                  { key: "comment", label: `${mf.linkComment} ${mf.optional}`, placeholder: "https://..." },
+                  { key: "screenshot", label: `${mf.linkScreenshot} ${mf.optional}`, placeholder: "https://drive.google.com/..." },
+                ] as const
+              ).map(({ key, label, placeholder }) => (
+                <div key={key} className="space-y-1.5">
+                  <Label className="text-sm">{label}</Label>
+                  <div className="relative">
+                    <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="url"
+                      placeholder={placeholder}
+                      value={links[key as keyof typeof links]}
+                      onChange={(e) => setLinks((p) => ({ ...p, [key]: e.target.value }))}
+                      className="pl-9"
+                    />
+                  </div>
+                </div>
+              ))}
+
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                <Wallet className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-xs text-amber-700 dark:text-amber-400">{mf.escrowNote}</p>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{mf.submitting}</>
+                ) : (
+                  mf.submitBtn
+                )}
+              </Button>
+            </form>
+          )
         ) : (
           <div className="space-y-4 mt-1">
             <div className="flex items-start gap-3 p-4 rounded-xl bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800">
               <CheckCircle className="h-7 w-7 text-green-500 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-green-700 dark:text-green-400">{mf.submitted}</p>
-                <p className="text-sm text-green-600 dark:text-green-500 mt-1">{mf.submittedDesc}</p>
+                <p className="text-sm text-green-600 dark:text-green-500 mt-1">
+                  {isSimple ? mf.simpleSubmittedDesc : mf.submittedDesc}
+                </p>
               </div>
             </div>
-            <SubmissionsBoard missionId={mission.id} totalBudget={mission.totalBudget} daysLeft={10} />
+            {/* Only show like-ranking board for creative missions */}
+            {!isSimple && (
+              <SubmissionsBoard missionId={mission.id} totalBudget={mission.totalBudget} daysLeft={10} />
+            )}
           </div>
         )}
       </DialogContent>
@@ -453,10 +553,12 @@ export function MissionDetailSheet({ mission, open, onClose, onSubmit }: Mission
             <p className="text-xs font-semibold text-violet-700 dark:text-violet-400">
               {mf.rewardMethod}
             </p>
-            {(mission.missionType === 'telegram_join' || mission.missionType === 'follow_join') ? (
+            {SIMPLE_VERIFY_TYPES.includes(mission.missionType) ? (
               <>
                 <p className="text-xs text-violet-600 dark:text-violet-500">{mf.instantRewardNote}</p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{mf.blacklistWarning}</p>
+                {(mission.missionType === 'telegram_join' || mission.missionType === 'follow_join') && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{mf.blacklistWarning}</p>
+                )}
               </>
             ) : (
               <>
