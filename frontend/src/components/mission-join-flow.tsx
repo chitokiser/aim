@@ -20,7 +20,7 @@ import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
 import {
   Coins, Users, CheckCircle, Heart, ExternalLink,
-  Building2, CalendarDays, Wallet, Loader2, Film,
+  Building2, Wallet, Loader2, Film,
 } from "lucide-react";
 
 const API = "https://ai119-bot-production.up.railway.app";
@@ -34,7 +34,6 @@ export interface MissionFlowData {
   reward: number;
   remainingBudget: number;
   totalBudget: number;
-  endDate: Date;
   requiredTags: string[];
   participantCount: number;
   missionType: string;
@@ -505,11 +504,9 @@ export function MissionDetailSheet({ mission, open, onClose, onSubmit }: Mission
   if (!mission) return null;
 
   const budgetUsed =
-    ((mission.totalBudget - mission.remainingBudget) / mission.totalBudget) * 100;
-  const endStr =
-    mission.endDate instanceof Date
-      ? mission.endDate.toLocaleDateString()
-      : String(mission.endDate);
+    mission.totalBudget > 0
+      ? ((mission.totalBudget - mission.remainingBudget) / mission.totalBudget) * 100
+      : 0;
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
@@ -569,9 +566,8 @@ export function MissionDetailSheet({ mission, open, onClose, onSubmit }: Mission
           </div>
 
           {/* Stats grid */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {[
-              { icon: CalendarDays, label: mf.endDate, value: endStr, color: "text-muted-foreground" },
               { icon: Coins, label: mf.totalBudget, value: `${(mission.totalBudget / 10000).toFixed(0)}만 AP`, color: "text-violet-500" },
               { icon: Users, label: mf.participants, value: mission.participantCount.toLocaleString(), color: "text-cyan-500" },
             ].map(({ icon: Icon, label, value, color }) => (
@@ -649,7 +645,6 @@ export function AdvertiserListModal({
               reward: (m.reward as number) || mission.reward,
               remainingBudget: (m.remainingBudget as number) || 0,
               totalBudget: (m.totalBudget as number) || 0,
-              endDate: m.endDate ? new Date(m.endDate as string) : mission.endDate,
               requiredTags: (m.requiredTags as string[]) || [],
               participantCount: (m.participantCount as number) || 0,
               missionType: mission.missionType,
@@ -696,11 +691,6 @@ export function AdvertiserListModal({
                 adv.totalBudget > 0
                   ? ((adv.totalBudget - adv.remainingBudget) / adv.totalBudget) * 100
                   : 0;
-              const endStr =
-                adv.endDate instanceof Date
-                  ? adv.endDate.toLocaleDateString()
-                  : String(adv.endDate);
-
               return (
                 <Card key={adv.id} className="border shadow-sm hover:shadow-md transition-shadow">
                   <CardContent className="p-5">
@@ -724,16 +714,12 @@ export function AdvertiserListModal({
                     </div>
 
                     {/* Stats row */}
-                    <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                    <div className="grid grid-cols-2 gap-2 mb-3 text-center">
                       <div className="p-2 rounded-lg bg-muted/50">
                         <p className="text-xs text-muted-foreground">{mf.totalBudget}</p>
                         <p className="text-sm font-bold text-violet-600">
                           {(adv.totalBudget / 10000).toFixed(0)}만 AP
                         </p>
-                      </div>
-                      <div className="p-2 rounded-lg bg-muted/50">
-                        <p className="text-xs text-muted-foreground">{mf.endDate}</p>
-                        <p className="text-sm font-bold">{endStr}</p>
                       </div>
                       <div className="p-2 rounded-lg bg-muted/50">
                         <p className="text-xs text-muted-foreground">{mf.participants}</p>
@@ -799,7 +785,6 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
     totalBudget: "",
     rewardPerVideo: "",
     requiredTags: "#AIM",
-    endDate: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -817,7 +802,6 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
       totalBudget: "",
       rewardPerVideo: "",
       requiredTags: "#AIM",
-      endDate: "",
     });
     setSuccess(false);
     onClose();
@@ -870,7 +854,6 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
             totalBudget: budget,
             reward: rewardPer,
             requiredTags: tags,
-            endDate: form.endDate,
           }),
         },
       );
@@ -1030,17 +1013,6 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
                 placeholder="#AIM,#YourBrand"
                 value={form.requiredTags}
                 onChange={set("requiredTags")}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-sm">{ca.endDate} *</Label>
-              <Input
-                required
-                type="date"
-                value={form.endDate}
-                min={new Date().toISOString().split("T")[0]}
-                onChange={set("endDate")}
               />
             </div>
 

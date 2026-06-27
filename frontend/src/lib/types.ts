@@ -22,7 +22,6 @@ export interface Mission {
   title: string;
   description: string;
   startDate: Date;
-  endDate: Date;
   reward: number;
   totalBudget: number;
   remainingBudget: number;

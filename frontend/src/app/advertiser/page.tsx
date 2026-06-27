@@ -108,14 +108,14 @@ export default function AdvertiserPage() {
   const [selectedTemplate, setSelectedTemplate] = useState<MissionTemplate | null>(null);
   const [campaignForm, setCampaignForm] = useState({
     title: "", budget: "", description: "", targetUrl: "",
-    tags: "", startDate: "", endDate: "", maxParticipants: "",
+    tags: "", startDate: "", maxParticipants: "",
     targetGroupId: "", minDaysRequired: "7", inviteLink: "",
   });
   const [campaignSubmitting, setCampaignSubmitting] = useState(false);
 
   const [missionForm, setMissionForm] = useState({
     title: "", description: "", type: "", budget: "", reward: "",
-    maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
+    maxParticipants: "", startDate: "", requiredTags: "", targetUrl: "",
     productName: "", website: "", productDesc: "", brandDesc: "", contentType: "", contentOption: "",
   });
 
@@ -240,7 +240,6 @@ export default function AdvertiserPage() {
           targetUrl: campaignForm.targetUrl.trim() || undefined,
           requiredTags: campaignForm.tags.trim() || undefined,
           startDate: campaignForm.startDate || undefined,
-          endDate: campaignForm.endDate || undefined,
           maxParticipants: campaignForm.maxParticipants ? Number(campaignForm.maxParticipants) : undefined,
           targetGroupId: campaignForm.targetGroupId.trim() || undefined,
           inviteLink: campaignForm.inviteLink.trim() || undefined,
@@ -254,7 +253,7 @@ export default function AdvertiserPage() {
       }
       toast.success(t.advertiser.campaignSubmitted);
       setSelectedTemplate(null);
-      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", endDate: "", maxParticipants: "", targetGroupId: "", minDaysRequired: "7", inviteLink: "" });
+      setCampaignForm({ title: "", budget: "", description: "", targetUrl: "", tags: "", startDate: "", maxParticipants: "", targetGroupId: "", minDaysRequired: "7", inviteLink: "" });
     } catch {
       toast.error("Network error. Please try again.");
     } finally {
@@ -288,7 +287,6 @@ export default function AdvertiserPage() {
           reward: parseInt(missionForm.reward) || 0,
           maxParticipants: missionForm.maxParticipants ? parseInt(missionForm.maxParticipants) : null,
           startDate: missionForm.startDate,
-          endDate: missionForm.endDate,
           requiredTags: missionForm.requiredTags.split(",").map((s) => s.trim()).filter(Boolean),
           targetUrl: missionForm.targetUrl || null,
         }),
@@ -301,7 +299,7 @@ export default function AdvertiserPage() {
       toast.success(t.advertiser.submitMission);
       setMissionForm({
         title: "", description: "", type: "", budget: "", reward: "",
-        maxParticipants: "", startDate: "", endDate: "", requiredTags: "", targetUrl: "",
+        maxParticipants: "", startDate: "", requiredTags: "", targetUrl: "",
         productName: "", website: "", productDesc: "", brandDesc: "", contentType: "", contentOption: "",
       });
       // Refresh user balance so the deducted AP is reflected immediately
@@ -533,15 +531,6 @@ export default function AdvertiserPage() {
                         required
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <Label>{t.advertiser.campaignEndDate}</Label>
-                      <Input
-                        type="date"
-                        value={campaignForm.endDate}
-                        onChange={(e) => setCampaignForm((p) => ({ ...p, endDate: e.target.value }))}
-                        required
-                      />
-                    </div>
                   </div>
                   {campaignForm.budget && (
                     <div className="p-4 rounded-lg bg-violet-50 dark:bg-violet-950/20 text-sm">
@@ -683,17 +672,10 @@ export default function AdvertiserPage() {
                   </div>
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label>{t.advertiser.startDate} *</Label>
-                    <Input type="date" value={missionForm.startDate}
-                      onChange={(e) => setMissionForm(p => ({ ...p, startDate: e.target.value }))} required />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>{t.advertiser.endDate} *</Label>
-                    <Input type="date" value={missionForm.endDate}
-                      onChange={(e) => setMissionForm(p => ({ ...p, endDate: e.target.value }))} required />
-                  </div>
+                <div className="space-y-1.5">
+                  <Label>{t.advertiser.startDate} *</Label>
+                  <Input type="date" value={missionForm.startDate}
+                    onChange={(e) => setMissionForm(p => ({ ...p, startDate: e.target.value }))} required />
                 </div>
 
                 <div className="space-y-1.5">

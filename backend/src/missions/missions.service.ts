@@ -121,25 +121,15 @@ export class MissionsService {
     const data = mission as Record<string, unknown>;
     if (data.status !== 'pending') throw new BadRequestException('Mission is not pending');
 
-    // Refund escrowed AP back to advertiser
+    // AP is NOT refunded on rejection — once deducted it is held until budget is consumed.
+    // Mark escrow as settled (without refund) so it is not processed again.
     const escrowId = data.escrowId as string | undefined;
-    const advertiserId = data.advertiserId as string | undefined;
-    if (escrowId && advertiserId) {
+    if (escrowId) {
       const escrowDoc = await this.firebase.collection('escrow_wallets').doc(escrowId).get();
       if (escrowDoc.exists && !escrowDoc.data()?.settled) {
-        const lockedAP = (escrowDoc.data()?.lockedAP as number) ?? 0;
-        if (lockedAP > 0) {
-          const advertiserDoc = await this.firebase.collection('users').doc(advertiserId).get();
-          if (advertiserDoc.exists) {
-            const currentPoints = (advertiserDoc.data()?.points ?? 0) as number;
-            await this.firebase.collection('users').doc(advertiserId).update({
-              points: currentPoints + lockedAP,
-            });
-          }
-        }
         await this.firebase.collection('escrow_wallets').doc(escrowId).update({
           settled: true,
-          refunded: true,
+          refunded: false,
           settledAt: new Date().toISOString(),
         });
       }

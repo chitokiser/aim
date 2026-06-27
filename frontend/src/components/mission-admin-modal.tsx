@@ -51,7 +51,6 @@ export interface MissionFormData {
   reward: number;
   totalBudget: number;
   remainingBudget: number;
-  endDate: string;
   requiredTags: string[];
   submitFields: string[];
   status: string;
@@ -66,7 +65,6 @@ const DEFAULT_FORM: MissionFormData = {
   reward: 10000,
   totalBudget: 1000000,
   remainingBudget: 1000000,
-  endDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
   requiredTags: ["#AIM"],
   submitFields: ["youtube"],
   status: "active",
@@ -128,7 +126,6 @@ export function MissionAdminModal({ open, mission, onClose, onSaved }: Props) {
         reward: Number(form.reward),
         totalBudget: Number(form.totalBudget),
         remainingBudget: mission?.id ? Number(form.remainingBudget) : Number(form.totalBudget),
-        endDate: new Date(form.endDate).toISOString(),
         participantCount: form.participantCount ?? 0,
       };
 
@@ -254,16 +251,6 @@ export function MissionAdminModal({ open, mission, onClose, onSaved }: Props) {
               />
             </div>
           )}
-
-          {/* End Date */}
-          <div className="space-y-1.5">
-            <Label>종료일</Label>
-            <Input
-              type="date"
-              value={form.endDate.slice(0, 10)}
-              onChange={(e) => set("endDate", e.target.value)}
-            />
-          </div>
 
           {/* Status */}
           <div className="space-y-1.5">

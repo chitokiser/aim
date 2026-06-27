@@ -4,9 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Coins, Users, Clock, Tag, Video, FileText, Music, Star, ExternalLink, ThumbsUp, Megaphone, Send, Zap } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
-import { ko } from "date-fns/locale";
+import { Coins, Users, Tag, Video, FileText, Music, Star, ExternalLink, ThumbsUp, Megaphone, Send, Zap } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const MISSION_TYPE_ICONS = {
@@ -31,7 +29,6 @@ interface MissionCardProps {
     reward: number;
     remainingBudget: number;
     totalBudget: number;
-    endDate: Date;
     requiredTags: string[];
     participantCount: number;
     missionType: keyof typeof MISSION_TYPE_ICONS;
@@ -61,8 +58,9 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
     jumpdao: mf.filterJumpdao,
   };
   const isJumpdao = mission.missionType === "jumpdao";
-  const budgetUsed = ((mission.totalBudget - mission.remainingBudget) / mission.totalBudget) * 100;
-  const daysLeft = formatDistanceToNow(new Date(mission.endDate), { locale: ko, addSuffix: true });
+  const budgetUsed = mission.totalBudget > 0
+    ? ((mission.totalBudget - mission.remainingBudget) / mission.totalBudget) * 100
+    : 0;
 
   return (
     <Card className={`flex flex-col hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5 shadow-sm ${isJumpdao ? "border-2 border-yellow-400 dark:border-yellow-500 shadow-yellow-200 dark:shadow-yellow-900/40" : "border-0"}`}>
@@ -124,14 +122,10 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
         </div>
 
         {/* Meta */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <div className="flex items-center text-xs text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
             <span>{mission.participantCount.toLocaleString("en-US")} {mc.participants}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
-            <span suppressHydrationWarning>{daysLeft}</span>
           </div>
         </div>
       </CardContent>
