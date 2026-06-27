@@ -19,12 +19,16 @@ interface AnalysisResult {
 }
 
 export type AspectRatio = '16:9' | '9:16';
+export type AudioVizType = 'none' | 'waveform' | 'spectrum' | 'circle' | 'glowring' | 'particlering';
+export type ParticleType = 'dust' | 'firefly' | 'petals' | 'snow' | 'light' | 'leaves' | 'fog' | 'rain' | 'snowflakes';
 
 export interface EffectOptions {
   mood?: 'natural' | 'dreamy' | 'cinematic' | 'warm' | 'cool' | 'dark' | 'ethereal';
-  glowIntensity?: number;  // 0–100
+  glowIntensity?: number;
   vignette?: boolean;
   panSpeed?: 'slow' | 'normal' | 'fast';
+  audioViz?: AudioVizType;
+  particles?: ParticleType[];
 }
 
 const POLLINATIONS_IMAGE = 'https://image.pollinations.ai/prompt';
@@ -317,6 +321,66 @@ export class MusicVideoService {
     });
   }
 
+  private buildAudioVizFilter(
+    viz: AudioVizType,
+    audioIdx: number,
+    w: number,
+    h: number,
+  ): { chain: string; overlayPos: string } | null {
+    if (viz === 'none') return null;
+    const vizH = Math.round(h * 0.18);
+    const al = `[${audioIdx}:a]`;
+    const ck = `colorkey=color=black:similarity=0.12:blend=0.05`;
+    const configs: Partial<Record<AudioVizType, { chain: string; overlayPos: string }>> = {
+      waveform: {
+        chain: `${al}showwaves=s=${w}x${vizH}:mode=cline:colors=white:rate=25,${ck}[aviz]`,
+        overlayPos: `0:H-${vizH}`,
+      },
+      spectrum: {
+        chain: `${al}showspectrum=s=${w}x${vizH}:mode=combined:color=channel:scale=log:fps=25,${ck}[aviz]`,
+        overlayPos: `0:H-${vizH}`,
+      },
+      circle: {
+        chain: `${al}showcqt=s=512x512:count=6:axis=0:fps=25,${ck}[aviz]`,
+        overlayPos: `(W-512)/2:(H-512)/2`,
+      },
+      glowring: {
+        chain: `${al}avectorscope=s=400x400:zoom=1.5:draw=dot:mode=lissajous:rate=25,${ck}[aviz]`,
+        overlayPos: `(W-400)/2:(H-400)/2`,
+      },
+      particlering: {
+        chain: `${al}avectorscope=s=400x400:zoom=2:draw=dot:mode=polar:rate=25,${ck}[aviz]`,
+        overlayPos: `(W-400)/2:(H-400)/2`,
+      },
+    };
+    return configs[viz] ?? null;
+  }
+
+  private buildParticleFilter(
+    type: ParticleType,
+    w: number,
+    h: number,
+  ): { kind: 'blend'; src: string } | { kind: 'direct'; filterStr: string } | null {
+    const s = `${w}x${h}`;
+    if (type === 'fog') {
+      return { kind: 'direct', filterStr: `drawbox=0:0:W:H:white@0.12:t=fill` };
+    }
+    // sin-based sparse particle expressions; no commas inside so no escaping needed
+    const srcMap: Partial<Record<ParticleType, string>> = {
+      dust:       `color=black:s=${s}:r=25,geq=lum='200*gt(abs(sin(X*131.1+Y*97.3+T*62)),0.998)'`,
+      snow:       `color=black:s=${s}:r=25,geq=lum='255*gt(abs(sin(X*37.1+Y*53.7-T*250)),0.998)'`,
+      petals:     `color=black:s=${s}:r=25,format=rgb24,geq=r='255*gt(abs(sin(X*37.1+Y*53.7-T*188)),0.998)':g='100*gt(abs(sin(X*37.1+Y*53.7-T*188)),0.998)':b='120*gt(abs(sin(X*37.1+Y*53.7-T*188)),0.998)'`,
+      firefly:    `color=black:s=${s}:r=25,format=rgb24,geq=r='255*gt(abs(sin(X*71.1+Y*73.3+sin(T)*200-T*94)),0.9985)':g='230*gt(abs(sin(X*71.1+Y*73.3+sin(T)*200-T*94)),0.9985)':b='50*gt(abs(sin(X*71.1+Y*73.3+sin(T)*200-T*94)),0.9985)'`,
+      light:      `color=black:s=${s}:r=25,geq=lum='255*gt(abs(sin(X*37.1+Y*53.7+T*251)),0.9982)'`,
+      leaves:     `color=black:s=${s}:r=25,format=rgb24,geq=r='160*gt(abs(sin(X*41.1+Y*67.3+sin(X/100)*50-T*157)),0.998)':g='90*gt(abs(sin(X*41.1+Y*67.3+sin(X/100)*50-T*157)),0.998)':b='25*gt(abs(sin(X*41.1+Y*67.3+sin(X/100)*50-T*157)),0.998)'`,
+      rain:       `color=black:s=${s}:r=25,format=rgb24,geq=r='160*gt(abs(sin(X*71.3-Y*7.1+T*942)),0.9992)':g='160*gt(abs(sin(X*71.3-Y*7.1+T*942)),0.9992)':b='220*gt(abs(sin(X*71.3-Y*7.1+T*942)),0.9992)'`,
+      snowflakes: `color=black:s=${s}:r=25,geq=lum='255*gt(abs(sin(X*23.1+Y*31.7-T*220)),0.999)'`,
+    };
+    const src = srcMap[type];
+    if (!src) return null;
+    return { kind: 'blend', src };
+  }
+
   private buildEffectFilter(opts: EffectOptions): string {
     const parts: string[] = [];
 
@@ -420,9 +484,43 @@ export class MusicVideoService {
       const totalSegments = (introPath ? 1 : 0) + panelCount;
       const audioMap = `${audioInputIdx}:a`;
 
+      // Chain post-processing: color effects → audio viz → particles
+      const extraParts: string[] = [];
+      let curLabel = '[video]';
+
       const effectFilter = effects ? this.buildEffectFilter(effects) : '';
-      const postFilter = effectFilter ? `; [video]${effectFilter}[vout]` : '';
-      const outputLabel = effectFilter ? '[vout]' : '[video]';
+      if (effectFilter) {
+        extraParts.push(`${curLabel}${effectFilter}[veff]`);
+        curLabel = '[veff]';
+      }
+
+      const audioViz = effects?.audioViz;
+      if (audioViz && audioViz !== 'none') {
+        const vizCfg = this.buildAudioVizFilter(audioViz, audioInputIdx, panelW, panelH);
+        if (vizCfg) {
+          extraParts.push(vizCfg.chain);
+          extraParts.push(`${curLabel}[aviz]overlay=${vizCfg.overlayPos}:format=auto[vaviz]`);
+          curLabel = '[vaviz]';
+        }
+      }
+
+      const selectedParticles = effects?.particles ?? [];
+      selectedParticles.forEach((ptype, pi) => {
+        const pCfg = this.buildParticleFilter(ptype, panelW, panelH);
+        if (!pCfg) return;
+        const outLabel = `[vp${pi}]`;
+        if (pCfg.kind === 'direct') {
+          extraParts.push(`${curLabel}${pCfg.filterStr}${outLabel}`);
+        } else {
+          const pLabel = `[ptcl${pi}]`;
+          extraParts.push(`${pCfg.src}${pLabel}`);
+          extraParts.push(`${curLabel}${pLabel}blend=all_mode=screen${outLabel}`);
+        }
+        curLabel = outLabel;
+      });
+
+      const postFilter = extraParts.length ? `; ${extraParts.join('; ')}` : '';
+      const outputLabel = curLabel;
 
       const filterComplex =
         filterParts.join('; ') +

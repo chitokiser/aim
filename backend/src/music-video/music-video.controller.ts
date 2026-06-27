@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { unlink } from 'fs/promises';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { UsersService } from '../users/users.service';
-import { MusicVideoService, AspectRatio, EffectOptions } from './music-video.service';
+import { MusicVideoService, AspectRatio, EffectOptions, ParticleType } from './music-video.service';
 import { randomUUID } from 'crypto';
 
 const MV_COST_AP = 50;
@@ -38,6 +38,8 @@ interface GenerateDto {
   glowIntensity?: string;
   vignette?: string;
   panSpeed?: EffectOptions['panSpeed'];
+  audioViz?: string;
+  particles?: string | string[];
 }
 
 @Controller('music-video')
@@ -97,11 +99,18 @@ export class MusicVideoController {
     const job: Job = { status: 'processing', step: 1, createdAt: Date.now() };
     this.jobs.set(jobId, job);
 
+    const rawParticles = body.particles;
+    const particleList: ParticleType[] = rawParticles
+      ? (Array.isArray(rawParticles) ? rawParticles : [rawParticles]) as ParticleType[]
+      : [];
+
     const effects: EffectOptions = {
       mood: body.mood,
       glowIntensity: body.glowIntensity ? Number(body.glowIntensity) : undefined,
       vignette: body.vignette === 'true',
       panSpeed: body.panSpeed,
+      audioViz: (body.audioViz as EffectOptions['audioViz']) ?? 'none',
+      particles: particleList,
     };
 
     const mp3Buffer = Buffer.from(file.buffer);

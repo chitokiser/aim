@@ -24,6 +24,8 @@ const POLL_INTERVAL_MS = 4000;
 type Step = "idle" | "step1" | "step2" | "step3" | "done";
 type Mood = "natural" | "dreamy" | "cinematic" | "warm" | "cool" | "dark" | "ethereal";
 type PanSpeed = "slow" | "normal" | "fast";
+type AudioViz = "none" | "waveform" | "spectrum" | "circle" | "glowring" | "particlering";
+type ParticleType = "dust" | "firefly" | "petals" | "snow" | "light" | "leaves" | "fog" | "rain" | "snowflakes";
 
 export default function MusicVideoPage() {
   const { t } = useLanguage();
@@ -43,6 +45,8 @@ export default function MusicVideoPage() {
   const [glowIntensity, setGlowIntensity] = useState(0);
   const [vignette, setVignette] = useState(false);
   const [panSpeed, setPanSpeed] = useState<PanSpeed>("normal");
+  const [audioViz, setAudioViz] = useState<AudioViz>("none");
+  const [particles, setParticles] = useState<ParticleType[]>([]);
   const [step, setStep] = useState<Step>("idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [hasThumbnail, setHasThumbnail] = useState(false);
@@ -60,6 +64,9 @@ export default function MusicVideoPage() {
       pollRef.current = null;
     }
   };
+
+  const toggleParticle = (p: ParticleType) =>
+    setParticles((prev) => prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]);
 
   const refreshBalance = async () => {
     if (!token) return;
@@ -175,6 +182,8 @@ export default function MusicVideoPage() {
       formData.append("glowIntensity", String(glowIntensity));
       formData.append("vignette", String(vignette));
       formData.append("panSpeed", panSpeed);
+      formData.append("audioViz", audioViz);
+      particles.forEach((p) => formData.append("particles", p));
       imageFiles.forEach((img) => formData.append("images", img));
 
       const res = await fetch(`${API}/api/music-video/generate`, {
@@ -574,6 +583,69 @@ export default function MusicVideoPage() {
                         )}
                       >
                         {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Audio Visualization */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">{mv.audioVizLabel}</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["none", "waveform", "spectrum", "circle", "glowring", "particlering"] as AudioViz[]).map((v) => {
+                    const labelKey = `audioViz${v.charAt(0).toUpperCase() + v.slice(1)}` as keyof typeof mv;
+                    return (
+                      <button
+                        key={v}
+                        onClick={() => setAudioViz(v)}
+                        className={cn(
+                          "rounded-lg border-2 px-2 py-2 text-xs font-medium transition-colors",
+                          audioViz === v
+                            ? "border-cyan-500 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300"
+                            : "border-border hover:border-cyan-300"
+                        )}
+                      >
+                        {mv[labelKey] as string}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Particle System */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">{mv.particlesLabel}</Label>
+                  <span className="text-xs text-muted-foreground">{mv.particleHint}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { key: "dust" as ParticleType, emoji: "🌫️" },
+                    { key: "firefly" as ParticleType, emoji: "🪲" },
+                    { key: "petals" as ParticleType, emoji: "🌸" },
+                    { key: "snow" as ParticleType, emoji: "❄️" },
+                    { key: "light" as ParticleType, emoji: "✨" },
+                    { key: "leaves" as ParticleType, emoji: "🍂" },
+                    { key: "fog" as ParticleType, emoji: "🌁" },
+                    { key: "rain" as ParticleType, emoji: "🌧️" },
+                    { key: "snowflakes" as ParticleType, emoji: "🌨️" },
+                  ]).map(({ key, emoji }) => {
+                    const labelKey = `particle${key.charAt(0).toUpperCase() + key.slice(1)}` as keyof typeof mv;
+                    const active = particles.includes(key);
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => toggleParticle(key)}
+                        className={cn(
+                          "rounded-lg border-2 px-2 py-2.5 text-xs font-medium flex flex-col items-center gap-1 transition-colors",
+                          active
+                            ? "border-emerald-500 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300"
+                            : "border-border hover:border-emerald-300"
+                        )}
+                      >
+                        <span className="text-lg">{emoji}</span>
+                        {mv[labelKey] as string}
                       </button>
                     );
                   })}
