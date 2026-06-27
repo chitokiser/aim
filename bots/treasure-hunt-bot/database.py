@@ -57,6 +57,34 @@ db = firestore_async.client()
 
 
 # ---------------------------------------------------------------------------
+# Main platform freePoints — single source of truth for P balance
+# ---------------------------------------------------------------------------
+
+async def _get_main_freepoints(user_id: int) -> Optional[int]:
+    """Return freePoints from main users collection, or None if user not registered there."""
+    try:
+        async for doc in db.collection("users").where("telegramId", "==", str(user_id)).limit(1).stream():
+            return doc.to_dict().get("freePoints", 0) or 0
+    except Exception:
+        pass
+    return None
+
+
+async def _sync_main_freepoints(user_id: int, delta: int) -> None:
+    """Apply a P delta directly to the main users collection's freePoints field."""
+    if delta == 0:
+        return
+    try:
+        async for doc in db.collection("users").where("telegramId", "==", str(user_id)).limit(1).stream():
+            current = doc.to_dict().get("freePoints", 0) or 0
+            new_val = max(0, current + delta)
+            await db.collection("users").document(doc.id).update({"freePoints": new_val})
+            return
+    except Exception:
+        pass  # never crash the bot if sync fails
+
+
+# ---------------------------------------------------------------------------
 # Dataclasses  (same attribute names as the old SQLAlchemy models)
 # ---------------------------------------------------------------------------
 
@@ -332,42 +360,63 @@ async def update_attempt(user_id: int, treasure_id: int, **kwargs) -> None:
 
 
 async def get_gp(user_id: int, username: str = None) -> UserGP:
+    # Use main platform as source of truth; fall back to th_gp if not registered there
+    main_p = await _get_main_freepoints(user_id)
+
     doc = await db.collection("th_gp").document(str(user_id)).get()
     if doc.exists:
-        return _to_gp(doc.to_dict(), user_id)
-    data: dict = {"user_id": user_id, "gp": 0, "lang": "en"}
+        ugp = _to_gp(doc.to_dict(), user_id)
+        if main_p is not None:
+            ugp.gp = main_p
+        return ugp
+
+    data: dict = {"user_id": user_id, "gp": main_p if main_p is not None else 0, "lang": "en"}
     if username:
         data["username"] = username
     await db.collection("th_gp").document(str(user_id)).set(data)
-    return UserGP(user_id=user_id, username=username or "", gp=0)
+    return UserGP(user_id=user_id, username=username or "", gp=data["gp"])
 
 
 async def deduct_gp(user_id: int, amount: int) -> bool:
     ref = db.collection("th_gp").document(str(user_id))
     doc = await ref.get()
-    if not doc.exists:
-        return False
-    current = doc.to_dict().get("gp", 0)
+
+    # Use main platform balance for the authoritative check
+    main_p = await _get_main_freepoints(user_id)
+    current = main_p if main_p is not None else (doc.to_dict().get("gp", 0) if doc.exists else 0)
+
     if current < amount:
         return False
-    await ref.update({"gp": current - amount})
+
+    new_balance = current - amount
+    if doc.exists:
+        await ref.update({"gp": new_balance})
+    else:
+        await ref.set({"user_id": user_id, "gp": new_balance, "lang": "en"})
+    await _sync_main_freepoints(user_id, -amount)
     return True
 
 
 async def add_gp(user_id: int, amount: int, username: str = None) -> int:
     """Add P to user's balance. Returns new balance."""
+    main_p = await _get_main_freepoints(user_id)
+
     ref = db.collection("th_gp").document(str(user_id))
     doc = await ref.get()
+
+    # Derive new balance from main platform when available
+    current = main_p if main_p is not None else (doc.to_dict().get("gp", 0) if doc.exists else 0)
+    new_balance = current + amount
+
     if doc.exists:
-        current = doc.to_dict().get("gp", 0)
-        new_balance = current + amount
         await ref.update({"gp": new_balance})
     else:
-        new_balance = amount
         data: dict = {"user_id": user_id, "gp": new_balance, "lang": "en"}
         if username:
             data["username"] = username
         await ref.set(data)
+
+    await _sync_main_freepoints(user_id, amount)
     return new_balance
 
 

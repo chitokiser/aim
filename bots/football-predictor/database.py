@@ -207,11 +207,21 @@ async def init_db() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Main platform freePoints sync
+# Main platform freePoints — single source of truth
 # ---------------------------------------------------------------------------
 
+async def _get_main_freepoints(telegram_id: int) -> Optional[int]:
+    """Return freePoints from main users collection, or None if user not registered there."""
+    try:
+        async for doc in db.collection("users").where("telegramId", "==", str(telegram_id)).limit(1).stream():
+            return doc.to_dict().get("freePoints", 0) or 0
+    except Exception:
+        pass
+    return None
+
+
 async def _sync_main_freepoints(telegram_id: int, delta: int) -> None:
-    """Mirror a P delta to the main users collection's freePoints field."""
+    """Apply a P delta directly to the main users collection's freePoints field."""
     if delta == 0:
         return
     try:
@@ -232,7 +242,11 @@ async def get_or_create_user(session, telegram_id: int, username: str = "", firs
     ref = db.collection("fp_users").document(str(telegram_id))
     doc = await ref.get()
     if doc.exists:
-        return _to_user(doc.to_dict()), False
+        user = _to_user(doc.to_dict())
+        main_p = await _get_main_freepoints(telegram_id)
+        if main_p is not None:
+            user.p_balance = main_p
+        return user, False
     data = {
         "telegram_id": telegram_id,
         "username": username,
@@ -254,7 +268,11 @@ async def get_user(session, telegram_id: int) -> Optional[User]:
     doc = await db.collection("fp_users").document(str(telegram_id)).get()
     if not doc.exists:
         return None
-    return _to_user(doc.to_dict())
+    user = _to_user(doc.to_dict())
+    main_p = await _get_main_freepoints(telegram_id)
+    if main_p is not None:
+        user.p_balance = main_p
+    return user
 
 
 async def update_user(session, telegram_id: int, **kwargs) -> None:
@@ -473,8 +491,11 @@ async def create_prediction(
     await db.collection("fp_predictions").document(doc_id).set(data)
     ref = db.collection("fp_users").document(str(user.telegram_id))
     doc = await ref.get()
-    current_balance = doc.to_dict().get("p_balance", 0) if doc.exists else 0
     current_total = doc.to_dict().get("total_predicted", 0) if doc.exists else 0
+    # Use main platform as source of truth for P balance
+    current_balance = await _get_main_freepoints(user.telegram_id)
+    if current_balance is None:
+        current_balance = doc.to_dict().get("p_balance", 0) if doc.exists else 0
     actual_deduct = min(stake_ap, current_balance)
     await ref.update({
         "p_balance": max(0, current_balance - stake_ap),
@@ -567,8 +588,10 @@ async def settle_match(session, match: Match, home_score: int, away_score: int) 
             user_doc = await user_ref.get()
             if user_doc.exists:
                 udata = user_doc.to_dict()
+                main_p = await _get_main_freepoints(pred.user_id)
+                current_p = main_p if main_p is not None else udata.get("p_balance", 0)
                 await user_ref.update({
-                    "p_balance": udata.get("p_balance", 0) + pred.payout_ap,
+                    "p_balance": current_p + pred.payout_ap,
                     "correct_predictions": udata.get("correct_predictions", 0) + 1,
                     "total_ap_won": udata.get("total_ap_won", 0) + pred.payout_ap,
                 })
@@ -590,7 +613,8 @@ async def cancel_match_predictions(session, match: Match) -> int:
         user_ref = db.collection("fp_users").document(str(pred.user_id))
         user_doc = await user_ref.get()
         if user_doc.exists:
-            current = user_doc.to_dict().get("p_balance", 0)
+            main_p = await _get_main_freepoints(pred.user_id)
+            current = main_p if main_p is not None else user_doc.to_dict().get("p_balance", 0)
             await user_ref.update({"p_balance": current + pred.stake_ap})
             await _sync_main_freepoints(pred.user_id, pred.stake_ap)
         count += 1
