@@ -363,7 +363,7 @@ export class MusicVideoService {
   ): { kind: 'blend'; src: string } | { kind: 'direct'; filterStr: string } | null {
     const s = `${w}x${h}`;
     if (type === 'fog') {
-      return { kind: 'direct', filterStr: `drawbox=0:0:W:H:white@0.12:t=fill` };
+      return { kind: 'direct', filterStr: `drawbox=x=0:y=0:w=${w}:h=${h}:color=white@0.12:t=fill` };
     }
     // sin-based sparse particle expressions; no commas inside so no escaping needed
     const srcMap: Partial<Record<ParticleType, string>> = {
