@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { unlink } from 'fs/promises';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { UsersService } from '../users/users.service';
-import { MusicVideoService, AspectRatio } from './music-video.service';
+import { MusicVideoService, AspectRatio, EffectOptions } from './music-video.service';
 import { randomUUID } from 'crypto';
 
 const MV_COST_AP = 50;
@@ -34,6 +34,10 @@ interface GenerateDto {
   title?: string;
   ratio?: AspectRatio;
   currency?: 'ap' | 'p';
+  mood?: EffectOptions['mood'];
+  glowIntensity?: string;
+  vignette?: string;
+  panSpeed?: EffectOptions['panSpeed'];
 }
 
 @Controller('music-video')
@@ -93,13 +97,20 @@ export class MusicVideoController {
     const job: Job = { status: 'processing', step: 1, createdAt: Date.now() };
     this.jobs.set(jobId, job);
 
+    const effects: EffectOptions = {
+      mood: body.mood,
+      glowIntensity: body.glowIntensity ? Number(body.glowIntensity) : undefined,
+      vignette: body.vignette === 'true',
+      panSpeed: body.panSpeed,
+    };
+
     const mp3Buffer = Buffer.from(file.buffer);
     const userImages = (files?.images ?? []).map((f) => Buffer.from(f.buffer));
     this.musicVideoService
       .generateToFile(mp3Buffer, body.text, body.title, ratio, userImages, (step) => {
         const j = this.jobs.get(jobId);
         if (j) j.step = step;
-      })
+      }, effects)
       .then(({ outputPath, tmpDir, thumbnailPath }) => {
         const j = this.jobs.get(jobId);
         if (j) {

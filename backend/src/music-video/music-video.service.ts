@@ -20,6 +20,13 @@ interface AnalysisResult {
 
 export type AspectRatio = '16:9' | '9:16';
 
+export interface EffectOptions {
+  mood?: 'natural' | 'dreamy' | 'cinematic' | 'warm' | 'cool' | 'dark' | 'ethereal';
+  glowIntensity?: number;  // 0–100
+  vignette?: boolean;
+  panSpeed?: 'slow' | 'normal' | 'fast';
+}
+
 const POLLINATIONS_IMAGE = 'https://image.pollinations.ai/prompt';
 const POLLINATIONS_TEXT = 'https://text.pollinations.ai';
 const PANEL_COUNT = 12;
@@ -38,6 +45,7 @@ export class MusicVideoService {
     ratio: AspectRatio,
     userImages: Buffer[],
     onStep: (step: 1 | 2 | 3) => void,
+    effects?: EffectOptions,
   ): Promise<{ outputPath: string; tmpDir: string; thumbnailPath: string }> {
     const { w: panelW, h: panelH } = dims(ratio);
     const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mv-'));
@@ -64,7 +72,7 @@ export class MusicVideoService {
 
     onStep(3);
     const outputPath = path.join(tmpDir, 'output.mp4');
-    await this.createVideo(panelPaths, mp3Path, duration, outputPath, panelW, panelH, introPath);
+    await this.createVideo(panelPaths, mp3Path, duration, outputPath, panelW, panelH, introPath, effects);
 
     return { outputPath, tmpDir, thumbnailPath };
   }
@@ -309,6 +317,34 @@ export class MusicVideoService {
     });
   }
 
+  private buildEffectFilter(opts: EffectOptions): string {
+    const parts: string[] = [];
+
+    const moodMap: Record<string, string> = {
+      dreamy: 'curves=preset=lighter,colorbalance=rs=-0.05:gs=0.05:bs=0.15,unsharp=5:5:0.6',
+      cinematic: 'curves=preset=darker,colorbalance=rs=0.08:gs=-0.03:bs=-0.08',
+      warm: 'colorbalance=rs=0.12:gs=0.05:bs=-0.12',
+      cool: 'colorbalance=rs=-0.1:gs=-0.02:bs=0.14',
+      dark: 'curves=preset=darker,colorbalance=rs=-0.05:gs=-0.05:bs=-0.05',
+      ethereal: 'curves=preset=lighter,colorbalance=rs=0.05:gs=0.1:bs=0.2,unsharp=3:3:0.4',
+    };
+
+    if (opts.mood && opts.mood !== 'natural' && moodMap[opts.mood]) {
+      parts.push(moodMap[opts.mood]);
+    }
+
+    if (opts.glowIntensity && opts.glowIntensity > 5) {
+      const amount = (opts.glowIntensity / 50).toFixed(2);
+      parts.push(`unsharp=5:5:${amount}`);
+    }
+
+    if (opts.vignette) {
+      parts.push('vignette');
+    }
+
+    return parts.join(',');
+  }
+
   private createVideo(
     panelPaths: string[],
     audioPath: string,
@@ -317,6 +353,7 @@ export class MusicVideoService {
     panelW: number,
     panelH: number,
     introPath?: string,
+    effects?: EffectOptions,
   ): Promise<void> {
     return new Promise((resolve, reject) => {
       const panelCount = panelPaths.length;
@@ -325,8 +362,15 @@ export class MusicVideoService {
 
       const scaledW = Math.round(panelW * 1.3);
       const scaledH = Math.round(panelH * 1.3);
-      const maxPX = scaledW - panelW;
-      const maxPY = scaledH - panelH;
+      const rawMaxPX = scaledW - panelW;
+      const rawMaxPY = scaledH - panelH;
+
+      const speedMult =
+        effects?.panSpeed === 'slow' ? 0.5 :
+        effects?.panSpeed === 'fast' ? 1.8 :
+        1.0;
+      const maxPX = Math.floor(rawMaxPX * speedMult);
+      const maxPY = Math.floor(rawMaxPY * speedMult);
 
       const inputArgs: string[] = [];
 
@@ -344,8 +388,8 @@ export class MusicVideoService {
       const filterParts: string[] = [];
 
       if (introPath) {
-        const introPX = Math.floor(maxPX / 2);
-        const introPY = Math.floor(maxPY / 2);
+        const introPX = Math.floor(rawMaxPX / 2);
+        const introPY = Math.floor(rawMaxPY / 2);
         filterParts.push(
           `[0:v]scale=${scaledW}:${scaledH},` +
           `crop=${panelW}:${panelH}:x='${introPX}*t/${INTRO_DURATION}':y='${introPY}*t/${INTRO_DURATION}',` +
@@ -359,11 +403,11 @@ export class MusicVideoService {
         const cropX =
           dir === 0 ? `${maxPX}*t/${dt}` :
           dir === 1 ? `${maxPX}*(1-t/${dt})` :
-          String(Math.floor(maxPX / 2));
+          String(Math.floor(rawMaxPX / 2));
         const cropY =
           dir === 2 ? `${maxPY}*t/${dt}` :
           dir === 3 ? `${maxPY}*(1-t/${dt})` :
-          String(Math.floor(maxPY / 2));
+          String(Math.floor(rawMaxPY / 2));
         filterParts.push(
           `[${inputIdx}:v]scale=${scaledW}:${scaledH},` +
           `crop=${panelW}:${panelH}:x='${cropX}':y='${cropY}',` +
@@ -374,19 +418,23 @@ export class MusicVideoService {
       const introConcat = introPath ? '[v_intro]' : '';
       const panelConcat = panelPaths.map((_, i) => `[v${i}]`).join('');
       const totalSegments = (introPath ? 1 : 0) + panelCount;
-
       const audioMap = `${audioInputIdx}:a`;
+
+      const effectFilter = effects ? this.buildEffectFilter(effects) : '';
+      const postFilter = effectFilter ? `; [video]${effectFilter}[vout]` : '';
+      const outputLabel = effectFilter ? '[vout]' : '[video]';
 
       const filterComplex =
         filterParts.join('; ') +
-        `; ${introConcat}${panelConcat}concat=n=${totalSegments}:v=1:a=0[video]`;
+        `; ${introConcat}${panelConcat}concat=n=${totalSegments}:v=1:a=0[video]` +
+        postFilter;
 
       const args = [
         '-y',
         ...inputArgs,
         '-i', audioPath,
         '-filter_complex', filterComplex,
-        '-map', '[video]',
+        '-map', outputLabel,
         '-map', audioMap,
         '-c:v', 'libx264',
         '-preset', 'ultrafast',

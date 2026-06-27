@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   Film, Download, Loader2, Coins, Upload, CheckCircle2, ImagePlus, X,
+  ChevronDown, ChevronUp, Sparkles,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
@@ -21,6 +22,8 @@ const MV_COST_P = 50;
 const POLL_INTERVAL_MS = 4000;
 
 type Step = "idle" | "step1" | "step2" | "step3" | "done";
+type Mood = "natural" | "dreamy" | "cinematic" | "warm" | "cool" | "dark" | "ethereal";
+type PanSpeed = "slow" | "normal" | "fast";
 
 export default function MusicVideoPage() {
   const { t } = useLanguage();
@@ -35,6 +38,11 @@ export default function MusicVideoPage() {
   const [text, setText] = useState("");
   const [currency, setCurrency] = useState<"ap" | "p">("p");
   const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
+  const [showEffects, setShowEffects] = useState(false);
+  const [mood, setMood] = useState<Mood>("natural");
+  const [glowIntensity, setGlowIntensity] = useState(0);
+  const [vignette, setVignette] = useState(false);
+  const [panSpeed, setPanSpeed] = useState<PanSpeed>("normal");
   const [step, setStep] = useState<Step>("idle");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [hasThumbnail, setHasThumbnail] = useState(false);
@@ -163,6 +171,10 @@ export default function MusicVideoPage() {
       if (title.trim()) formData.append("title", title.trim());
       formData.append("ratio", ratio);
       formData.append("currency", currency);
+      formData.append("mood", mood);
+      formData.append("glowIntensity", String(glowIntensity));
+      formData.append("vignette", String(vignette));
+      formData.append("panSpeed", panSpeed);
       imageFiles.forEach((img) => formData.append("images", img));
 
       const res = await fetch(`${API}/api/music-video/generate`, {
@@ -448,6 +460,127 @@ export default function MusicVideoPage() {
             rows={8}
             className="resize-none font-medium"
           />
+        </div>
+
+        {/* Visual Effects */}
+        <div className="rounded-xl border overflow-hidden">
+          <button
+            onClick={() => setShowEffects(!showEffects)}
+            className="w-full flex items-center justify-between px-4 py-3 bg-gradient-to-r from-violet-50/80 to-pink-50/80 dark:from-violet-950/30 dark:to-pink-950/30 hover:opacity-90 transition-opacity"
+          >
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              {mv.effectsTitle}
+            </span>
+            {showEffects
+              ? <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              : <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            }
+          </button>
+
+          {showEffects && (
+            <div className="px-4 py-4 space-y-5 border-t">
+              {/* Mood presets */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">{mv.moodLabel}</Label>
+                <div className="grid grid-cols-4 gap-2">
+                  {(
+                    [
+                      { key: "natural",   emoji: "🌿" },
+                      { key: "dreamy",    emoji: "🌸" },
+                      { key: "cinematic", emoji: "🎬" },
+                      { key: "warm",      emoji: "🌅" },
+                      { key: "cool",      emoji: "❄️" },
+                      { key: "dark",      emoji: "🌑" },
+                      { key: "ethereal",  emoji: "✨" },
+                    ] as { key: Mood; emoji: string }[]
+                  ).map(({ key, emoji }) => {
+                    const label = mv[`mood${key.charAt(0).toUpperCase() + key.slice(1)}` as keyof typeof mv] as string;
+                    return (
+                      <button
+                        key={key}
+                        onClick={() => setMood(key)}
+                        className={cn(
+                          "rounded-lg border-2 px-2 py-2.5 text-xs font-medium flex flex-col items-center gap-1 transition-colors",
+                          mood === key
+                            ? "border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300"
+                            : "border-border hover:border-violet-300"
+                        )}
+                      >
+                        <span className="text-lg">{emoji}</span>
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Glow intensity */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold">{mv.glowLabel}</Label>
+                  <span className="text-xs text-muted-foreground font-mono">{glowIntensity}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={glowIntensity}
+                  onChange={(e) => setGlowIntensity(Number(e.target.value))}
+                  className="w-full accent-violet-500"
+                />
+              </div>
+
+              {/* Vignette + Pan speed row */}
+              <div className="flex flex-wrap gap-4">
+                {/* Vignette toggle */}
+                <div className="flex items-center gap-2">
+                  <button
+                    role="switch"
+                    aria-checked={vignette}
+                    onClick={() => setVignette(!vignette)}
+                    className={cn(
+                      "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors",
+                      vignette ? "bg-violet-500" : "bg-muted-foreground/30"
+                    )}
+                  >
+                    <span className={cn(
+                      "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                      vignette ? "translate-x-4" : "translate-x-0.5"
+                    )} />
+                  </button>
+                  <Label className="text-sm cursor-pointer" onClick={() => setVignette(!vignette)}>
+                    {mv.vignetteLabel}
+                  </Label>
+                </div>
+              </div>
+
+              {/* Pan speed */}
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold">{mv.panSpeedLabel}</Label>
+                <div className="flex gap-2">
+                  {(["slow", "normal", "fast"] as PanSpeed[]).map((s) => {
+                    const label = mv[`pan${s.charAt(0).toUpperCase() + s.slice(1)}` as keyof typeof mv] as string;
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setPanSpeed(s)}
+                        className={cn(
+                          "flex-1 rounded-lg border-2 py-2 text-sm font-medium transition-colors",
+                          panSpeed === s
+                            ? "border-pink-500 bg-pink-50 dark:bg-pink-950/30 text-pink-700 dark:text-pink-300"
+                            : "border-border hover:border-pink-300"
+                        )}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Generate button */}
