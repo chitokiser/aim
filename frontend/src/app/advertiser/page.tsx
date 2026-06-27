@@ -22,18 +22,15 @@ import {
 import { useLanguage } from "@/lib/i18n";
 
 const MISSION_TYPES_EN = [
-  { value: "click", label: "Click Ad", price: "50 AP/click", desc: "Reward on link click" },
-  { value: "exposure", label: "Exposure Ad", price: "10 AP/view", desc: "Reward on content view" },
-  { value: "like", label: "Like Ad", price: "100 AP/like", desc: "Reward on like" },
-  { value: "comment", label: "Comment Ad", price: "300 AP/comment", desc: "Reward on comment" },
-  { value: "share", label: "Share Ad", price: "300 AP/share", desc: "Reward on SNS share" },
-  { value: "subscribe", label: "Subscribe Ad", price: "500 AP/sub", desc: "Reward on YouTube subscribe" },
-  { value: "follow", label: "Follow Ad", price: "500 AP/follow", desc: "Reward on Instagram follow" },
-  { value: "join", label: "Join Ad", price: "500 AP/join", desc: "Reward on Telegram group/channel join" },
+  { value: "youtube_sub", label: "YouTube Subscribe", price: "500 AP/sub", desc: "Reward on YouTube channel subscribe" },
+  { value: "follow_join", label: "Follow / Join", price: "500 AP/follow", desc: "Reward on Instagram follow or Telegram join" },
+  { value: "telegram_join", label: "Telegram Join", price: "500 AP/join", desc: "Reward on Telegram group/channel join" },
+  { value: "sns_banner", label: "SNS Banner", price: "per mission", desc: "Post brand banner on SNS" },
   { value: "cf_video", label: "CF Video", price: "per mission", desc: "Commission AI CF video" },
   { value: "blog_post", label: "Blog Post", price: "per mission", desc: "Post ad content on blog" },
   { value: "cm_song", label: "CM Song", price: "per mission", desc: "Commission AI CM song" },
-  { value: "review", label: "App Review", price: "20,000 AP/review", desc: "Write Google/App Store review" },
+  { value: "review", label: "Product Review", price: "20,000 AP/review", desc: "Write product review" },
+  { value: "signup", label: "Sign Up", price: "1,000 AP/signup", desc: "Reward on service sign-up" },
 ];
 
 const MY_MISSIONS = [
@@ -685,9 +682,31 @@ export default function AdvertiserPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label>{t.advertiser.targetUrl}</Label>
-                  <Input type="text" placeholder="https:// 또는 t.me/..." value={missionForm.targetUrl}
-                    onChange={(e) => setMissionForm(p => ({ ...p, targetUrl: e.target.value }))} />
+                  <Label>
+                    {missionForm.type === "youtube_sub"
+                      ? "YouTube Channel URL *"
+                      : missionForm.type === "telegram_join" || missionForm.type === "follow_join"
+                      ? "Telegram Group / Channel URL *"
+                      : t.advertiser.targetUrl}
+                  </Label>
+                  <Input
+                    type="text"
+                    placeholder={
+                      missionForm.type === "youtube_sub"
+                        ? "https://youtube.com/@yourchannel"
+                        : missionForm.type === "telegram_join" || missionForm.type === "follow_join"
+                        ? "https://t.me/yourchannel"
+                        : "https://..."
+                    }
+                    value={missionForm.targetUrl}
+                    onChange={(e) => setMissionForm(p => ({ ...p, targetUrl: e.target.value }))}
+                    required={["youtube_sub", "telegram_join", "follow_join"].includes(missionForm.type)}
+                  />
+                  {missionForm.type === "youtube_sub" && (
+                    <p className="text-xs text-muted-foreground">
+                      회원이 이 채널을 구독하고 구독 인증 스크린샷을 제출합니다. 관리자가 확인 후 AP를 즉시 지급합니다.
+                    </p>
+                  )}
                 </div>
 
                 {missionForm.budget && (
