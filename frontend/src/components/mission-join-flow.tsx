@@ -90,11 +90,9 @@ function calcEstimated(rows: SubmissionRow[], budget: number): SubmissionRow[] {
 function SubmissionsBoard({
   missionId,
   totalBudget,
-  daysLeft,
 }: {
   missionId: string;
   totalBudget: number;
-  daysLeft: number;
 }) {
   const { t } = useLanguage();
   const mf = t.missionFlow;
@@ -190,11 +188,7 @@ function SubmissionsBoard({
     <div className="space-y-4 mt-4">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm">{mf.submissionsTitle}</h3>
-        <Badge variant="outline" className="text-xs">
-          {mf.settleIn.replace("{n}", String(daysLeft))}
-        </Badge>
       </div>
-      <p className="text-xs text-muted-foreground">{mf.voteNote}</p>
 
       {loading ? (
         <div className="flex items-center justify-center py-6 text-sm text-muted-foreground gap-2">
@@ -448,11 +442,6 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
                 </div>
               ))}
 
-              <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                <Wallet className="h-3.5 w-3.5 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-                <p className="text-xs text-amber-700 dark:text-amber-400">{mf.escrowNote}</p>
-              </div>
-
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
@@ -479,7 +468,7 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
             </div>
             {/* Only show like-ranking board for creative missions */}
             {!isSimple && (
-              <SubmissionsBoard missionId={mission.id} totalBudget={mission.totalBudget} daysLeft={10} />
+              <SubmissionsBoard missionId={mission.id} totalBudget={mission.totalBudget} />
             )}
           </div>
         )}
@@ -545,25 +534,11 @@ export function MissionDetailSheet({ mission, open, onClose, onSubmit }: Mission
             </div>
           </div>
 
-          {/* Reward method */}
-          <div className="p-4 rounded-xl bg-violet-50 dark:bg-violet-950/20 border border-violet-200 dark:border-violet-800 space-y-1.5">
-            <p className="text-xs font-semibold text-violet-700 dark:text-violet-400">
-              {mf.rewardMethod}
-            </p>
-            {SIMPLE_VERIFY_TYPES.includes(mission.missionType) ? (
-              <>
-                <p className="text-xs text-violet-600 dark:text-violet-500">{mf.instantRewardNote}</p>
-                {(mission.missionType === 'telegram_join' || mission.missionType === 'follow_join') && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{mf.blacklistWarning}</p>
-                )}
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-violet-600 dark:text-violet-500">{mf.likeBasedNote}</p>
-                <p className="text-xs text-muted-foreground">{mf.escrowNote}</p>
-              </>
-            )}
-          </div>
+          {(mission.missionType === 'telegram_join' || mission.missionType === 'follow_join') && (
+            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">{mf.blacklistWarning}</p>
+            </div>
+          )}
 
           {/* Stats grid */}
           <div className="grid grid-cols-2 gap-3">
