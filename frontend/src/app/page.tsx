@@ -198,6 +198,30 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Advertiser Quick Link */}
+      <section className="border-b bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 py-5">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 max-w-4xl mx-auto">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-md">
+                <Megaphone className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="font-bold text-sm text-amber-900 dark:text-amber-200">{h.advertiserQuickBtn}</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">{h.advertiserQuickDesc}</p>
+              </div>
+            </div>
+            <Link
+              href="/advertiser"
+              className="shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2.5 text-sm font-bold text-white shadow hover:opacity-90 transition-opacity"
+            >
+              {h.advertiserQuickBtn}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* 4 Core Services */}
       <section className="py-20 container mx-auto px-4">
         <div className="text-center mb-12">
