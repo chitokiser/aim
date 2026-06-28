@@ -260,6 +260,16 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  // Reset state every time the modal opens so previous submission doesn't bleed through
+  useEffect(() => {
+    if (open) {
+      setSubmitted(false);
+      setSubmitting(false);
+      setLinks({ youtube: "", blog: "", comment: "", screenshot: "" });
+      setSimpleLinks({ taskUrl: "", myProfile: "", screenshot: "" });
+    }
+  }, [open]);
+
   const handleSubmitCreative = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!Object.values(links).some((l) => l.trim())) {
@@ -471,6 +481,9 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
             {!isSimple && (
               <SubmissionsBoard missionId={mission.id} totalBudget={mission.totalBudget} />
             )}
+            <Button className="w-full" variant="outline" onClick={handleClose}>
+              {mf.close}
+            </Button>
           </div>
         )}
       </DialogContent>
