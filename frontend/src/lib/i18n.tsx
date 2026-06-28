@@ -26,6 +26,7 @@ const T = {
       services: "Services",
       logout: "Logout",
       startTelegram: "Start with Telegram",
+      getStarted: "Get Started",
     },
     home: {
       badge: "All-in-One Digital Economy Platform",
@@ -833,6 +834,7 @@ const T = {
       services: "서비스",
       logout: "로그아웃",
       startTelegram: "텔레그램으로 시작",
+      getStarted: "시작하기",
     },
     home: {
       badge: "디지털 경제 올인원 플랫폼",
@@ -1640,6 +1642,7 @@ const T = {
       services: "Dịch vụ",
       logout: "Đăng xuất",
       startTelegram: "Bắt đầu với Telegram",
+      getStarted: "Bắt đầu",
     },
     home: {
       badge: "Nền tảng kinh tế số tất cả trong một",
