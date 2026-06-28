@@ -37,6 +37,7 @@ type RawMission = Record<string, unknown>;
 
 interface CpxConfig { appId: string; secureHash: string; userId: string; }
 interface OfferwallConfig { apiKey: string; userId: string; }
+interface AdgemConfig { appId: string; userId: string; }
 
 function fakeParticipants(id: string): number {
   let h = 0;
@@ -104,6 +105,8 @@ export default function MissionsPage() {
   const [cpxLoading, setCpxLoading] = useState(false);
   const [offerwallConfig, setOfferwallConfig] = useState<OfferwallConfig | null>(null);
   const [offerwallLoading, setOfferwallLoading] = useState(false);
+  const [adgemConfig, setAdgemConfig] = useState<AdgemConfig | null>(null);
+  const [adgemLoading, setAdgemLoading] = useState(false);
 
   const refreshJoinedIds = useCallback(() => {
     if (!token) return;
@@ -189,6 +192,16 @@ export default function MissionsPage() {
         .catch(() => {})
         .finally(() => setOfferwallLoading(false));
     }
+    if (value === "adgem" && !adgemConfig && token) {
+      setAdgemLoading(true);
+      void fetch(`${API}/api/adgem/widget-config`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then((r) => r.json())
+        .then((data: AdgemConfig) => setAdgemConfig(data))
+        .catch(() => {})
+        .finally(() => setAdgemLoading(false));
+    }
   };
 
   const filtered = missions.filter((ms) => {
@@ -205,6 +218,10 @@ export default function MissionsPage() {
 
   const offerwallIframeUrl = offerwallConfig
     ? `https://offerwall.me/offerwall/${offerwallConfig.apiKey}/${offerwallConfig.userId}`
+    : null;
+
+  const adgemIframeUrl = adgemConfig
+    ? `https://wall.adgem.com/?app_id=${adgemConfig.appId}&user_id=${adgemConfig.userId}`
     : null;
 
   return (
@@ -240,6 +257,10 @@ export default function MissionsPage() {
           <TabsTrigger value="offerwall" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
             {m.tabOfferwall}
+          </TabsTrigger>
+          <TabsTrigger value="adgem" className="flex items-center gap-2">
+            <Gift className="h-4 w-4" />
+            {m.tabAdgem}
           </TabsTrigger>
         </TabsList>
 
@@ -445,12 +466,78 @@ export default function MissionsPage() {
                 </a>
               </div>
             ) : offerwallIframeUrl ? (
+              <div className="flex flex-col gap-4">
+                <div className="flex gap-3 rounded-xl border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700 p-4 text-sm text-amber-800 dark:text-amber-300">
+                  <span className="text-xl leading-tight">ℹ️</span>
+                  <div>
+                    <p className="font-semibold mb-1">{t.offerwall.signupNoticeTitle}</p>
+                    <p className="leading-relaxed">{t.offerwall.signupNoticeDesc}</p>
+                  </div>
+                </div>
+                <div className="rounded-2xl overflow-hidden border shadow-sm">
+                  <iframe
+                    src={offerwallIframeUrl}
+                    className="w-full"
+                    style={{ height: "700px", border: "none" }}
+                    title="Offerwall.me Offers"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
+                {t.offerwall.noOffers}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Tab 4: AdGem ── */}
+        <TabsContent value="adgem">
+          <div className="max-w-4xl">
+            <div className="mb-6 rounded-2xl border bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-md">
+                  <Gift className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-blue-800 dark:text-blue-300">AdGem Offerwall</h2>
+                </div>
+              </div>
+              <ol className="space-y-1.5 mb-3">
+                {["Complete offers, surveys, and app installs", "Rewards are automatically converted to AP", "10,000 AP = 1 USD"].map((step, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-blue-700 dark:text-blue-400">
+                    <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span>{t.offerwall.earning}</span>
+              </div>
+            </div>
+
+            {adgemLoading ? (
+              <div className="flex items-center justify-center h-96 text-muted-foreground text-sm">
+                {t.offerwall.loadingWidget}
+              </div>
+            ) : !user || !token ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+                <p className="text-muted-foreground">{t.offerwall.loginRequired}</p>
+                <a
+                  href="/auth"
+                  className={buttonVariants({ variant: "default" }) + " bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90"}
+                >
+                  {t.offerwall.loginBtn}
+                </a>
+              </div>
+            ) : adgemIframeUrl ? (
               <div className="rounded-2xl overflow-hidden border shadow-sm">
                 <iframe
-                  src={offerwallIframeUrl}
+                  src={adgemIframeUrl}
                   className="w-full"
                   style={{ height: "700px", border: "none" }}
-                  title="Offerwall.me Offers"
+                  title="AdGem Offers"
                 />
               </div>
             ) : (

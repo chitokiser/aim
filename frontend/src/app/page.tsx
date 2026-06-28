@@ -25,6 +25,9 @@ import {
   Gavel,
   Megaphone,
   ChevronRight,
+  ClipboardList,
+  Gift,
+  TrendingUp,
 } from "lucide-react";
 
 const SAMPLE_MISSIONS = [
@@ -86,6 +89,15 @@ export default function HomePage() {
 
   const CORE_SERVICES = [
     {
+      href: "/missions",
+      icon: Megaphone,
+      gradient: "from-cyan-500 to-blue-500",
+      bg: "from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20",
+      border: "border-cyan-200 dark:border-cyan-800",
+      title: h.service3Title,
+      desc: h.service3Desc,
+    },
+    {
       href: "/auction",
       icon: Gavel,
       gradient: "from-amber-500 to-orange-500",
@@ -102,15 +114,6 @@ export default function HomePage() {
       border: "border-violet-200 dark:border-violet-800",
       title: h.service2Title,
       desc: h.service2Desc,
-    },
-    {
-      href: "/missions",
-      icon: Megaphone,
-      gradient: "from-cyan-500 to-blue-500",
-      bg: "from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20",
-      border: "border-cyan-200 dark:border-cyan-800",
-      title: h.service3Title,
-      desc: h.service3Desc,
     },
     {
       href: "/creative-market",
@@ -171,9 +174,10 @@ export default function HomePage() {
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
-              <Link href="/auction">
+              <Link href="/missions">
                 <Button size="lg" variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-800 h-14 text-lg rounded-full px-8">
                   {h.heroExplore}
+                  <ChevronRight className="ml-1 h-5 w-5" />
                 </Button>
               </Link>
             </div>
@@ -194,6 +198,50 @@ export default function HomePage() {
                 <div className="text-sm text-muted-foreground mt-1">{label}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* AP Earning Methods */}
+      <section className="py-20 bg-gradient-to-br from-emerald-950 via-slate-900 to-cyan-950 text-white">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-emerald-500/20 text-emerald-300 border-emerald-500/30 px-4 py-1.5">
+              <TrendingUp className="h-3.5 w-3.5 mr-1.5" />
+              {h.earnTitle}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-black mb-3">{h.earnSubtitle}</h2>
+          </div>
+
+          {/* 4 earning method cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto mb-10">
+            {[
+              { icon: Megaphone, gradient: "from-cyan-500 to-blue-600", title: h.earnM1Title, desc: h.earnM1Desc, value: h.earnM1Value },
+              { icon: ClipboardList, gradient: "from-violet-500 to-purple-600", title: h.earnM2Title, desc: h.earnM2Desc, value: h.earnM2Value },
+              { icon: Gift, gradient: "from-pink-500 to-rose-600", title: h.earnM3Title, desc: h.earnM3Desc, value: h.earnM3Value },
+              { icon: Gift, gradient: "from-blue-500 to-cyan-600", title: h.earnM4Title, desc: h.earnM4Desc, value: h.earnM4Value },
+            ].map(({ icon: Icon, gradient, title, desc, value }) => (
+              <div key={title} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 hover:bg-white/10 transition-colors">
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg`}>
+                  <Icon className="h-5 w-5 text-white" />
+                </div>
+                <h3 className="font-bold text-base mb-1">{title}</h3>
+                <p className="text-sm text-slate-400 mb-3">{desc}</p>
+                <span className="inline-block bg-emerald-500/20 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full">{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Estimated earnings banner */}
+          <div className="max-w-3xl mx-auto rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-6 text-center">
+            <p className="text-slate-400 text-sm mb-1">{h.earnEstDesc}</p>
+            <p className="text-4xl font-black text-emerald-400 mb-1">{h.earnEstValue}</p>
+            <p className="text-xl font-bold text-emerald-300 mb-3">{h.earnEstUsd}</p>
+            <p className="text-xs text-slate-500">{h.earnEstNote}</p>
+            <Link href="/auth" className="inline-flex items-center gap-2 mt-5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-7 py-3 text-sm font-bold text-white shadow-lg hover:opacity-90 transition-opacity">
+              {h.heroCTA}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>

@@ -24,6 +24,7 @@ import { MusicGenModule } from './music-gen/music-gen.module';
 import { CpxModule } from './cpx/cpx.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { OfferwallModule } from './offerwall/offerwall.module';
+import { AdgemModule } from './adgem/adgem.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { OfferwallModule } from './offerwall/offerwall.module';
     CpxModule,
     WithdrawalsModule,
     OfferwallModule,
+    AdgemModule,
   ],
   controllers: [AppController],
   providers: [AppService],
