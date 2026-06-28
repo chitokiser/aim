@@ -112,13 +112,8 @@ export default function MissionsPage() {
   const FILTERS = [
     { label: m.filterAll, value: "all" },
     { label: m.filterCF, value: "cf_video" },
-    { label: m.filterBlog, value: "blog_post" },
     { label: m.filterCM, value: "cm_song" },
     { label: m.filterYoutubeSub, value: "youtube_sub" },
-    { label: m.filterSnsBanner, value: "sns_banner" },
-    { label: m.filterTelegramJoin, value: "telegram_join" },
-    { label: m.filterFollowJoin, value: "follow_join" },
-    { label: m.filterJumpdao, value: "jumpdao" },
     { label: m.filterSurvey, value: "survey" },
   ];
 
