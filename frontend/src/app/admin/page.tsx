@@ -65,6 +65,20 @@ interface PendingMission {
   createdAt?: string;
 }
 
+interface WithdrawalItem {
+  id: string;
+  userId: string;
+  username: string;
+  tonWallet: string;
+  apAmount: number;
+  usdAmount: number;
+  status: "pending" | "approved" | "rejected";
+  txHash: string | null;
+  adminNote: string | null;
+  requestedAt: string;
+  processedAt: string | null;
+}
+
 const AP_STATUS = [
   { labelKey: "총 발행량", value: "4,200,000,000 AP" },
   { labelKey: "총 지급량", value: "3,150,000,000 AP" },
@@ -156,6 +170,16 @@ export default function AdminPage() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const [newTag, setNewTag] = useState("");
+
+  // Withdrawal management state
+  const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+  const [withdrawalStatusFilter, setWithdrawalStatusFilter] = useState("pending");
+  const [approveTargetId, setApproveTargetId] = useState<string | null>(null);
+  const [txHashInput, setTxHashInput] = useState("");
+  const [rejectWithdrawalId, setRejectWithdrawalId] = useState<string | null>(null);
+  const [rejectWithdrawalNote, setRejectWithdrawalNote] = useState("");
+  const [withdrawalActioning, setWithdrawalActioning] = useState(false);
 
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
@@ -526,6 +550,63 @@ export default function AdminPage() {
     return map[type] ?? type;
   };
 
+  const loadWithdrawals = useCallback(async (status?: string) => {
+    if (!token) return;
+    setWithdrawalsLoading(true);
+    try {
+      const qs = status ? `?status=${status}` : "";
+      const res = await fetch(`${API}/api/withdrawals/admin/list${qs}`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setWithdrawals(await res.json());
+    } catch {
+      toast.error("Failed to load withdrawals");
+    } finally {
+      setWithdrawalsLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const handleApproveWithdrawal = async () => {
+    if (!approveTargetId) return;
+    setWithdrawalActioning(true);
+    try {
+      const res = await fetch(`${API}/api/withdrawals/${approveTargetId}/approve`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ txHash: txHashInput.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Withdrawal approved");
+      setApproveTargetId(null);
+      setTxHashInput("");
+      void loadWithdrawals(withdrawalStatusFilter);
+    } catch {
+      toast.error("Failed to approve withdrawal");
+    } finally {
+      setWithdrawalActioning(false);
+    }
+  };
+
+  const handleRejectWithdrawal = async () => {
+    if (!rejectWithdrawalId) return;
+    setWithdrawalActioning(true);
+    try {
+      const res = await fetch(`${API}/api/withdrawals/${rejectWithdrawalId}/reject`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ adminNote: rejectWithdrawalNote.trim() || undefined }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("Withdrawal rejected — AP refunded to user");
+      setRejectWithdrawalId(null);
+      setRejectWithdrawalNote("");
+      void loadWithdrawals(withdrawalStatusFilter);
+    } catch {
+      toast.error("Failed to reject withdrawal");
+    } finally {
+      setWithdrawalActioning(false);
+    }
+  };
+
   const approvePost = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
   const rejectPost = (id: string) => toast.error(`#${id} ${t.admin.reject}`);
   const suspendUser = (id: string) => toast.warning(`#${id} ${t.admin.suspend}`);
@@ -595,6 +676,9 @@ export default function AdminPage() {
             제출 내역
           </TabsTrigger>
           <TabsTrigger value="tags" onClick={loadTags}>{t.admin.tabTags}</TabsTrigger>
+          <TabsTrigger value="withdrawals" onClick={() => void loadWithdrawals("pending")}>
+            출금 관리
+          </TabsTrigger>
         </TabsList>
 
         {/* Posts Review */}
@@ -1508,7 +1592,169 @@ export default function AdminPage() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Withdrawal Management */}
+        <TabsContent value="withdrawals">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Coins className="h-4 w-4 text-violet-500" />
+                출금 관리
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Status filter */}
+              <div className="flex gap-2 flex-wrap">
+                {["pending", "approved", "rejected"].map((s) => (
+                  <Button
+                    key={s}
+                    size="sm"
+                    variant={withdrawalStatusFilter === s ? "default" : "outline"}
+                    onClick={() => {
+                      setWithdrawalStatusFilter(s);
+                      void loadWithdrawals(s);
+                    }}
+                  >
+                    {s === "pending" ? "대기중" : s === "approved" ? "승인완료" : "거절"}
+                  </Button>
+                ))}
+              </div>
+
+              {withdrawalsLoading ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : withdrawals.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-10">출금 요청이 없습니다</p>
+              ) : (
+                <div className="divide-y">
+                  {withdrawals.map((w) => (
+                    <div key={w.id} className="py-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <div>
+                          <div className="font-semibold">@{w.username}</div>
+                          <div className="text-sm text-muted-foreground">{w.tonWallet}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {new Date(w.requestedAt).toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-black text-lg">{w.apAmount.toLocaleString()} AP</div>
+                          <div className="text-sm text-muted-foreground">≈ ${w.usdAmount.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge
+                          className={
+                            w.status === "approved"
+                              ? "bg-green-500 text-white border-0"
+                              : w.status === "rejected"
+                              ? "bg-red-500 text-white border-0"
+                              : "bg-amber-500 text-white border-0"
+                          }
+                        >
+                          {w.status === "approved" ? "승인완료" : w.status === "rejected" ? "거절" : "대기중"}
+                        </Badge>
+                        {w.txHash && (
+                          <span className="text-xs text-muted-foreground">TX: {w.txHash}</span>
+                        )}
+                        {w.adminNote && (
+                          <span className="text-xs text-red-500">{w.adminNote}</span>
+                        )}
+                      </div>
+                      {w.status === "pending" && (
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => { setApproveTargetId(w.id); setTxHashInput(""); }}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                            승인
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => { setRejectWithdrawalId(w.id); setRejectWithdrawalNote(""); }}
+                          >
+                            <XCircle className="h-3.5 w-3.5 mr-1" />
+                            거절
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* Approve Withdrawal Dialog */}
+      <Dialog open={!!approveTargetId} onOpenChange={(o) => !o && setApproveTargetId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              출금 승인
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>TON TX Hash (선택)</Label>
+              <Input
+                value={txHashInput}
+                onChange={(e) => setTxHashInput(e.target.value)}
+                placeholder="TON 트랜잭션 해시 입력..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                disabled={withdrawalActioning}
+                onClick={() => void handleApproveWithdrawal()}
+              >
+                {withdrawalActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : "승인 확정"}
+              </Button>
+              <Button variant="outline" onClick={() => setApproveTargetId(null)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Withdrawal Dialog */}
+      <Dialog open={!!rejectWithdrawalId} onOpenChange={(o) => !o && setRejectWithdrawalId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              출금 거절 (AP 환불)
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label>거절 사유</Label>
+              <Input
+                value={rejectWithdrawalNote}
+                onChange={(e) => setRejectWithdrawalNote(e.target.value)}
+                placeholder="거절 사유를 입력하세요..."
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="destructive"
+                className="flex-1"
+                disabled={withdrawalActioning}
+                onClick={() => void handleRejectWithdrawal()}
+              >
+                {withdrawalActioning ? <Loader2 className="h-4 w-4 animate-spin" /> : "거절 및 AP 환불"}
+              </Button>
+              <Button variant="outline" onClick={() => setRejectWithdrawalId(null)}>Cancel</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Mission Dialog */}
       <Dialog open={!!rejectTargetId} onOpenChange={(o) => !o && setRejectTargetId(null)}>

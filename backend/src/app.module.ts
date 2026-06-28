@@ -22,6 +22,7 @@ import { TtsModule } from './tts/tts.module';
 import { MusicVideoModule } from './music-video/music-video.module';
 import { MusicGenModule } from './music-gen/music-gen.module';
 import { CpxModule } from './cpx/cpx.module';
+import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { CpxModule } from './cpx/cpx.module';
     MusicVideoModule,
     MusicGenModule,
     CpxModule,
+    WithdrawalsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

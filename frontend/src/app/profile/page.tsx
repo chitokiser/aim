@@ -29,6 +29,18 @@ interface Mentee {
   joinedAt: string | null;
 }
 
+interface WithdrawalDoc {
+  id: string;
+  apAmount: number;
+  usdAmount: number;
+  tonWallet: string;
+  status: "pending" | "approved" | "rejected";
+  txHash: string | null;
+  adminNote: string | null;
+  requestedAt: string;
+  processedAt: string | null;
+}
+
 const MY_POSTS = [
   { id: "1", platform: "Instagram", url: "https://instagram.com/p/example", tags: ["#AIM", "#AIcf"], status: "approved", points: 51000, date: "2026-06-14" },
   { id: "2", platform: "YouTube", url: "https://youtube.com/watch?v=example", tags: ["#AIM", "#AI리뷰"], status: "pending", points: 0, date: "2026-06-13" },
@@ -41,6 +53,11 @@ export default function ProfilePage() {
   const { t } = useLanguage();
   const [mentees, setMentees] = useState<Mentee[]>([]);
   const [menteesLoaded, setMenteesLoaded] = useState(false);
+  const [tonWallet, setTonWallet] = useState("");
+  const [apAmount, setApAmount] = useState("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawHistory, setWithdrawHistory] = useState<WithdrawalDoc[]>([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const loadMentees = useCallback(async () => {
     if (!token || menteesLoaded) return;
@@ -55,6 +72,19 @@ export default function ProfilePage() {
     }
   }, [token, menteesLoaded]);
 
+  const loadWithdrawHistory = useCallback(async () => {
+    if (!token || historyLoaded) return;
+    try {
+      const res = await fetch(`${API}/api/withdrawals/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json() as WithdrawalDoc[];
+      setWithdrawHistory(data);
+    } catch { /* ignore */ } finally {
+      setHistoryLoaded(true);
+    }
+  }, [token, historyLoaded]);
+
   useEffect(() => {
     if (!user) router.push("/auth");
   }, [user, router]);
@@ -63,7 +93,39 @@ export default function ProfilePage() {
     void loadMentees();
   }, [loadMentees]);
 
+  useEffect(() => {
+    void loadWithdrawHistory();
+  }, [loadWithdrawHistory]);
+
   if (!user) return null;
+
+  const handleWithdraw = async () => {
+    const ap = parseInt(apAmount, 10);
+    if (!tonWallet.trim() || isNaN(ap) || ap < 50000) {
+      toast.error(t.profile.insufficientAP);
+      return;
+    }
+    setWithdrawLoading(true);
+    try {
+      const res = await fetch(`${API}/api/withdrawals`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ apAmount: ap, tonWallet: tonWallet.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json() as { message?: string };
+        toast.error(err.message ?? "Error");
+        return;
+      }
+      toast.success(t.profile.withdrawRequested);
+      setApAmount("");
+      setHistoryLoaded(false);
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
 
   const referralUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/auth?ref=${user.referralCode}`;
 
@@ -86,14 +148,6 @@ export default function ProfilePage() {
     pending: { label: "...", icon: Loader2, color: "text-amber-500" },
     rejected: { label: t.admin.reject, icon: XCircle, color: "text-red-500" },
   };
-
-  const withdrawalDetails = [
-    [t.profile.exchangeRate, "10,000 AP = 1 USD"],
-    [t.profile.minWithdrawal, "50,000 AP (5 USD)"],
-    [t.profile.withdrawalMethod, "TON"],
-    [t.profile.processingTime, "instant"],
-    [t.profile.nonCustodial, "non-custodial"],
-  ];
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
@@ -324,6 +378,7 @@ export default function ProfilePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Balance summary */}
               <div className="p-4 rounded-xl bg-gradient-to-r from-violet-50 to-cyan-50 dark:from-violet-950/20 dark:to-cyan-950/20">
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
@@ -341,21 +396,91 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="space-y-3 text-sm">
-                {withdrawalDetails.map(([label, value]) => (
-                  <div key={label} className="flex justify-between py-2 border-b last:border-0">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-medium">{value}</span>
-                  </div>
-                ))}
+              {/* Withdrawal form */}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t.profile.walletLabel}</label>
+                  <input
+                    type="text"
+                    value={tonWallet}
+                    onChange={(e) => setTonWallet(e.target.value)}
+                    placeholder={t.profile.walletPlaceholder}
+                    className="w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">{t.profile.apAmountLabel}</label>
+                  <input
+                    type="number"
+                    value={apAmount}
+                    onChange={(e) => setApAmount(e.target.value)}
+                    placeholder={t.profile.apAmountPlaceholder}
+                    min={50000}
+                    max={user.points}
+                    className="w-full rounded-lg border px-3 py-2 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  />
+                  {apAmount && !isNaN(parseInt(apAmount)) && (
+                    <p className="text-xs text-muted-foreground">
+                      ≈ {(parseInt(apAmount) / 10000).toFixed(2)} USD
+                    </p>
+                  )}
+                </div>
+                <Button
+                  className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                  onClick={() => void handleWithdraw()}
+                  disabled={withdrawLoading || user.points < 50000}
+                >
+                  {withdrawLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {user.points < 50000 ? t.profile.insufficientAP : t.profile.requestWithdraw}
+                </Button>
               </div>
 
-              <Button
-                className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
-                disabled={user.points < 50000}
-              >
-                {user.points < 50000 ? t.profile.insufficientAP : t.profile.withdrawBtn}
-              </Button>
+              {/* Withdrawal history */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">{t.profile.withdrawHistory}</h3>
+                {!historyLoaded ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : withdrawHistory.length === 0 ? (
+                  <p className="text-sm text-center text-muted-foreground py-6">{t.profile.withdrawEmpty}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {withdrawHistory.map((w) => (
+                      <div key={w.id} className="rounded-lg border p-3 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold">{w.apAmount.toLocaleString()} AP</span>
+                          <Badge
+                            className={
+                              w.status === "approved"
+                                ? "bg-green-500 text-white border-0"
+                                : w.status === "rejected"
+                                ? "bg-red-500 text-white border-0"
+                                : "bg-amber-500 text-white border-0"
+                            }
+                          >
+                            {w.status === "approved"
+                              ? t.profile.statusApproved
+                              : w.status === "rejected"
+                              ? t.profile.statusRejected
+                              : t.profile.statusPending}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground space-y-0.5">
+                          <p>{w.tonWallet}</p>
+                          <p>{new Date(w.requestedAt).toLocaleDateString()}</p>
+                          {w.txHash && (
+                            <p>
+                              {t.profile.txHash}: {w.txHash}
+                            </p>
+                          )}
+                          {w.adminNote && <p className="text-red-500">{w.adminNote}</p>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <p className="text-xs text-center text-muted-foreground">{t.profile.botHint}</p>
             </CardContent>
