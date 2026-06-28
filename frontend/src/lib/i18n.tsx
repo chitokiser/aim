@@ -106,7 +106,7 @@ const T = {
     },
     missions: {
       title: "Mission Center",
-      subtitle: "Join AI creative missions and earn points",
+      subtitle: "Earn AP free — select a tab below to get started",
       searchPlaceholder: "Search missions...",
       filterAll: "All",
       filterCF: "CF Video",
@@ -965,7 +965,7 @@ const T = {
     },
     missions: {
       title: "미션 센터",
-      subtitle: "AI 창작 미션에 참여하고 포인트를 획득하세요",
+      subtitle: "AP 무료 획득하기 — 아래 탭을 선택 후 AP를 획득하세요",
       searchPlaceholder: "미션 검색...",
       filterAll: "전체",
       filterCF: "CF 영상",
@@ -1824,7 +1824,7 @@ const T = {
     },
     missions: {
       title: "Trung tâm nhiệm vụ",
-      subtitle: "Tham gia nhiệm vụ sáng tạo AI và kiếm điểm thưởng",
+      subtitle: "Kiếm AP miễn phí — chọn tab bên dưới để bắt đầu",
       searchPlaceholder: "Tìm kiếm nhiệm vụ...",
       filterAll: "Tất cả",
       filterCF: "Video CF",
