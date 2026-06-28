@@ -11,19 +11,11 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Coins, Copy, Trophy, Target, TrendingUp, Users,
-  ExternalLink, CheckCircle, XCircle, Loader2
+  ExternalLink, CheckCircle, XCircle, Loader2, ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n";
-
-const POINT_HISTORY = [
-  { id: "1", type: "mission_reward", desc: "AI CF 영상 미션 완료", amount: 50000, date: "2026-06-14", status: "completed" },
-  { id: "2", type: "post_reward", desc: "게시물 등록 보상", amount: 1000, date: "2026-06-13", status: "completed" },
-  { id: "3", type: "like_reward", desc: "좋아요 획득 (×5)", amount: 2500, date: "2026-06-13", status: "completed" },
-  { id: "4", type: "referral_bonus", desc: "추천인 보너스 (user123)", amount: 2000, date: "2026-06-12", status: "completed" },
-  { id: "5", type: "comment_reward", desc: "댓글 획득 (×3)", amount: 1500, date: "2026-06-12", status: "completed" },
-  { id: "6", type: "withdrawal", desc: "TON코인 출금 (-50,000 AP)", amount: -50000, date: "2026-06-10", status: "completed" },
-];
+import Link from "next/link";
 
 const MY_POSTS = [
   { id: "1", platform: "Instagram", url: "https://instagram.com/p/example", tags: ["#AIM", "#AIcf"], status: "approved", points: 51000, date: "2026-06-14" },
@@ -171,29 +163,22 @@ export default function ProfilePage() {
 
         {/* Point History */}
         <TabsContent value="points">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t.profile.pointHistoryTab}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {POINT_HISTORY.map((tx) => (
-                  <div key={tx.id} className="flex items-center justify-between px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full ${tx.amount > 0 ? "bg-green-500" : "bg-red-500"}`} />
-                      <div>
-                        <p className="text-sm font-medium">{tx.desc}</p>
-                        <p className="text-xs text-muted-foreground">{tx.date}</p>
-                      </div>
-                    </div>
-                    <span className={`font-bold text-sm ${tx.amount > 0 ? "text-green-600" : "text-red-500"}`}>
-                      {tx.amount > 0 ? "+" : ""}{tx.amount.toLocaleString()} AP
-                    </span>
+          <Link href="/profile/points" className="block">
+            <Card className="hover:border-violet-400 transition-colors cursor-pointer">
+              <CardContent className="flex items-center justify-between p-5">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-950/40">
+                    <Coins className="h-5 w-5 text-violet-600 dark:text-violet-400" />
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                  <div>
+                    <p className="font-semibold">{t.profile.pointHistoryTab}</p>
+                    <p className="text-sm text-muted-foreground">AP · P 포인트 내역 전체 보기</p>
+                  </div>
+                </div>
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </CardContent>
+            </Card>
+          </Link>
         </TabsContent>
 
         {/* My Posts */}

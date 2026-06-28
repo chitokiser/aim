@@ -46,10 +46,15 @@ export class PointsService {
     const snap = await this.firebase
       .collection('transactions')
       .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(50)
       .get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return docs
+      .sort((a, b) => {
+        const aT = ((a as Record<string, unknown>).createdAt as string) ?? '';
+        const bT = ((b as Record<string, unknown>).createdAt as string) ?? '';
+        return bT.localeCompare(aT);
+      })
+      .slice(0, 100);
   }
 
   async awardPost(userId: string, postId: string) {
