@@ -259,16 +259,29 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
   const [simpleLinks, setSimpleLinks] = useState({ taskUrl: "", myProfile: "", screenshot: "" });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [alreadyJoined, setAlreadyJoined] = useState(false);
 
   // Reset state every time the modal opens so previous submission doesn't bleed through
   useEffect(() => {
     if (open) {
       setSubmitted(false);
       setSubmitting(false);
+      setAlreadyJoined(false);
       setLinks({ youtube: "", blog: "", comment: "", screenshot: "" });
       setSimpleLinks({ taskUrl: "", myProfile: "", screenshot: "" });
+
+      if (mission?.id && token) {
+        void fetch(`${API}/api/missions/${mission.id}/my-submission`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => r.json())
+          .then((data: { hasSubmitted?: boolean }) => {
+            if (data.hasSubmitted) setAlreadyJoined(true);
+          })
+          .catch(() => {});
+      }
     }
-  }, [open]);
+  }, [open, mission?.id, token]);
 
   const handleSubmitCreative = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -356,10 +369,23 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{submitted ? mf.submitted : (isSimple ? mf.simpleSubmitTitle : mf.submitTitle)}</DialogTitle>
+          <DialogTitle>{alreadyJoined ? mf.alreadyJoined : submitted ? mf.submitted : (isSimple ? mf.simpleSubmitTitle : mf.submitTitle)}</DialogTitle>
         </DialogHeader>
 
-        {!submitted ? (
+        {alreadyJoined ? (
+          <div className="flex flex-col items-center gap-4 py-8 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/40">
+              <CheckCircle className="h-8 w-8 text-amber-500" />
+            </div>
+            <p className="text-sm text-muted-foreground">{mf.alreadyJoined}</p>
+            <button
+              onClick={handleClose}
+              className="mt-2 rounded-full bg-muted px-6 py-2 text-sm font-medium hover:bg-muted/80 transition-colors"
+            >
+              {mf.close}
+            </button>
+          </div>
+        ) : !submitted ? (
           isSimple ? (
             /* ── Simple verify form: task URL + my profile ── */
             <form onSubmit={handleSubmitSimple} className="space-y-4 mt-1">

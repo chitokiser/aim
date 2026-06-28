@@ -225,10 +225,32 @@ export class MissionsService {
 
   // ── End 3-Tier Mission Flow ────────────────────────────────────────────────
 
+  async getMySubmission(missionId: string, userId: string) {
+    const snap = await this.firebase
+      .collection('submissions')
+      .where('missionId', '==', missionId)
+      .where('userId', '==', userId)
+      .limit(1)
+      .get();
+    if (snap.empty) return { hasSubmitted: false };
+    const doc = snap.docs[0];
+    return { hasSubmitted: true, submission: { id: doc.id, ...doc.data() } };
+  }
+
   async submitGeneral(
     userId: string,
     dto: { postUrl: string; section: string; platform: string; description: string; missionId?: string },
   ) {
+    if (dto.missionId) {
+      const existing = await this.firebase
+        .collection('submissions')
+        .where('missionId', '==', dto.missionId)
+        .where('userId', '==', userId)
+        .limit(1)
+        .get();
+      if (!existing.empty) throw new BadRequestException('Already submitted');
+    }
+
     const userDoc = await this.firebase.collection('users').doc(userId).get();
     const userData = userDoc.data();
     const displayName =

@@ -109,6 +109,15 @@ export class MissionsController {
     return this.missionsService.getSubmissions(id);
   }
 
+  @Get(':id/my-submission')
+  @UseGuards(JwtAuthGuard)
+  getMySubmission(
+    @Param('id') id: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    return this.missionsService.getMySubmission(id, req.user.sub);
+  }
+
   // ── Authenticated routes ───────────────────────────────────────────────────
 
   @Post()

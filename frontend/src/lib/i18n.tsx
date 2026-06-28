@@ -379,6 +379,7 @@ const T = {
       linkMyProfile: "Your YouTube Channel ID",
       simpleSubmittedDesc: "Your submission is under admin review. AP will be distributed immediately upon approval.",
       adminReviewPending: "Pending Admin Review",
+      alreadyJoined: "You've already participated in this mission.",
     },
     topup: {
       title: "Top Up AP",
@@ -1151,6 +1152,7 @@ const T = {
       linkMyProfile: "유튜브 채널 ID",
       simpleSubmittedDesc: "제출이 완료되었습니다. 관리자가 확인 후 AP를 즉시 지급합니다.",
       adminReviewPending: "관리자 검토 대기 중",
+      alreadyJoined: "이미 참여했던 미션입니다.",
     },
     topup: {
       title: "AP 충전",
@@ -1923,6 +1925,7 @@ const T = {
       linkMyProfile: "YouTube Channel ID của bạn",
       simpleSubmittedDesc: "Bài nộp đang chờ admin xem xét. AP sẽ được trao ngay sau khi duyệt.",
       adminReviewPending: "Đang chờ admin duyệt",
+      alreadyJoined: "Bạn đã tham gia nhiệm vụ này rồi.",
     },
     topup: {
       title: "Nạp AP",
