@@ -382,16 +382,12 @@ export function SubmitLinksModal({ mission, open, onClose }: SubmitLinksModalPro
 
               <div className="space-y-1.5">
                 <Label className="text-sm">{mf.linkMyProfile} {mf.optional}</Label>
-                <div className="relative">
-                  <ExternalLink className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="url"
-                    placeholder="https://youtube.com/@mychannel"
-                    value={simpleLinks.myProfile}
-                    onChange={(e) => setSimpleLinks((p) => ({ ...p, myProfile: e.target.value }))}
-                    className="pl-9"
-                  />
-                </div>
+                <Input
+                  type="text"
+                  placeholder="@mychannel 또는 UCxxxxxxxxxxxxxxxxxx"
+                  value={simpleLinks.myProfile}
+                  onChange={(e) => setSimpleLinks((p) => ({ ...p, myProfile: e.target.value }))}
+                />
               </div>
 
               <div className="space-y-1.5">
