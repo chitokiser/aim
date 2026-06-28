@@ -104,6 +104,9 @@ const T = {
       filterSurvey: "Survey",
       noResults: "No results found",
       noResultsHint: "Try a different keyword",
+      tabMissions: "Missions",
+      tabSurvey: "Surveys",
+      tabOfferwall: "Offerwall",
     },
     missionCard: {
       reward: "Reward",
@@ -938,6 +941,9 @@ const T = {
       filterSurvey: "설문 조사",
       noResults: "검색 결과가 없습니다",
       noResultsHint: "다른 키워드로 검색해보세요",
+      tabMissions: "미션",
+      tabSurvey: "설문조사",
+      tabOfferwall: "오퍼월",
     },
     missionCard: {
       reward: "보상",
@@ -1772,6 +1778,9 @@ const T = {
       filterSurvey: "Khảo sát",
       noResults: "Không tìm thấy kết quả",
       noResultsHint: "Thử từ khóa khác",
+      tabMissions: "Nhiệm vụ",
+      tabSurvey: "Khảo sát",
+      tabOfferwall: "Offerwall",
     },
     missionCard: {
       reward: "Phần thưởng",
