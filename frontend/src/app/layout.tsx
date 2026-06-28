@@ -27,6 +27,9 @@ export const metadata: Metadata = {
   },
   verification: {
     google: "iSwGv7PBrGFOxh8LIKrKNegCUYW32fXo8EdbQby2Cg8",
+    other: {
+      "offerwall-verification": "c3c3afb250efdd9c",
+    },
   },
   openGraph: {
     title: "AI119 — AI Marketing Platform",
