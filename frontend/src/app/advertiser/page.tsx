@@ -15,9 +15,12 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Megaphone, Coins, Plus,
   Users, Eye, MousePointerClick, Copy, ExternalLink, LayoutTemplate, Loader2, ArrowLeft,
-  CheckCircle, XCircle, Clock, ChevronRight,
+  CheckCircle, XCircle, Clock, ChevronRight, Pencil,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -53,7 +56,14 @@ interface Campaign {
   remainingBudget?: number;
   totalBudget?: number;
   participantCount?: number;
+  totalSubmissionCount?: number;
+  pendingSubmissionCount?: number;
   rewardPerUnit?: number;
+  description?: string;
+  targetUrl?: string;
+  requiredTags?: string | string[];
+  endDate?: string;
+  maxParticipants?: number;
 }
 
 interface Submission {
@@ -127,6 +137,56 @@ export default function AdvertiserPage() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [pendingSubmissions, setPendingSubmissions] = useState<Submission[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
+
+  // ── Mission edit state ─────────────────────────────────────────────────────
+  const [editMission, setEditMission] = useState<Campaign | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", targetUrl: "", requiredTags: "", maxParticipants: "", endDate: "" });
+  const [editSubmitting, setEditSubmitting] = useState(false);
+
+  const openEditModal = (m: Campaign) => {
+    const tags = Array.isArray(m.requiredTags) ? m.requiredTags.join(", ") : (m.requiredTags ?? "");
+    setEditForm({
+      title: m.title,
+      description: m.description ?? "",
+      targetUrl: m.targetUrl ?? "",
+      requiredTags: tags,
+      maxParticipants: m.maxParticipants != null ? String(m.maxParticipants) : "",
+      endDate: m.endDate ?? "",
+    });
+    setEditMission(m);
+  };
+
+  const handleEditSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editMission || !token) return;
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(`${API}/api/missions/${editMission.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          title: editForm.title.trim(),
+          description: editForm.description.trim() || undefined,
+          targetUrl: editForm.targetUrl.trim() || undefined,
+          requiredTags: editForm.requiredTags ? editForm.requiredTags.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+          maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
+          endDate: editForm.endDate || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Update failed");
+        return;
+      }
+      toast.success(t.advertiser.editSaved);
+      setMyCampaigns((prev) => prev.map((c) => c.id === editMission.id ? { ...c, title: editForm.title } : c));
+      setEditMission(null);
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
 
   const loadMyCampaigns = useCallback(async () => {
     if (!token) return;
@@ -318,6 +378,82 @@ export default function AdvertiserPage() {
   ];
 
   return (
+    <>
+    {/* ── Edit Mission Dialog ─────────────────────────────────────────────── */}
+    <Dialog open={!!editMission} onOpenChange={(o) => { if (!o) setEditMission(null); }}>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{t.advertiser.editModalTitle}</DialogTitle>
+        </DialogHeader>
+        {/* Budget notice */}
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 text-xs text-amber-700 dark:text-amber-400">
+          <Coins className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+          {t.advertiser.editBudgetNotice}
+        </div>
+        <form onSubmit={handleEditSave} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label className="text-sm">{t.advertiser.newMissionTitle}</Label>
+            <Input
+              required
+              value={editForm.title}
+              onChange={(e) => setEditForm((p) => ({ ...p, title: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">{t.advertiser.editDescription}</Label>
+            <Textarea
+              rows={3}
+              value={editForm.description}
+              onChange={(e) => setEditForm((p) => ({ ...p, description: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">{t.advertiser.editTargetUrl}</Label>
+            <Input
+              type="url"
+              placeholder="https://..."
+              value={editForm.targetUrl}
+              onChange={(e) => setEditForm((p) => ({ ...p, targetUrl: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-sm">{t.advertiser.editTags}</Label>
+            <Input
+              placeholder="#tag1, #tag2"
+              value={editForm.requiredTags}
+              onChange={(e) => setEditForm((p) => ({ ...p, requiredTags: e.target.value }))}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t.advertiser.editMaxPart}</Label>
+              <Input
+                type="number"
+                min="1"
+                value={editForm.maxParticipants}
+                onChange={(e) => setEditForm((p) => ({ ...p, maxParticipants: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t.advertiser.editEndDate}</Label>
+              <Input
+                type="date"
+                value={editForm.endDate}
+                onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
+              />
+            </div>
+          </div>
+          <Button
+            type="submit"
+            className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+            disabled={editSubmitting}
+          >
+            {editSubmitting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t.advertiser.editSaving}</> : t.advertiser.editSave}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+
     <div className="container mx-auto px-4 py-10 max-w-5xl">
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -824,7 +960,14 @@ export default function AdvertiserPage() {
                               : t.advertiser.ended}
                           </Badge>
                         </div>
-                        <div className="text-right">
+                        <div className="flex flex-col items-end gap-1">
+                          <button
+                            onClick={() => openEditModal(mission)}
+                            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors px-2 py-1 rounded hover:bg-muted"
+                          >
+                            <Pencil className="h-3 w-3" />
+                            {t.advertiser.editMissionBtn}
+                          </button>
                           <div className="text-sm font-bold text-violet-600">
                             {spent.toLocaleString()} AP {t.advertiser.budgetSpent}
                           </div>
@@ -880,7 +1023,7 @@ export default function AdvertiserPage() {
                 <div>
                   <h2 className="font-bold text-sm">{selectedCampaign.title}</h2>
                   <p className="text-xs text-muted-foreground">
-                    남은 예산: {(selectedCampaign.remainingBudget ?? 0).toLocaleString()} AP &middot; 승인된 참여자: {selectedCampaign.participantCount ?? 0}명
+                    남은 예산: {(selectedCampaign.remainingBudget ?? 0).toLocaleString()} AP &middot; 제출: {selectedCampaign.totalSubmissionCount ?? 0}명 &middot; 승인: {selectedCampaign.participantCount ?? 0}명
                   </p>
                 </div>
               </div>
@@ -984,6 +1127,10 @@ export default function AdvertiserPage() {
                           <p className="font-semibold">{campaign.title}</p>
                           <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
                             <span>남은 예산: {(campaign.remainingBudget ?? 0).toLocaleString()} AP</span>
+                            <span>제출 {campaign.totalSubmissionCount ?? 0}명</span>
+                            {(campaign.pendingSubmissionCount ?? 0) > 0 && (
+                              <span className="text-amber-500">대기 {campaign.pendingSubmissionCount}명</span>
+                            )}
                             <span>승인 {campaign.participantCount ?? 0}명</span>
                             <Badge
                               variant={campaign.status === "active" ? "default" : "secondary"}
@@ -1214,5 +1361,6 @@ export default function AdvertiserPage() {
         </TabsContent>
       </Tabs>
     </div>
+    </>
   );
 }

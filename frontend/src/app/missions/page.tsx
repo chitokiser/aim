@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { MissionCard } from "@/components/mission-card";
 import {
-  AdvertiserListModal,
   MissionDetailSheet,
   SubmitLinksModal,
   CfAdRequestModal,
@@ -75,10 +74,24 @@ export default function MissionsPage() {
   const [loading, setLoading] = useState(true);
   const [adminModal, setAdminModal] = useState<{ open: boolean; mission?: MissionFormData | null }>({ open: false });
 
-  const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
   const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
   const [submitMission, setSubmitMission] = useState<MissionFlowData | null>(null);
   const [cfAdOpen, setCfAdOpen] = useState(false);
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+
+  const refreshJoinedIds = useCallback(() => {
+    if (!token) return;
+    void fetch(`${API}/api/missions/my-joined-ids`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: { missionIds?: string[] }) => {
+        if (data.missionIds) setJoinedIds(new Set(data.missionIds));
+      })
+      .catch(() => {});
+  }, [token]);
+
+  useEffect(() => { refreshJoinedIds(); }, [refreshJoinedIds]);
 
   const FILTERS = [
     { label: m.filterAll, value: "all" },
@@ -226,7 +239,7 @@ export default function MissionsPage() {
             const canEdit = isAdmin || !!isOwner;
             return (
               <div key={card.id} className="relative group">
-                <MissionCard mission={card} onJoin={setJoinMission} />
+                <MissionCard mission={card} onJoin={setSubmitMission} joined={joinedIds.has(card.id)} />
                 {canEdit && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -264,13 +277,6 @@ export default function MissionsPage() {
       )}
 
       {/* Mission Join Flow */}
-      <AdvertiserListModal
-        mission={joinMission}
-        open={!!joinMission}
-        onClose={() => setJoinMission(null)}
-        onViewDetail={(adv) => { setJoinMission(null); setDetailMission(adv); }}
-        onSubmitWork={(adv) => { setJoinMission(null); setSubmitMission(adv); }}
-      />
       <MissionDetailSheet
         mission={detailMission}
         open={!!detailMission}
@@ -283,7 +289,7 @@ export default function MissionsPage() {
       <SubmitLinksModal
         mission={submitMission}
         open={!!submitMission}
-        onClose={() => setSubmitMission(null)}
+        onClose={() => { setSubmitMission(null); refreshJoinedIds(); }}
       />
       <CfAdRequestModal
         open={cfAdOpen}

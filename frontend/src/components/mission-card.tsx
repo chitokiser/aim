@@ -36,9 +36,10 @@ interface MissionCardProps {
     advertiserName: string;
   };
   onJoin?: (mission: MissionCardProps["mission"]) => void;
+  joined?: boolean;
 }
 
-export function MissionCard({ mission, onJoin }: MissionCardProps) {
+export function MissionCard({ mission, onJoin, joined }: MissionCardProps) {
   const { t } = useLanguage();
   const mc = t.missionCard;
   const mf = t.missions;
@@ -132,11 +133,11 @@ export function MissionCard({ mission, onJoin }: MissionCardProps) {
 
       <CardFooter className="pt-0">
         <Button
-          className={`w-full text-white hover:opacity-90 font-semibold ${isJumpdao ? "bg-gradient-to-r from-yellow-400 to-amber-500" : "bg-gradient-to-r from-violet-600 to-cyan-500"}`}
-          disabled={mission.status !== "active"}
-          onClick={() => mission.status === "active" && onJoin?.(mission)}
+          className={`w-full text-white hover:opacity-90 font-semibold ${joined ? "bg-gradient-to-r from-green-500 to-emerald-500" : isJumpdao ? "bg-gradient-to-r from-yellow-400 to-amber-500" : "bg-gradient-to-r from-violet-600 to-cyan-500"}`}
+          disabled={mission.status !== "active" || joined}
+          onClick={() => mission.status === "active" && !joined && onJoin?.(mission)}
         >
-          {mission.status === "active" ? mc.join : mc.ended}
+          {joined ? mc.joined : mission.status === "active" ? mc.join : mc.ended}
         </Button>
       </CardFooter>
     </Card>

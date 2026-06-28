@@ -86,6 +86,12 @@ export class MissionsController {
     return this.missionsService.rejectSubmission(submissionId, req.user.sub);
   }
 
+  @Get('my-joined-ids')
+  @UseGuards(JwtAuthGuard)
+  getMyJoinedMissionIds(@Request() req: { user: { sub: string } }) {
+    return this.missionsService.getMyJoinedMissionIds(req.user.sub);
+  }
+
   // ── Public routes ──────────────────────────────────────────────────────────
 
   @Get()

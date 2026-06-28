@@ -225,6 +225,15 @@ export class MissionsService {
 
   // ── End 3-Tier Mission Flow ────────────────────────────────────────────────
 
+  async getMyJoinedMissionIds(userId: string) {
+    const snap = await this.firebase
+      .collection('submissions')
+      .where('userId', '==', userId)
+      .get();
+    const ids = [...new Set(snap.docs.map((d) => d.data().missionId as string).filter(Boolean))];
+    return { missionIds: ids };
+  }
+
   async getMySubmission(missionId: string, userId: string) {
     const snap = await this.firebase
       .collection('submissions')
@@ -283,10 +292,36 @@ export class MissionsService {
       .where('advertiserId', '==', advertiserId)
       .get();
     const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    return docs.sort((a, b) => {
+    docs.sort((a, b) => {
       const aTime = ((a as Record<string, unknown>).createdAt as string) ?? '';
       const bTime = ((b as Record<string, unknown>).createdAt as string) ?? '';
       return bTime.localeCompare(aTime);
+    });
+
+    if (docs.length === 0) return docs;
+
+    // Batch-fetch submission counts for all missions
+    const missionIds = docs.map((d) => (d as Record<string, unknown>).id as string);
+    const subCounts: Record<string, { total: number; pending: number }> = {};
+    missionIds.forEach((id) => { subCounts[id] = { total: 0, pending: 0 }; });
+
+    const subSnap = await this.firebase
+      .collection('submissions')
+      .where('missionId', 'in', missionIds.slice(0, 30))
+      .get();
+    subSnap.docs.forEach((d) => {
+      const data = d.data();
+      const mid = data.missionId as string;
+      if (subCounts[mid]) {
+        subCounts[mid].total += 1;
+        if (data.status === 'pending') subCounts[mid].pending += 1;
+      }
+    });
+
+    return docs.map((d) => {
+      const rec = d as Record<string, unknown>;
+      const counts = subCounts[rec.id as string] ?? { total: 0, pending: 0 };
+      return { ...rec, totalSubmissionCount: counts.total, pendingSubmissionCount: counts.pending };
     });
   }
 
