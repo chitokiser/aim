@@ -259,9 +259,13 @@ export class MissionsService {
     const snap = await this.firebase
       .collection('missions')
       .where('advertiserId', '==', advertiserId)
-      .orderBy('createdAt', 'desc')
       .get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return docs.sort((a, b) => {
+      const aTime = ((a as Record<string, unknown>).createdAt as string) ?? '';
+      const bTime = ((b as Record<string, unknown>).createdAt as string) ?? '';
+      return bTime.localeCompare(aTime);
+    });
   }
 
   // ── Advertiser: list pending submissions for one of their missions ─────────
@@ -275,9 +279,13 @@ export class MissionsService {
       .collection('submissions')
       .where('missionId', '==', missionId)
       .where('status', '==', 'pending')
-      .orderBy('createdAt', 'asc')
       .get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    return docs.sort((a, b) => {
+      const aTime = ((a as Record<string, unknown>).createdAt as string) ?? '';
+      const bTime = ((b as Record<string, unknown>).createdAt as string) ?? '';
+      return aTime.localeCompare(bTime);
+    });
   }
 
   // ── Admin: list all pending submissions across all missions ─────────────────
@@ -286,9 +294,12 @@ export class MissionsService {
     const snap = await this.firebase
       .collection('submissions')
       .where('status', '==', 'pending')
-      .orderBy('createdAt', 'asc')
       .get();
-    const submissions = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const submissions = snap.docs.map((d) => ({ id: d.id, ...d.data() })).sort((a, b) => {
+      const aTime = ((a as Record<string, unknown>).createdAt as string) ?? '';
+      const bTime = ((b as Record<string, unknown>).createdAt as string) ?? '';
+      return aTime.localeCompare(bTime);
+    });
 
     // Enrich with mission title for display
     const missionIds = [...new Set(submissions.map((s) => (s as Record<string, unknown>).missionId as string).filter(Boolean))];
