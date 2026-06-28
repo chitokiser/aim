@@ -23,9 +23,9 @@ export class AuthController {
 
   @Post('google')
   @HttpCode(200)
-  async googleAuth(@Body() body: { idToken: string }) {
+  async googleAuth(@Body() body: { idToken: string; refCode?: string }) {
     if (!body?.idToken) throw new UnauthorizedException('Missing idToken');
-    const result = await this.authService.loginFromGoogle(body.idToken);
+    const result = await this.authService.loginFromGoogle(body.idToken, body.refCode);
     if (!result) throw new UnauthorizedException('Invalid Google token');
     return result;
   }

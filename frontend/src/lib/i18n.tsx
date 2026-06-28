@@ -126,6 +126,8 @@ const T = {
       terms: "Terms of Service",
       and: "and",
       privacy: "Privacy Policy",
+      refCodeLabel: "Referral Code (optional)",
+      refCodePlaceholder: "Enter referral code",
     },
     leaderboard: {
       title: "Leaderboard",
@@ -911,6 +913,8 @@ const T = {
       terms: "이용약관",
       and: "및",
       privacy: "개인정보처리방침",
+      refCodeLabel: "추천인 코드 (선택)",
+      refCodePlaceholder: "추천인 코드를 입력하세요",
     },
     leaderboard: {
       title: "리더보드",
@@ -1696,6 +1700,8 @@ const T = {
       terms: "Điều khoản",
       and: "và",
       privacy: "Chính sách",
+      refCodeLabel: "Mã giới thiệu (tùy chọn)",
+      refCodePlaceholder: "Nhập mã giới thiệu",
     },
     leaderboard: {
       title: "Bảng xếp hạng",

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Bot, Shield, Zap, Coins } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
@@ -37,6 +38,9 @@ export default function AuthPage() {
   const { setUser, setToken } = useAuthStore();
   const widgetRef = useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [refCode, setRefCode] = useState("");
+  const refCodeRef = useRef(refCode);
+  refCodeRef.current = refCode;
   const { t } = useLanguage();
 
   const handleGoogleLogin = async () => {
@@ -53,7 +57,7 @@ export default function AuthPage() {
         const res = await fetch(`${API}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken }),
+          body: JSON.stringify({ idToken, refCode: refCode || undefined }),
           signal: controller.signal,
         });
         clearTimeout(tid);
@@ -103,7 +107,7 @@ export default function AuthPage() {
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/auth/telegram`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(telegramUser),
+            body: JSON.stringify({ ...telegramUser, ref: refCodeRef.current || undefined }),
           });
 
           if (res.ok) {
@@ -167,6 +171,17 @@ export default function AuthPage() {
             <CardDescription className="text-slate-400">{t.auth.cardDesc}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Referral code */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-slate-400">{t.auth.refCodeLabel}</label>
+              <Input
+                value={refCode}
+                onChange={(e) => setRefCode(e.target.value.trim().toUpperCase())}
+                placeholder={t.auth.refCodePlaceholder}
+                className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
+              />
+            </div>
+
             {/* Primary: Telegram Bot login (works without BotFather domain setup) */}
             <a
               href={`https://t.me/${BOT_USERNAME}?start=login`}

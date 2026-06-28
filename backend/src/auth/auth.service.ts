@@ -122,7 +122,7 @@ export class AuthService {
     });
   }
 
-  async loginFromGoogle(idToken: string) {
+  async loginFromGoogle(idToken: string, refCode?: string) {
     let decoded: { uid: string; email?: string; name?: string; picture?: string };
     try {
       decoded = await this.firebase.getAdminAuth().verifyIdToken(idToken);
@@ -157,12 +157,25 @@ export class AuthService {
         let mentorId: string | null = null;
         let mentorUsername: string | null = null;
         let mentorCurrentPoints: number | null = null;
-        const adminSnap = await usersRef.where('isAdmin', '==', true).limit(1).get();
-        if (!adminSnap.empty) {
-          const adminDoc = adminSnap.docs[0];
-          mentorId = adminDoc.id;
-          mentorUsername = (adminDoc.data().username as string | null) ?? null;
-          mentorCurrentPoints = (adminDoc.data().points as number) ?? 0;
+
+        if (refCode) {
+          const mentorSnap = await usersRef.where('referralCode', '==', refCode).get();
+          if (!mentorSnap.empty) {
+            const mentorDoc = mentorSnap.docs[0];
+            mentorId = mentorDoc.id;
+            mentorUsername = (mentorDoc.data().username as string | null) ?? null;
+            mentorCurrentPoints = (mentorDoc.data().points as number) ?? 0;
+          }
+        }
+
+        if (!mentorId) {
+          const adminSnap = await usersRef.where('isAdmin', '==', true).limit(1).get();
+          if (!adminSnap.empty) {
+            const adminDoc = adminSnap.docs[0];
+            mentorId = adminDoc.id;
+            mentorUsername = (adminDoc.data().username as string | null) ?? null;
+            mentorCurrentPoints = (adminDoc.data().points as number) ?? 0;
+          }
         }
 
         const newUser = {
