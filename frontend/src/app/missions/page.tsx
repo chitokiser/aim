@@ -124,7 +124,6 @@ export default function MissionsPage() {
     { label: m.filterCF, value: "cf_video" },
     { label: m.filterCM, value: "cm_song" },
     { label: m.filterYoutubeSub, value: "youtube_sub" },
-    { label: m.filterSurvey, value: "survey" },
   ];
 
   const loadMissions = useCallback(async () => {
