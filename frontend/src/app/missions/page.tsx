@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { MissionCard } from "@/components/mission-card";
 import {
   MissionDetailSheet,
@@ -40,7 +41,7 @@ function toCardMission(m: RawMission) {
     totalBudget: Number(m.totalBudget ?? 0),
     requiredTags: (m.requiredTags as string[]) ?? [],
     participantCount: fakeParticipants(id),
-    missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao",
+    missionType: String(m.missionType ?? "cf_video") as "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao" | "survey",
     status: String(m.status ?? "active") as "active" | "ended" | "pending",
     advertiserName: String(m.advertiserName ?? ""),
     targetUrl: m.targetUrl ? String(m.targetUrl) : undefined,
@@ -67,8 +68,23 @@ function toFormData(m: RawMission): MissionFormData {
 export default function MissionsPage() {
   const { t } = useLanguage();
   const m = t.missions;
+  const router = useRouter();
   const { user, token } = useAuthStore();
   const isAdmin = user?.isAdmin === true;
+
+  const CPX_SURVEY_CARD = {
+    id: "cpx-survey",
+    title: "CPX Research 설문 조사",
+    description: t.survey.cardDesc,
+    reward: 50000,
+    remainingBudget: 999999999,
+    totalBudget: 999999999,
+    requiredTags: [],
+    participantCount: 0,
+    missionType: "survey" as const,
+    status: "active" as const,
+    advertiserName: "CPX Research",
+  };
 
   const [missions, setMissions] = useState<RawMission[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +119,7 @@ export default function MissionsPage() {
     { label: m.filterTelegramJoin, value: "telegram_join" },
     { label: m.filterFollowJoin, value: "follow_join" },
     { label: m.filterJumpdao, value: "jumpdao" },
+    { label: m.filterSurvey, value: "survey" },
   ];
 
   const [search, setSearch] = useState("");
@@ -231,8 +248,15 @@ export default function MissionsPage() {
             <div key={n} className="h-72 rounded-2xl bg-muted animate-pulse" />
           ))}
         </div>
-      ) : filtered.length > 0 ? (
+      ) : (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* CPX Survey card — shown when filter is "all" or "survey" */}
+          {(filter === "all" || filter === "survey") && (
+            <MissionCard
+              mission={CPX_SURVEY_CARD}
+              onJoin={() => router.push("/survey")}
+            />
+          )}
           {filtered.map((ms) => {
             const card = toCardMission(ms);
             const isOwner = user?.id && String(ms.advertiserId) === String(user.id);
@@ -261,21 +285,22 @@ export default function MissionsPage() {
               </div>
             );
           })}
-        </div>
-      ) : (
-        <div className="text-center py-20 text-muted-foreground">
-          <svg className="h-12 w-12 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="10" strokeWidth="2" />
-            <circle cx="12" cy="12" r="6" strokeWidth="2" />
-            <circle cx="12" cy="12" r="2" strokeWidth="2" />
-          </svg>
-          <p className="text-lg font-medium">{m.noResults}</p>
-          <p className="text-sm mt-1">
-            {isAdmin ? "아직 미션이 없습니다. 위의 '미션 추가' 버튼으로 첫 미션을 만들어보세요." : m.noResultsHint}
-          </p>
+          {/* Empty state — no DB missions match the filter */}
+          {filtered.length === 0 && !(filter === "all" || filter === "survey") && (
+            <div className="col-span-full text-center py-20 text-muted-foreground">
+              <svg className="h-12 w-12 mx-auto mb-4 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                <circle cx="12" cy="12" r="6" strokeWidth="2" />
+                <circle cx="12" cy="12" r="2" strokeWidth="2" />
+              </svg>
+              <p className="text-lg font-medium">{m.noResults}</p>
+              <p className="text-sm mt-1">
+                {isAdmin ? "아직 미션이 없습니다. 위의 '미션 추가' 버튼으로 첫 미션을 만들어보세요." : m.noResultsHint}
+              </p>
+            </div>
+          )}
         </div>
       )}
-
       {/* Mission Join Flow */}
       <MissionDetailSheet
         mission={detailMission}

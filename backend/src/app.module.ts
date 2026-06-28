@@ -21,6 +21,7 @@ import { TopupModule } from './topup/topup.module';
 import { TtsModule } from './tts/tts.module';
 import { MusicVideoModule } from './music-video/music-video.module';
 import { MusicGenModule } from './music-gen/music-gen.module';
+import { CpxModule } from './cpx/cpx.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { MusicGenModule } from './music-gen/music-gen.module';
     TtsModule,
     MusicVideoModule,
     MusicGenModule,
+    CpxModule,
   ],
   controllers: [AppController],
   providers: [AppService],

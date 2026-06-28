@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Coins, Users, Tag, Video, FileText, Music, Star, ExternalLink, ThumbsUp, Megaphone, Send, Zap } from "lucide-react";
+import { Coins, Users, Tag, Video, FileText, Music, Star, ExternalLink, ThumbsUp, Megaphone, Send, Zap, ClipboardList } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const MISSION_TYPE_ICONS = {
@@ -19,6 +19,7 @@ const MISSION_TYPE_ICONS = {
   telegram_join: { icon: Send, color: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400" },
   follow_join: { icon: Send, color: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400" },
   jumpdao: { icon: Zap, color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  survey: { icon: ClipboardList, color: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" },
 };
 
 interface MissionCardProps {
@@ -32,6 +33,7 @@ interface MissionCardProps {
     requiredTags: string[];
     participantCount: number;
     missionType: keyof typeof MISSION_TYPE_ICONS;
+    targetUrl?: string;
     status: "active" | "ended" | "pending";
     advertiserName: string;
   };
@@ -57,6 +59,7 @@ export function MissionCard({ mission, onJoin, joined }: MissionCardProps) {
     telegram_join: mf.filterTelegramJoin,
     follow_join: mf.filterFollowJoin,
     jumpdao: mf.filterJumpdao,
+    survey: mf.filterSurvey,
   };
   const isJumpdao = mission.missionType === "jumpdao";
   const budgetUsed = mission.totalBudget > 0
