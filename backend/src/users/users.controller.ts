@@ -19,6 +19,12 @@ export class UsersController {
     return this.usersService.findById(req.user.sub);
   }
 
+  @Get('my-mentees')
+  @UseGuards(JwtAuthGuard)
+  getMyMentees(@Request() req: { user: { sub: string } }) {
+    return this.usersService.findMentees(req.user.sub);
+  }
+
   @Get('admin/list')
   @UseGuards(JwtAuthGuard)
   async listAll(

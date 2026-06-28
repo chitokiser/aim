@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,18 @@ import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n";
 import Link from "next/link";
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+interface Mentee {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  photoUrl: string | null;
+  points: number;
+  joinedAt: string | null;
+}
+
 const MY_POSTS = [
   { id: "1", platform: "Instagram", url: "https://instagram.com/p/example", tags: ["#AIM", "#AIcf"], status: "approved", points: 51000, date: "2026-06-14" },
   { id: "2", platform: "YouTube", url: "https://youtube.com/watch?v=example", tags: ["#AIM", "#AI리뷰"], status: "pending", points: 0, date: "2026-06-13" },
@@ -24,13 +36,32 @@ const MY_POSTS = [
 ];
 
 export default function ProfilePage() {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const router = useRouter();
   const { t } = useLanguage();
+  const [mentees, setMentees] = useState<Mentee[]>([]);
+  const [menteesLoaded, setMenteesLoaded] = useState(false);
+
+  const loadMentees = useCallback(async () => {
+    if (!token || menteesLoaded) return;
+    try {
+      const res = await fetch(`${API}/api/users/my-mentees`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json() as Mentee[];
+      setMentees(data);
+    } catch { /* ignore */ } finally {
+      setMenteesLoaded(true);
+    }
+  }, [token, menteesLoaded]);
 
   useEffect(() => {
     if (!user) router.push("/auth");
   }, [user, router]);
+
+  useEffect(() => {
+    void loadMentees();
+  }, [loadMentees]);
 
   if (!user) return null;
 
@@ -120,7 +151,7 @@ export default function ProfilePage() {
           { label: t.profile.totalPoints, value: `${user.points.toLocaleString()} AP`, icon: Coins, color: "text-violet-500" },
           { label: t.profile.postCount, value: "3", icon: Target, color: "text-cyan-500" },
           { label: t.profile.ranking, value: "#142", icon: Trophy, color: "text-amber-500" },
-          { label: t.profile.referrals, value: "7", icon: Users, color: "text-green-500" },
+          { label: t.profile.referrals, value: String(menteesLoaded ? mentees.length : "…"), icon: Users, color: "text-green-500" },
         ].map(({ label, value, icon: Icon, color }) => (
           <Card key={label}>
             <CardContent className="p-4">
@@ -159,6 +190,7 @@ export default function ProfilePage() {
           <TabsTrigger value="points" className="flex-1">{t.profile.pointHistoryTab}</TabsTrigger>
           <TabsTrigger value="posts" className="flex-1">{t.profile.myPostsTab}</TabsTrigger>
           <TabsTrigger value="withdrawal" className="flex-1">{t.profile.withdrawalTab}</TabsTrigger>
+          <TabsTrigger value="mentees" className="flex-1">{t.profile.menteesTab}</TabsTrigger>
         </TabsList>
 
         {/* Point History */}
@@ -219,6 +251,65 @@ export default function ProfilePage() {
                   );
                 })}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Mentees */}
+        <TabsContent value="mentees">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Users className="h-4 w-4 text-green-500" />
+                {t.profile.menteesTab}
+                {menteesLoaded && (
+                  <span className="ml-1 text-muted-foreground font-normal text-sm">
+                    {mentees.length}{t.profile.menteeCount}
+                  </span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {!menteesLoaded ? (
+                <div className="flex justify-center py-10">
+                  <div className="h-6 w-6 rounded-full border-2 border-violet-500 border-t-transparent animate-spin" />
+                </div>
+              ) : mentees.length === 0 ? (
+                <p className="text-center text-sm text-muted-foreground py-10 px-4">
+                  {t.profile.menteeEmpty}
+                </p>
+              ) : (
+                <div className="divide-y">
+                  {mentees.map((mentee) => {
+                    const name = [mentee.firstName, mentee.lastName].filter(Boolean).join(" ") || mentee.username || "—";
+                    const joinDate = mentee.joinedAt ? new Date(mentee.joinedAt).toLocaleDateString() : null;
+                    return (
+                      <div key={mentee.id} className="flex items-center gap-3 px-4 py-3">
+                        <Avatar className="h-9 w-9 shrink-0">
+                          <AvatarImage src={mentee.photoUrl ?? undefined} />
+                          <AvatarFallback className="bg-gradient-to-br from-violet-500 to-cyan-500 text-white text-sm font-bold">
+                            {(mentee.firstName?.[0] ?? mentee.username?.[0] ?? "?").toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold truncate">{name}</p>
+                          {mentee.username && (
+                            <p className="text-xs text-muted-foreground">@{mentee.username}</p>
+                          )}
+                          {joinDate && (
+                            <p className="text-xs text-muted-foreground">{t.profile.menteeJoined}: {joinDate}</p>
+                          )}
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-violet-600 dark:text-violet-400">
+                            {Number(mentee.points).toLocaleString()} AP
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

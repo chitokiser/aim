@@ -42,6 +42,25 @@ export class UsersService {
     return { id: doc.id, ...(doc.data() as Record<string, unknown>) };
   }
 
+  async findMentees(mentorId: string) {
+    const snap = await this.firebase
+      .collection('users')
+      .where('mentorId', '==', mentorId)
+      .get();
+    return snap.docs.map((doc) => {
+      const d = doc.data() as Record<string, unknown>;
+      return {
+        id: doc.id,
+        firstName: d.firstName ?? '',
+        lastName: d.lastName ?? '',
+        username: d.username ?? '',
+        photoUrl: d.photoUrl ?? null,
+        points: d.points ?? 0,
+        joinedAt: d.createdAt ?? null,
+      };
+    });
+  }
+
   async findByReferralCode(code: string) {
     const snap = await this.firebase
       .collection('users')
