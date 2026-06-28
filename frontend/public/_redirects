@@ -1,1 +1,2 @@
 /missions/* /missions 302
+/api/offerwall/* https://ai119-bot-production.up.railway.app/api/offerwall/:splat 200

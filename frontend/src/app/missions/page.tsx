@@ -86,6 +86,20 @@ export default function MissionsPage() {
     advertiserName: "CPX Research",
   };
 
+  const OFFERWALL_CARD = {
+    id: "offerwall-me",
+    title: "Offerwall.me 오퍼 미션",
+    description: t.offerwall.pageSubtitle,
+    reward: 70000,
+    remainingBudget: 999999999,
+    totalBudget: 999999999,
+    requiredTags: [],
+    participantCount: 0,
+    missionType: "survey" as const,
+    status: "active" as const,
+    advertiserName: "Offerwall.me",
+  };
+
   const [missions, setMissions] = useState<RawMission[]>([]);
   const [loading, setLoading] = useState(true);
   const [adminModal, setAdminModal] = useState<{ open: boolean; mission?: MissionFormData | null }>({ open: false });
@@ -250,6 +264,13 @@ export default function MissionsPage() {
             <MissionCard
               mission={CPX_SURVEY_CARD}
               onJoin={() => router.push("/survey")}
+            />
+          )}
+          {/* Offerwall.me card — shown when filter is "all" or "survey" */}
+          {(filter === "all" || filter === "survey") && (
+            <MissionCard
+              mission={OFFERWALL_CARD}
+              onJoin={() => router.push("/offerwall")}
             />
           )}
           {filtered.map((ms) => {

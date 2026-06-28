@@ -23,6 +23,7 @@ import { MusicVideoModule } from './music-video/music-video.module';
 import { MusicGenModule } from './music-gen/music-gen.module';
 import { CpxModule } from './cpx/cpx.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
+import { OfferwallModule } from './offerwall/offerwall.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { WithdrawalsModule } from './withdrawals/withdrawals.module';
     MusicGenModule,
     CpxModule,
     WithdrawalsModule,
+    OfferwallModule,
   ],
   controllers: [AppController],
   providers: [AppService],
