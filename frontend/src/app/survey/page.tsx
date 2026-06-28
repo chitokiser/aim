@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { CheckCircle, ChevronRight, ClipboardList } from "lucide-react";
@@ -18,7 +17,6 @@ interface WidgetConfig {
 export default function SurveyPage() {
   const { t } = useLanguage();
   const s = t.survey;
-  const router = useRouter();
   const { user, token } = useAuthStore();
 
   const [config, setConfig] = useState<WidgetConfig | null>(null);
