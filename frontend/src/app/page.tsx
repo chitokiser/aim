@@ -13,6 +13,7 @@ import {
   type MissionFlowData,
 } from "@/components/mission-join-flow";
 import { useLanguage } from "@/lib/i18n";
+import { useAuthStore } from "@/lib/store";
 import {
   Coins,
   Target,
@@ -75,6 +76,8 @@ const SAMPLE_MISSIONS = [
 export default function HomePage() {
   const { t } = useLanguage();
   const h = t.home;
+  const { user } = useAuthStore();
+  const ctaHref = user ? "/missions" : "/auth";
 
   const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
   const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
@@ -168,7 +171,7 @@ export default function HomePage() {
             </p>
             <p className="text-sm text-slate-400 mb-10">{h.heroNote}</p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link href="/auth">
+              <Link href={ctaHref}>
                 <Button size="lg" className="bg-gradient-to-r from-violet-600 to-cyan-500 hover:opacity-90 text-white font-bold px-8 h-14 text-lg rounded-full shadow-lg shadow-violet-500/25">
                   {h.heroCTA}
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -238,7 +241,7 @@ export default function HomePage() {
             <p className="text-4xl font-black text-emerald-400 mb-1">{h.earnEstValue}</p>
             <p className="text-xl font-bold text-emerald-300 mb-3">{h.earnEstUsd}</p>
             <p className="text-xs text-slate-500">{h.earnEstNote}</p>
-            <Link href="/auth" className="inline-flex items-center gap-2 mt-5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-7 py-3 text-sm font-bold text-white shadow-lg hover:opacity-90 transition-opacity">
+            <Link href={ctaHref} className="inline-flex items-center gap-2 mt-5 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 px-7 py-3 text-sm font-bold text-white shadow-lg hover:opacity-90 transition-opacity">
               {h.heroCTA}
               <ArrowRight className="h-4 w-4" />
             </Link>

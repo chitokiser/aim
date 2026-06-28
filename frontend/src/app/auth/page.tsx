@@ -43,6 +43,13 @@ export default function AuthPage() {
   refCodeRef.current = refCode;
   const { t } = useLanguage();
 
+  // Auto-fill referral code from URL ?ref= parameter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref) setRefCode(ref.trim().toUpperCase());
+  }, []);
+
   const handleGoogleLogin = async () => {
     setGoogleLoading(true);
     try {
