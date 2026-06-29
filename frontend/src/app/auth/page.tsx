@@ -22,11 +22,19 @@ export default function AuthPage() {
   const [refCode, setRefCode] = useState("");
   const { t } = useLanguage();
 
-  // Auto-fill referral code from URL ?ref= parameter
+  // Auto-fill referral code from URL ?ref= parameter; persist in sessionStorage
+  // so Google OAuth redirect doesn't lose it
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
-    if (ref) setRefCode(ref.trim().toUpperCase());
+    if (ref && ref !== "undefined") {
+      const code = ref.trim().toUpperCase();
+      sessionStorage.setItem("pendingRefCode", code);
+      setRefCode(code);
+    } else {
+      const saved = sessionStorage.getItem("pendingRefCode");
+      if (saved) setRefCode(saved);
+    }
   }, []);
 
   const handleGoogleLogin = async () => {
@@ -50,6 +58,7 @@ export default function AuthPage() {
 
         if (res.ok) {
           const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0] };
+          sessionStorage.removeItem("pendingRefCode");
           setToken(data.token);
           setUser(data.user);
           router.push("/");

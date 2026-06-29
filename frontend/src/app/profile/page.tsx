@@ -127,7 +127,9 @@ export default function ProfilePage() {
     }
   };
 
-  const referralUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/auth?ref=${user.referralCode}`;
+  const referralUrl = user.referralCode
+    ? `${typeof window !== "undefined" ? window.location.origin : ""}/auth?ref=${user.referralCode}`
+    : "";
 
   const copyReferral = () => {
     navigator.clipboard.writeText(referralUrl);
