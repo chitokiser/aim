@@ -402,7 +402,7 @@ export default function HomePage() {
               <h2 className="text-2xl md:text-3xl font-black mb-3">{h.referralTitle}</h2>
               <p className="text-muted-foreground leading-relaxed mb-2">{h.referralDesc}</p>
               <p className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold mb-6">{h.referralNote}</p>
-              <Link href={ctaHref}>
+              <Link href={user ? "/profile" : "/auth"}>
                 <Button className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90 text-white font-bold px-7 h-12 rounded-full shadow-md shadow-emerald-500/20">
                   <UserPlus className="mr-2 h-4 w-4" />
                   {h.referralCTA}

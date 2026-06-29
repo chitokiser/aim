@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useAuthStore } from "@/lib/store";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -50,7 +50,9 @@ const MY_POSTS = [
 export default function ProfilePage() {
   const { user, token } = useAuthStore();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { t } = useLanguage();
+  const defaultTab = searchParams.get("tab") ?? "points";
   const [mentees, setMentees] = useState<Mentee[]>([]);
   const [menteesLoaded, setMenteesLoaded] = useState(false);
   const [tonWallet, setTonWallet] = useState("");
@@ -241,7 +243,7 @@ export default function ProfilePage() {
       </Card>
 
       {/* Tabs */}
-      <Tabs defaultValue="points">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="w-full mb-6">
           <TabsTrigger value="points" className="flex-1">{t.profile.pointHistoryTab}</TabsTrigger>
           <TabsTrigger value="posts" className="flex-1">{t.profile.myPostsTab}</TabsTrigger>

@@ -17,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
   Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film, Music,
+  ArrowLeftRight,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -51,7 +52,11 @@ export function Navbar() {
     { href: "/", label: t.nav.home, icon: Home },
     { href: "/missions", label: t.nav.missions, icon: Target },
     { href: "/leaderboard", label: t.nav.leaderboard, icon: Trophy },
-    { href: "/topup", label: t.nav.topup, icon: Zap },
+  ];
+
+  const chargeLinks = [
+    { href: "/topup", label: t.nav.apCharge, icon: Zap },
+    { href: "/profile?tab=withdrawal", label: t.nav.apExchange, icon: ArrowLeftRight },
   ];
 
   const serviceLinks = [
@@ -67,6 +72,7 @@ export function Navbar() {
     { href: "/music-gen", label: t.nav.musicGen, icon: Music },
   ];
 
+  const isChargeActive = pathname === "/topup" || (pathname === "/profile" && typeof window !== "undefined" && window.location.search.includes("tab=withdrawal"));
   const isServiceActive = serviceLinks.some((l) => pathname === l.href);
   const isAiServiceActive = aiServiceLinks.some((l) => pathname === l.href);
 
@@ -100,6 +106,32 @@ export function Navbar() {
               {label}
             </Link>
           ))}
+
+          {/* Charge / AP Trade dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                className={cn(
+                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                  isChargeActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                )}
+              >
+                <Zap className="h-4 w-4" />
+                {t.nav.topup}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {chargeLinks.map(({ href, label, icon: Icon }) => (
+                <DropdownMenuItem key={href} asChild>
+                  <Link href={href} className="flex items-center gap-2">
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* Services dropdown */}
           <DropdownMenu>
@@ -293,6 +325,26 @@ export function Navbar() {
               {label}
             </Link>
           ))}
+          <div className="pt-1 border-t mt-1">
+            <p className="px-3 py-1 text-xs font-semibold text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+              <Zap className="h-3.5 w-3.5" />
+              {t.nav.topup}
+            </p>
+            {chargeLinks.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={href}
+                href={href}
+                onClick={() => setMobileOpen(false)}
+                className={cn(
+                  "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent",
+                  pathname === href ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+                )}
+              >
+                <Icon className="h-4 w-4" />
+                {label}
+              </Link>
+            ))}
+          </div>
           <div className="pt-1 border-t mt-1">
             {serviceLinks.map(({ href, label, icon: Icon }) => (
               <Link
