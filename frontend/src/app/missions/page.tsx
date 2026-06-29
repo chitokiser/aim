@@ -50,6 +50,8 @@ interface AdgemOffer {
   icon?: string;
   [key: string]: unknown;
 }
+interface PwPackage { id: string; ap: number; usd: number; label: string; bonus: string; }
+interface PwWidgetUrl { url: string; package: PwPackage; }
 
 function fakeParticipants(id: string): number {
   let h = 0;
@@ -119,6 +121,12 @@ export default function MissionsPage() {
   const [offerwallLoading, setOfferwallLoading] = useState(false);
   const [adgemOffers, setAdgemOffers] = useState<AdgemOffer[] | null>(null);
   const [adgemLoading, setAdgemLoading] = useState(false);
+
+  // Paymentwall state
+  const [pwPackages, setPwPackages] = useState<PwPackage[] | null>(null);
+  const [pwWidgetUrl, setPwWidgetUrl] = useState<string | null>(null);
+  const [pwSelectedPkg, setPwSelectedPkg] = useState<PwPackage | null>(null);
+  const [pwLoading, setPwLoading] = useState(false);
 
   const refreshJoinedIds = useCallback(() => {
     if (!token) return;
@@ -219,6 +227,26 @@ export default function MissionsPage() {
         .catch(() => setAdgemOffers([]))
         .finally(() => setAdgemLoading(false));
     }
+    if (value === "paymentwall" && pwPackages === null) {
+      void fetch(`${API}/api/paymentwall/packages`)
+        .then((r) => r.json())
+        .then((data: PwPackage[]) => setPwPackages(data))
+        .catch(() => setPwPackages([]));
+    }
+  };
+
+  const handlePwSelectPackage = (pkg: PwPackage) => {
+    if (!token) return;
+    setPwSelectedPkg(pkg);
+    setPwWidgetUrl(null);
+    setPwLoading(true);
+    void fetch(`${API}/api/paymentwall/widget-url?packageId=${pkg.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: PwWidgetUrl) => setPwWidgetUrl(data.url))
+      .catch(() => toast.error("결제 위젯을 불러오지 못했습니다"))
+      .finally(() => setPwLoading(false));
   };
 
   const filtered = missions.filter((ms) => {
@@ -318,6 +346,10 @@ export default function MissionsPage() {
           <TabsTrigger value="adgem" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
             {m.tabAdgem}
+          </TabsTrigger>
+          <TabsTrigger value="paymentwall" className="flex items-center gap-2">
+            <Coins className="h-4 w-4" />
+            {m.tabPaymentwall}
           </TabsTrigger>
         </TabsList>
 
@@ -633,6 +665,112 @@ export default function MissionsPage() {
                 {t.offerwall.noOffers}
               </div>
             ) : null}
+          </div>
+        </TabsContent>
+        {/* ── Tab 5: Paymentwall ── */}
+        <TabsContent value="paymentwall">
+          <div className="max-w-4xl">
+            {/* Info banner */}
+            <div className="mb-6 rounded-2xl border bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-md">
+                  <Coins className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-indigo-800 dark:text-indigo-300">{m.paymentwall.howTitle}</h2>
+                  <p className="text-xs text-muted-foreground">{m.paymentwall.howSubtitle}</p>
+                </div>
+              </div>
+              <ol className="space-y-1.5 mb-3">
+                {[m.paymentwall.how1, m.paymentwall.how2, m.paymentwall.how3].map((step, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-indigo-700 dark:text-indigo-400">
+                    <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <ArrowRightLeft className="h-3.5 w-3.5" />
+                <span>{m.earnBanner.rate}</span>
+              </div>
+            </div>
+
+            {!user || !token ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+                <p className="text-muted-foreground">{m.paymentwall.loginRequired}</p>
+                <a
+                  href="/auth"
+                  className={buttonVariants({ variant: "default" }) + " bg-gradient-to-r from-indigo-600 to-violet-500 text-white hover:opacity-90"}
+                >
+                  {t.survey.loginBtn}
+                </a>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* AP Package selection */}
+                {!pwWidgetUrl && (
+                  <>
+                    <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{m.paymentwall.selectPackage}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {(pwPackages ?? []).map((pkg) => (
+                        <button
+                          key={pkg.id}
+                          onClick={() => handlePwSelectPackage(pkg)}
+                          disabled={pwLoading && pwSelectedPkg?.id === pkg.id}
+                          className={[
+                            "relative flex flex-col items-start gap-1 rounded-2xl border p-5 text-left transition-all shadow-sm",
+                            "hover:border-indigo-400 hover:shadow-md hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20",
+                            pwSelectedPkg?.id === pkg.id ? "border-indigo-500 ring-2 ring-indigo-300 dark:ring-indigo-700" : "border-border bg-card",
+                          ].join(" ")}
+                        >
+                          {pkg.bonus && (
+                            <span className="absolute top-3 right-3 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 px-2 py-0.5 text-xs font-bold text-white">
+                              {pkg.bonus}
+                            </span>
+                          )}
+                          <span className="text-2xl font-black text-indigo-700 dark:text-indigo-300">
+                            {pkg.ap.toLocaleString()} AP
+                          </span>
+                          <span className="text-sm text-muted-foreground font-medium">${pkg.usd.toFixed(2)} USD</span>
+                          {pwLoading && pwSelectedPkg?.id === pkg.id && (
+                            <span className="text-xs text-indigo-500 mt-1">{m.paymentwall.loading}</span>
+                          )}
+                        </button>
+                      ))}
+                      {pwPackages !== null && pwPackages.length === 0 && (
+                        <p className="col-span-2 text-center text-muted-foreground text-sm py-8">{m.paymentwall.noPackages}</p>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                {/* Paymentwall widget iframe */}
+                {pwWidgetUrl && pwSelectedPkg && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">
+                        {pwSelectedPkg.ap.toLocaleString()} AP — ${pwSelectedPkg.usd.toFixed(2)} USD
+                      </p>
+                      <button
+                        onClick={() => { setPwWidgetUrl(null); setPwSelectedPkg(null); }}
+                        className="text-xs text-muted-foreground underline hover:text-foreground"
+                      >
+                        {m.paymentwall.changePackage}
+                      </button>
+                    </div>
+                    <div className="rounded-2xl overflow-hidden border shadow-sm">
+                      <iframe
+                        src={pwWidgetUrl}
+                        className="w-full"
+                        style={{ height: "600px", border: "none" }}
+                        title="Paymentwall"
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground text-center">{m.paymentwall.secureNotice}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

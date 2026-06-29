@@ -25,6 +25,7 @@ import { CpxModule } from './cpx/cpx.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { OfferwallModule } from './offerwall/offerwall.module';
 import { AdgemModule } from './adgem/adgem.module';
+import { PaymentwallModule } from './paymentwall/paymentwall.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { AdgemModule } from './adgem/adgem.module';
     WithdrawalsModule,
     OfferwallModule,
     AdgemModule,
+    PaymentwallModule,
   ],
   controllers: [AppController],
   providers: [AppService],
