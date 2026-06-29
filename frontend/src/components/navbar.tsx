@@ -21,10 +21,10 @@ import {
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-const LANG_OPTIONS: { code: Lang; label: string }[] = [
-  { code: "en", label: "EN" },
-  { code: "ko", label: "한" },
-  { code: "vi", label: "VI" },
+const LANG_OPTIONS: { code: Lang; flag: string; label: string }[] = [
+  { code: "en", flag: "🇺🇸", label: "EN" },
+  { code: "ko", flag: "🇰🇷", label: "한" },
+  { code: "vi", flag: "🇻🇳", label: "VI" },
 ];
 
 export function Navbar() {
@@ -159,18 +159,19 @@ export function Navbar() {
         <div className="flex items-center gap-2">
           {/* Language Switcher */}
           <div className="flex items-center gap-0.5 rounded-full border px-1 py-0.5">
-            {LANG_OPTIONS.map(({ code, label }) => (
+            {LANG_OPTIONS.map(({ code, flag, label }) => (
               <button
                 key={code}
                 onClick={() => setLang(code)}
+                title={label}
                 className={cn(
-                  "rounded-full px-2 py-0.5 text-xs font-semibold transition-colors",
+                  "rounded-full px-1.5 py-0.5 text-base leading-none transition-all",
                   lang === code
-                    ? "bg-violet-600 text-white"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-violet-600 ring-2 ring-violet-400 ring-offset-1 scale-110"
+                    : "opacity-50 hover:opacity-100"
                 )}
               >
-                {label}
+                {flag}
               </button>
             ))}
           </div>
