@@ -1,0 +1,6 @@
+# No extra pip packages needed — uses only Python standard library + FFmpeg CLI
+# FFmpeg must be installed and in PATH: https://ffmpeg.org/download.html
+
+# Optional — for Whisper-based accurate subtitle timing:
+# openai-whisper
+# torch

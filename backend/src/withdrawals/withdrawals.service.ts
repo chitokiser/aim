@@ -1,4 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Telegram } from 'telegraf';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 
@@ -23,7 +25,23 @@ export class WithdrawalsService {
   constructor(
     private firebase: FirebaseService,
     private points: PointsService,
+    private config: ConfigService,
   ) {}
+
+  private notifyAdmin(username: string, apAmount: number, usdAmount: number, tonWallet: string) {
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+    const adminId = this.config.get<string>('ADMIN_TELEGRAM_ID');
+    if (!botToken || !adminId) return;
+
+    const msg =
+      `💸 *출금 신청 접수*\n\n` +
+      `👤 회원: ${username}\n` +
+      `💰 금액: ${apAmount.toLocaleString()} AP = $${usdAmount.toFixed(2)} USD\n` +
+      `🔗 TON 지갑: \`${tonWallet}\`\n\n` +
+      `🔍 [관리자 패널에서 처리](https://ai119.netlify.app/admin)`;
+
+    new Telegram(botToken).sendMessage(adminId, msg, { parse_mode: 'Markdown' }).catch(() => {});
+  }
 
   async create(userId: string, apAmount: number, tonWallet: string): Promise<WithdrawalDoc> {
     if (apAmount < MIN_AP) {
@@ -59,6 +77,7 @@ export class WithdrawalsService {
     };
 
     const ref = await this.firebase.collection('withdrawals').add(doc);
+    this.notifyAdmin(doc.username, doc.apAmount, doc.usdAmount, doc.tonWallet);
     return { id: ref.id, ...doc };
   }
 

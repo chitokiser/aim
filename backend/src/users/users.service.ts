@@ -191,21 +191,23 @@ export class UsersService {
     return settings;
   }
 
-  async getLeaderboard(period: string) {
+  async getLeaderboard(_period: string) {
     const snap = await this.firebase
       .collection('users')
-      .orderBy('points', 'desc')
+      .orderBy('missionsCompleted', 'desc')
       .limit(100)
       .get();
 
-    return snap.docs.map((doc, i) => ({
-      rank: i + 1,
-      userId: doc.id,
-      username: doc.data().username,
-      firstName: doc.data().firstName,
-      photoUrl: doc.data().photoUrl ?? null,
-      points: doc.data().points,
-      postCount: doc.data().postCount ?? 0,
-    }));
+    return snap.docs
+      .map((doc, i) => ({
+        rank: i + 1,
+        userId: doc.id,
+        username: doc.data().username,
+        firstName: doc.data().firstName,
+        photoUrl: doc.data().photoUrl ?? null,
+        points: doc.data().points ?? 0,
+        missionsCompleted: doc.data().missionsCompleted ?? 0,
+      }))
+      .filter((u) => u.missionsCompleted > 0);
   }
 }

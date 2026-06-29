@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Zap, Copy, Check, ExternalLink, Star, Coins,
-  MessageCircle, AlertCircle, RefreshCw, ArrowLeftRight, Hash,
+  MessageCircle, AlertCircle, RefreshCw, ArrowLeftRight, Hash, CreditCard, CheckCircle,
 } from "lucide-react";
 
 const BOT_USERNAME  = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME ?? "";
 const TON_WALLET    = process.env.NEXT_PUBLIC_TON_WALLET ?? "";
 const USDT_WALLET   = process.env.NEXT_PUBLIC_USDT_WALLET ?? "";
+const API           = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const AP_PER_USD = 10_000;
 
@@ -26,7 +27,9 @@ const STARS_PRESETS = [
   { stars: 1000, ap: 100_000, usd: 10 },
 ];
 
-type Tab = "stars" | "ton" | "usdt";
+type Tab = "stars" | "ton" | "usdt" | "card";
+
+interface PwPackage { id: string; ap: number; usd: number; label: string; bonus: string; }
 
 // ─── Live TON price ────────────────────────────────────────────────────────────
 async function fetchTonUsdPrice(): Promise<number> {
@@ -43,9 +46,15 @@ async function fetchTonUsdPrice(): Promise<number> {
 export default function TopUpPage() {
   const { t } = useLanguage();
   const tt = t.topup;
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const [tab, setTab]               = useState<Tab>("stars");
   const [copiedAddress, setCopied]  = useState(false);
+
+  // Card payment (Paymentwall) state
+  const [pwPackages, setPwPackages]     = useState<PwPackage[] | null>(null);
+  const [pwWidgetUrl, setPwWidgetUrl]   = useState<string | null>(null);
+  const [pwSelectedPkg, setPwSelectedPkg] = useState<PwPackage | null>(null);
+  const [pwLoading, setPwLoading]       = useState(false);
 
   const copy = async (text: string) => {
     try {
@@ -61,10 +70,34 @@ export default function TopUpPage() {
   const starsDeeplink = (stars: number) =>
     BOT_USERNAME ? `https://t.me/${BOT_USERNAME}?start=topup_${stars}` : null;
 
+  const handleTabChange = (value: Tab) => {
+    setTab(value);
+    if (value === "card" && pwPackages === null) {
+      void fetch(`${API}/api/paymentwall/packages`)
+        .then((r) => r.json())
+        .then((data: PwPackage[]) => setPwPackages(data))
+        .catch(() => setPwPackages([]));
+    }
+  };
+
+  const handleCardSelectPackage = (pkg: PwPackage) => {
+    if (!token) return;
+    setPwSelectedPkg(pkg);
+    setPwWidgetUrl(null);
+    setPwLoading(true);
+    void fetch(`${API}/api/paymentwall/widget-url?packageId=${pkg.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data: { url: string }) => { setPwWidgetUrl(data.url); setPwLoading(false); })
+      .catch(() => setPwLoading(false));
+  };
+
   const tabs: { id: Tab; label: string }[] = [
     { id: "stars", label: tt.tabStars },
     { id: "ton",   label: tt.tabTON },
     { id: "usdt",  label: tt.tabUSDT },
+    { id: "card",  label: tt.tabCard },
   ];
 
   return (
@@ -104,7 +137,7 @@ export default function TopUpPage() {
         {tabs.map(({ id, label }) => (
           <button
             key={id}
-            onClick={() => setTab(id)}
+            onClick={() => handleTabChange(id)}
             className={`flex-1 rounded-lg py-2 px-3 text-sm font-semibold transition-all ${
               tab === id
                 ? "bg-background shadow text-foreground"
@@ -223,6 +256,108 @@ export default function TopUpPage() {
             copyLabel={tt.copy}
             onCopy={copy}
           />
+        </div>
+      )}
+
+      {/* === CARD TAB === */}
+      {tab === "card" && (
+        <div className="space-y-6">
+          {/* Info banner */}
+          <div className="rounded-2xl border bg-gradient-to-r from-indigo-50 to-violet-50 dark:from-indigo-950/20 dark:to-violet-950/20 p-5">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500">
+                <CreditCard className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="font-bold text-indigo-800 dark:text-indigo-300">{tt.card.howTitle}</h2>
+                <p className="text-xs text-muted-foreground">{tt.card.howSubtitle}</p>
+              </div>
+            </div>
+            <ol className="space-y-1.5">
+              {[tt.card.how1, tt.card.how2, tt.card.how3].map((step, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-indigo-700 dark:text-indigo-400">
+                  <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+
+          {!user || !token ? (
+            <div className="flex flex-col items-center justify-center h-48 gap-4 text-center">
+              <p className="text-muted-foreground">{tt.card.loginRequired}</p>
+              <Link href="/auth">
+                <Button className="bg-gradient-to-r from-indigo-600 to-violet-500 text-white hover:opacity-90">
+                  {tt.loginBtn}
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Package selection */}
+              {!pwWidgetUrl && (
+                <>
+                  <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{tt.card.selectPackage}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(pwPackages ?? []).map((pkg) => (
+                      <button
+                        key={pkg.id}
+                        onClick={() => handleCardSelectPackage(pkg)}
+                        disabled={pwLoading && pwSelectedPkg?.id === pkg.id}
+                        className={[
+                          "relative flex flex-col items-start gap-1 rounded-2xl border p-5 text-left transition-all shadow-sm",
+                          "hover:border-indigo-400 hover:shadow-indigo-100 dark:hover:shadow-indigo-900/20",
+                          pwLoading && pwSelectedPkg?.id === pkg.id ? "opacity-60 cursor-not-allowed" : "cursor-pointer",
+                        ].join(" ")}
+                      >
+                        {pkg.bonus && (
+                          <span className="absolute top-3 right-3 text-xs font-bold bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 px-2 py-0.5 rounded-full">
+                            {pkg.bonus}
+                          </span>
+                        )}
+                        <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">
+                          {pkg.ap.toLocaleString()} AP
+                        </span>
+                        <span className="text-sm text-muted-foreground font-medium">${pkg.usd.toFixed(2)} USD</span>
+                        {pwLoading && pwSelectedPkg?.id === pkg.id && (
+                          <span className="text-xs text-indigo-500 mt-1">{tt.card.loading}</span>
+                        )}
+                      </button>
+                    ))}
+                    {pwPackages !== null && pwPackages.length === 0 && (
+                      <p className="col-span-2 text-center text-muted-foreground text-sm py-8">{tt.card.noPackages}</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* Paymentwall iframe */}
+              {pwWidgetUrl && pwSelectedPkg && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-semibold">
+                      {pwSelectedPkg.ap.toLocaleString()} AP — ${pwSelectedPkg.usd.toFixed(2)}
+                    </p>
+                    <button
+                      onClick={() => { setPwWidgetUrl(null); setPwSelectedPkg(null); }}
+                      className="text-xs text-muted-foreground underline hover:text-foreground"
+                    >
+                      {tt.card.changePackage}
+                    </button>
+                  </div>
+                  <div className="rounded-2xl overflow-hidden border shadow-sm">
+                    <iframe
+                      src={pwWidgetUrl}
+                      className="w-full"
+                      style={{ height: "600px", border: "none" }}
+                      title="Paymentwall"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center">{tt.card.secureNotice}</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

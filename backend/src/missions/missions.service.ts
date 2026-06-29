@@ -325,6 +325,9 @@ export class MissionsService {
       createdAt: new Date().toISOString(),
     };
     const ref = await this.firebase.collection('submissions').add(sub);
+    await this.firebase.collection('users').doc(userId).update({
+      missionsCompleted: FieldValue.increment(1),
+    });
     this.notifySubmission({ missionId: dto.missionId ?? null, displayName, postUrl: dto.postUrl }).catch(() => {});
     return { id: ref.id, ...sub };
   }
@@ -687,9 +690,14 @@ export class MissionsService {
 
     const ref = await this.firebase.collection('submissions').add(submission);
 
-    await this.firebase.collection('missions').doc(missionId).update({
-      participantCount: FieldValue.increment(1),
-    });
+    await Promise.all([
+      this.firebase.collection('missions').doc(missionId).update({
+        participantCount: FieldValue.increment(1),
+      }),
+      this.firebase.collection('users').doc(userId).update({
+        missionsCompleted: FieldValue.increment(1),
+      }),
+    ]);
 
     const firstLink = links.youtube || links.blog || links.comment || links.screenshot;
     this.notifySubmission({ missionId, displayName, postUrl: firstLink }).catch(() => {});
