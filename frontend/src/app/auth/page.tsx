@@ -170,7 +170,7 @@ export default function AuthPage() {
 
             {/* Primary: Telegram Bot login (works without BotFather domain setup) */}
             <a
-              href={`https://t.me/${BOT_USERNAME}?start=login`}
+              href={refCode ? `https://t.me/${BOT_USERNAME}?start=${refCode}` : `https://t.me/${BOT_USERNAME}?start=login`}
               target="_blank"
               rel="noopener noreferrer"
               className="w-full flex items-center justify-center gap-3 rounded-md bg-[#2AABEE] hover:bg-[#229ED9] px-4 py-3 text-sm font-semibold text-white transition-colors"

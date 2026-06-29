@@ -471,14 +471,26 @@ export class MainBotService extends BaseTelegrafBotService {
       }
 
       const joinRewards = await this.missionsService.awardFollowJoin(String(applicant.id), chatId).catch(() => null);
-      if (joinRewards && joinRewards.length > 0) {
-        const totalAP = joinRewards.reduce((s, r) => s + r.reward, 0);
-        await ctx.telegram.sendMessage(
-          applicant.id,
-          `🎉 *그룹 가입 보상!*\n\n✅ 텔레그램 그룹에 가입하여 *${totalAP.toLocaleString()} AP*를 획득했습니다!\n💰 10,000 AP = $1 USD`,
-          { parse_mode: 'Markdown' },
-        ).catch(() => {});
-      }
+      const rewardAP = joinRewards?.reduce((s, r) => s + r.reward, 0) ?? 0;
+
+      // Always send a DM so the user gets a direct login button — critical for iOS users
+      const loginToken = this.authService.createBotLoginToken(String(applicant.id), applicant);
+      const bonusLine = rewardAP > 0 ? `\n🎁 가입 보상: *${rewardAP.toLocaleString()} AP* 지급완료!\n` : '\n';
+      await ctx.telegram.sendMessage(
+        applicant.id,
+        `🎉 *${applicant.first_name}님, AI119에 오신 것을 환영합니다!*\n` +
+          `${bonusLine}\n` +
+          `아래 버튼을 눌러 AI119 플랫폼에 바로 로그인하세요 👇`,
+        {
+          parse_mode: 'Markdown',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '🚀 AI119 시작하기', web_app: { url: `${SITE}?tg=${loginToken}` } }],
+              [{ text: '💬 AI119 커뮤니티', url: COMMUNITY }],
+            ],
+          },
+        },
+      ).catch(() => {});
 
       this.logger.log(
         `[JoinRequest] ${applicant.first_name} (id:${applicant.id}) via ${refCode ?? 'direct'} — isNew:${isNew}`,
