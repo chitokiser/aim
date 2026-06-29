@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI119 — AI Marketing Platform",
-  description: "AI 창작물로 수익을 창출하는 마케팅 플랫폼. Create AI content, earn AimPoints, get rewarded.",
+  title: "AI119 — Revenue Platform",
+  description: "광고주 미션, AI 창작물 거래, 디지털 자산 거래 등으로 수익을 창출하는 플랫폼. Earn TON coins through advertiser missions, AI content trading & digital asset auctions.",
   metadataBase: new URL("https://ai119.netlify.app"),
   icons: {
     icon: "/images/favicon.png",
@@ -32,8 +32,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "AI119 — AI Marketing Platform",
-    description: "AI 창작물로 수익을 창출하는 마케팅 플랫폼. Create AI content, earn AimPoints, get rewarded.",
+    title: "AI119 — Revenue Platform",
+    description: "광고주 미션, AI 창작물 거래, 디지털 자산 거래 등으로 수익을 창출하는 플랫폼. Earn TON coins through advertiser missions, AI content trading & digital asset auctions.",
     url: "https://ai119.netlify.app",
     siteName: "AI119",
     type: "website",
@@ -41,8 +41,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI119 — AI Marketing Platform",
-    description: "AI 창작물로 수익을 창출하는 마케팅 플랫폼.",
+    title: "AI119 — Revenue Platform",
+    description: "광고주 미션, AI 창작물 거래, 디지털 자산 거래 등으로 수익을 창출하는 플랫폼.",
     images: ["/images/aimlogo.png"],
   },
   robots: {
