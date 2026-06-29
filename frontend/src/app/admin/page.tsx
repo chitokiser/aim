@@ -79,14 +79,6 @@ interface WithdrawalItem {
   processedAt: string | null;
 }
 
-const AP_STATUS = [
-  { labelKey: "총 발행량", value: "4,200,000,000 AP" },
-  { labelKey: "총 지급량", value: "3,150,000,000 AP" },
-  { labelKey: "총 소각량", value: "840,000,000 AP" },
-  { labelKey: "플랫폼 수익", value: "210,000,000 AP" },
-  { labelKey: "멘토 수당", value: "105,000,000 AP" },
-  { labelKey: "출금 대기", value: "42,500 AP" },
-];
 
 const MISSION_TYPES = ["sns_marketing", "ai_review", "ai_music", "business_content", "sns_sponsorship", "follow_join"];
 
@@ -171,6 +163,18 @@ export default function AdminPage() {
   const [tagsLoading, setTagsLoading] = useState(false);
   const [newTag, setNewTag] = useState("");
 
+  // Platform stats state
+  interface AdminStats {
+    totalMembers: number;
+    activeMissions: number;
+    totalApIssued: number;
+    pendingWithdrawals: number;
+    pendingSubmissions: number;
+    pendingItems: number;
+  }
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+
   // Withdrawal management state
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
   const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
@@ -190,6 +194,20 @@ export default function AdminPage() {
     [token],
   );
 
+  const loadAdminStats = useCallback(async () => {
+    if (!token) return;
+    setStatsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/admin/stats`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setAdminStats(await res.json());
+    } catch {
+      // stats fail silently — dashboard still usable
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [token, authHeader]);
+
   const loadMembers = useCallback(async (q?: string) => {
     if (!token) return;
     setMembersLoading(true);
@@ -206,8 +224,11 @@ export default function AdminPage() {
   }, [token, authHeader]);
 
   useEffect(() => {
-    if (user?.isAdmin) loadMembers();
-  }, [user, loadMembers]);
+    if (user?.isAdmin) {
+      loadMembers();
+      void loadAdminStats();
+    }
+  }, [user, loadMembers, loadAdminStats]);
 
   useEffect(() => {
     const timer = setTimeout(() => loadMembers(search), 400);
@@ -616,11 +637,38 @@ export default function AdminPage() {
     setNotice("");
   };
 
+  const formatAp = (n: number) => {
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toLocaleString();
+  };
+
   const stats = [
-    { label: t.admin.statMembers, value: "12,450", icon: Users, color: "text-violet-500" },
-    { label: t.admin.statMissions, value: "24", icon: Target, color: "text-cyan-500" },
-    { label: t.admin.statAP, value: "4.2B", icon: Coins, color: "text-amber-500" },
-    { label: t.admin.statReports, value: "7", icon: ShieldAlert, color: "text-red-500" },
+    {
+      label: t.admin.statMembers,
+      value: statsLoading ? "…" : adminStats ? adminStats.totalMembers.toLocaleString() : "—",
+      icon: Users,
+      color: "text-violet-500",
+    },
+    {
+      label: t.admin.statMissions,
+      value: statsLoading ? "…" : adminStats ? adminStats.activeMissions.toLocaleString() : "—",
+      icon: Target,
+      color: "text-cyan-500",
+    },
+    {
+      label: t.admin.statAP,
+      value: statsLoading ? "…" : adminStats ? formatAp(adminStats.totalApIssued) : "—",
+      icon: Coins,
+      color: "text-amber-500",
+    },
+    {
+      label: t.admin.statReports,
+      value: statsLoading ? "…" : adminStats ? adminStats.pendingItems.toLocaleString() : "—",
+      icon: ShieldAlert,
+      color: "text-red-500",
+    },
   ];
 
   return (
@@ -1451,14 +1499,49 @@ export default function AdminPage() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">{t.admin.apStatus}</CardTitle></CardHeader>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">{t.admin.apStatus}</CardTitle>
+                  <button
+                    onClick={() => void loadAdminStats()}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {statsLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : "새로고침"}
+                  </button>
+                </div>
+              </CardHeader>
               <CardContent className="space-y-4">
-                {AP_STATUS.map(({ labelKey, value }) => (
-                  <div key={labelKey} className="flex justify-between py-2 border-b last:border-0 text-sm">
-                    <span className="text-muted-foreground">{labelKey}</span>
-                    <span className="font-semibold">{value}</span>
+                {adminStats ? (
+                  <>
+                    <div className="flex justify-between py-2 border-b text-sm">
+                      <span className="text-muted-foreground">총 회원 수</span>
+                      <span className="font-semibold">{adminStats.totalMembers.toLocaleString()} 명</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b text-sm">
+                      <span className="text-muted-foreground">활성 미션</span>
+                      <span className="font-semibold">{adminStats.activeMissions.toLocaleString()} 개</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b text-sm">
+                      <span className="text-muted-foreground">총 AP 보유량</span>
+                      <span className="font-semibold">{adminStats.totalApIssued.toLocaleString()} AP</span>
+                    </div>
+                    <div className="flex justify-between py-2 border-b text-sm">
+                      <span className="text-muted-foreground">출금 대기</span>
+                      <span className="font-semibold text-amber-600">{adminStats.pendingWithdrawals.toLocaleString()} 건</span>
+                    </div>
+                    <div className="flex justify-between py-2 text-sm">
+                      <span className="text-muted-foreground">제출 대기</span>
+                      <span className="font-semibold text-cyan-600">{adminStats.pendingSubmissions.toLocaleString()} 건</span>
+                    </div>
+                  </>
+                ) : statsLoading ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">로딩 중...</span>
                   </div>
-                ))}
+                ) : (
+                  <p className="text-center text-sm text-muted-foreground py-6">데이터를 불러올 수 없습니다</p>
+                )}
               </CardContent>
             </Card>
           </div>
