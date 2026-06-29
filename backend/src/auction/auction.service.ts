@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -538,7 +538,7 @@ function buildSeedItems(now: Date): Record<string, unknown>[] {
   ): Record<string, unknown> {
     return {
       sellerId: 'seed-system',
-      sellerName: 'AIM Demo',
+      sellerName: 'AI119 Demo',
       title,
       category,
       description,

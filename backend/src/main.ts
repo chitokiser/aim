@@ -1,4 +1,4 @@
-import { webcrypto } from 'node:crypto';
+﻿import { webcrypto } from 'node:crypto';
 if (!global.crypto) (global as unknown as { crypto: unknown }).crypto = webcrypto;
 
 import { NestFactory } from '@nestjs/core';
@@ -16,7 +16,7 @@ async function bootstrap() {
   const logger = new Logger('Bootstrap');
   const port = process.env.PORT ?? 3001;
 
-  logger.log(`Starting AIM backend on port ${port}…`);
+  logger.log(`Starting AI119 backend on port ${port}…`);
 
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug'],
@@ -54,7 +54,7 @@ async function bootstrap() {
   });
 
   await app.listen(port, '0.0.0.0');
-  logger.log(`AIM backend running on port ${port}`);
+  logger.log(`AI119 backend running on port ${port}`);
 }
 
 bootstrap().catch((err) => {

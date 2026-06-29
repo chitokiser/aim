@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -638,7 +638,7 @@ export default function AdvertiserPage() {
                   <div className="space-y-1.5">
                     <Label>{t.advertiser.campaignTags}</Label>
                     <Input
-                      placeholder="#AIM, #brand"
+                      placeholder="#AI119, #brand"
                       value={campaignForm.tags}
                       onChange={(e) => setCampaignForm((p) => ({ ...p, tags: e.target.value }))}
                     />
@@ -802,7 +802,7 @@ export default function AdvertiserPage() {
 
                 <div className="space-y-1.5">
                   <Label>{t.advertiser.requiredTags}</Label>
-                  <Input placeholder="#AIM, #brand, #ad" value={missionForm.requiredTags}
+                  <Input placeholder="#AI119, #brand, #ad" value={missionForm.requiredTags}
                     onChange={(e) => setMissionForm(p => ({ ...p, requiredTags: e.target.value }))} />
                 </div>
 

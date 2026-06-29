@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Seed script: populates Firestore `listings` collection with test data.
  * Run: npx ts-node -r dotenv/config src/scripts/seed-marketplace.ts
  */
@@ -147,10 +147,10 @@ const seedData = [
   // ── MINIAPP (10) ─────────────────────────────────────────────────────────
   {
     category: 'miniapp',
-    title: 'AIM Rewards Hub',
+    title: 'AI119 Rewards Hub',
     description: 'Complete daily missions, earn AP points, and redeem exclusive rewards. Leaderboard updated every hour.',
-    link: 'https://t.me/ai_bootcamp_hub_bot/aim',
-    logoUrl: 'https://api.dicebear.com/9.x/shapes/svg?seed=aim',
+    link: 'https://t.me/ai_bootcamp_hub_bot/AI119',
+    logoUrl: 'https://api.dicebear.com/9.x/shapes/svg?seed=AI119',
     tags: ['rewards', 'gamification', 'ap'],
     members: null,
     isFeatured: true,
@@ -260,7 +260,7 @@ const seedData = [
   {
     category: 'group',
     title: 'AI Bootcamp Community',
-    description: 'Official AIM community group. Share projects, ask questions, and connect with 5,000+ AI learners worldwide.',
+    description: 'Official AI119 community group. Share projects, ask questions, and connect with 5,000+ AI learners worldwide.',
     link: 'https://t.me/ai_bootcamp_community',
     logoUrl: 'https://api.dicebear.com/9.x/identicon/svg?seed=aibootcamp',
     tags: ['ai', 'community', 'learning'],
@@ -371,11 +371,11 @@ const seedData = [
   // ── CHANNEL (10) ──────────────────────────────────────────────────────────
   {
     category: 'channel',
-    title: 'AIM Official Announcements',
-    description: 'Official AIM platform updates, new feature releases, and AP airdrop announcements.',
+    title: 'AI119 Official Announcements',
+    description: 'Official AI119 platform updates, new feature releases, and AP airdrop announcements.',
     link: 'https://t.me/aim_official_channel',
     logoUrl: 'https://api.dicebear.com/9.x/rings/svg?seed=aim_official',
-    tags: ['official', 'announcements', 'aim'],
+    tags: ['official', 'announcements', 'AI119'],
     members: 15000,
     isFeatured: true,
     daysAgo: 1,
@@ -493,7 +493,7 @@ async function seed() {
     batch.set(ref, {
       ...rest,
       userId: 'seed_admin',
-      displayName: 'AIM Seed',
+      displayName: 'AI119 Seed',
       telegramId: '0',
       status: 'active',
       createdAt: isoDate(daysAgo),

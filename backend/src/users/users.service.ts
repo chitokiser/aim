@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 
 function generateReferralCode(telegramId: string): string {
   const base = parseInt(telegramId, 10) % 1000000;
-  return `AIM${base.toString().padStart(6, '0')}`;
+  return `AI119${base.toString().padStart(6, '0')}`;
 }
 
 @Injectable()

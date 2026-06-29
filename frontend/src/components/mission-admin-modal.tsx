@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -65,7 +65,7 @@ const DEFAULT_FORM: MissionFormData = {
   reward: 10000,
   totalBudget: 1000000,
   remainingBudget: 1000000,
-  requiredTags: ["#AIM"],
+  requiredTags: ["#AI119"],
   submitFields: ["youtube"],
   status: "active",
   participantCount: 0,
@@ -274,7 +274,7 @@ export function MissionAdminModal({ open, mission, onClose, onSaved }: Props) {
               <Input
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                placeholder="#AIM"
+                placeholder="#AI119"
                 onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTag())}
               />
               <Button type="button" variant="outline" size="icon" onClick={addTag}>

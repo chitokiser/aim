@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -40,7 +40,7 @@ const SAMPLE_MISSIONS = [
     reward: 50000,
     remainingBudget: 2500000,
     totalBudget: 5000000,
-    requiredTags: ["#AIM", "#AIcf"],
+    requiredTags: ["#AI119", "#AIcf"],
     participantCount: 234,
     missionType: "cf_video" as const,
     status: "active" as const,
@@ -53,7 +53,7 @@ const SAMPLE_MISSIONS = [
     reward: 30000,
     remainingBudget: 1200000,
     totalBudget: 3000000,
-    requiredTags: ["#AIM", "#AIReview"],
+    requiredTags: ["#AI119", "#AIReview"],
     participantCount: 567,
     missionType: "blog_post" as const,
     status: "active" as const,
@@ -66,7 +66,7 @@ const SAMPLE_MISSIONS = [
     reward: 80000,
     remainingBudget: 800000,
     totalBudget: 4000000,
-    requiredTags: ["#AIM", "#AICMsong"],
+    requiredTags: ["#AI119", "#AICMsong"],
     participantCount: 89,
     missionType: "cm_song" as const,
     status: "active" as const,
@@ -456,11 +456,11 @@ export default function HomePage() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-600 to-cyan-500">
-                <span className="text-xs font-black text-white">AIM</span>
+                <span className="text-xs font-black text-white">AI119</span>
               </div>
               <span className="font-bold text-sm">AI119</span>
             </div>
-            <p className="text-sm text-muted-foreground">© 2026 AIM. 10,000 AP = 1 USD · TON Network</p>
+            <p className="text-sm text-muted-foreground">© 2026 AI119. 10,000 AP = 1 USD · TON Network</p>
             <div className="flex gap-4 text-sm text-muted-foreground">
               <a href="https://t.me/ai119link" target="_blank" rel="noopener noreferrer" className="hover:text-foreground font-medium text-emerald-600 dark:text-emerald-400">
                 💬 {h.communityLink}

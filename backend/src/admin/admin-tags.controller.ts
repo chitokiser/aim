@@ -1,4 +1,4 @@
-import {
+﻿import {
   Controller, Get, Post, Delete, Param, Body,
   UseGuards, Request, ForbiddenException,
 } from '@nestjs/common';
@@ -8,7 +8,7 @@ import { UsersService } from '../users/users.service';
 
 const CONFIG_DOC = 'platform';
 const TAGS_FIELD = 'requiredTags';
-const DEFAULT_TAGS = ['#AIM', '#AIcreator', '#AIcf', '#AICMsong', '#AI리뷰', '#창작'];
+const DEFAULT_TAGS = ['#AI119', '#AIcreator', '#AIcf', '#AICMsong', '#AI리뷰', '#창작'];
 
 @Controller('admin/tags')
 export class AdminTagsController {

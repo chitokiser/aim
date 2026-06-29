@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -809,7 +809,7 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
     productUrl: "",
     totalBudget: "",
     rewardPerVideo: "",
-    requiredTags: "#AIM",
+    requiredTags: "#AI119",
   });
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -826,7 +826,7 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
       productUrl: "",
       totalBudget: "",
       rewardPerVideo: "",
-      requiredTags: "#AIM",
+      requiredTags: "#AI119",
     });
     setSuccess(false);
     onClose();
@@ -1035,7 +1035,7 @@ export function CfAdRequestModal({ open, onClose }: CfAdRequestModalProps) {
             <div className="space-y-1.5">
               <Label className="text-sm">{ca.requiredTags}</Label>
               <Input
-                placeholder="#AIM,#YourBrand"
+                placeholder="#AI119,#YourBrand"
                 value={form.requiredTags}
                 onChange={set("requiredTags")}
               />

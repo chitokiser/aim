@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useAuthStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
@@ -42,9 +42,9 @@ interface WithdrawalDoc {
 }
 
 const MY_POSTS = [
-  { id: "1", platform: "Instagram", url: "https://instagram.com/p/example", tags: ["#AIM", "#AIcf"], status: "approved", points: 51000, date: "2026-06-14" },
-  { id: "2", platform: "YouTube", url: "https://youtube.com/watch?v=example", tags: ["#AIM", "#AI리뷰"], status: "pending", points: 0, date: "2026-06-13" },
-  { id: "3", platform: "Blog", url: "https://blog.example.com/post", tags: ["#AIM", "#AICMsong"], status: "rejected", points: 0, date: "2026-06-11" },
+  { id: "1", platform: "Instagram", url: "https://instagram.com/p/example", tags: ["#AI119", "#AIcf"], status: "approved", points: 51000, date: "2026-06-14" },
+  { id: "2", platform: "YouTube", url: "https://youtube.com/watch?v=example", tags: ["#AI119", "#AI리뷰"], status: "pending", points: 0, date: "2026-06-13" },
+  { id: "3", platform: "Blog", url: "https://blog.example.com/post", tags: ["#AI119", "#AICMsong"], status: "rejected", points: 0, date: "2026-06-11" },
 ];
 
 export default function ProfilePage() {
@@ -182,7 +182,7 @@ export default function ProfilePage() {
               <div className="text-3xl font-black text-violet-600 dark:text-violet-400">
                 {user.points.toLocaleString()}
               </div>
-              <div className="text-sm text-muted-foreground">AIM Point</div>
+              <div className="text-sm text-muted-foreground">AI119 Point</div>
               <div className="text-xs text-muted-foreground">
                 ≈ {(user.points / 10000).toFixed(2)} USD
               </div>

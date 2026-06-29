@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../../users/users.service';
 import { MissionsService } from '../../missions/missions.service';
@@ -43,7 +43,7 @@ export class MainBotService extends BaseTelegrafBotService {
         ],
         [
           { text: '⭐ AP 충전하기', callback_data: 'topup_menu' },
-          { text: '💬 AIM 커뮤니티', url: COMMUNITY },
+          { text: '💬 AI119 커뮤니티', url: COMMUNITY },
         ],
       ],
     };
@@ -92,7 +92,7 @@ export class MainBotService extends BaseTelegrafBotService {
               // t.me deep links open in-app without confirmation dialog
               inline_keyboard: [
                 [{ text: '🚀 AI119 시작하기', url: `https://t.me/${botUsername}?start=login` }],
-                [{ text: '💬 AIM 커뮤니티', url: COMMUNITY }],
+                [{ text: '💬 AI119 커뮤니티', url: COMMUNITY }],
               ],
             },
           },
@@ -191,7 +191,7 @@ export class MainBotService extends BaseTelegrafBotService {
         return;
       }
 
-      const refCode = payload.startsWith('AIM') ? payload : undefined;
+      const refCode = (payload.startsWith('AIM') || payload.startsWith('AI119')) ? payload : undefined;
 
       const { user, isNew } = await this.usersService.registerFromTelegram({
         telegramId: String(tg.id),
@@ -439,7 +439,7 @@ export class MainBotService extends BaseTelegrafBotService {
       const chatId = req.chat.id;
       const linkName = req.invite_link?.name;
 
-      const refCode = linkName?.startsWith('AIM') ? linkName : undefined;
+      const refCode = (linkName?.startsWith('AIM') || linkName?.startsWith('AI119')) ? linkName : undefined;
 
       const { user, isNew } = await this.usersService.registerFromTelegram({
         telegramId: String(applicant.id),
@@ -542,7 +542,7 @@ export class MainBotService extends BaseTelegrafBotService {
                   { text: '🎯 미션', url: `https://t.me/${botUsername}?start=mission` },
                   { text: '🏆 랭킹', url: `https://t.me/${botUsername}?start=rank` },
                 ],
-                [{ text: '💬 AIM 커뮤니티', url: COMMUNITY }],
+                [{ text: '💬 AI119 커뮤니티', url: COMMUNITY }],
               ],
             },
           },

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -77,7 +77,7 @@ export function Navbar() {
         <Link href="/" className="flex items-center gap-2">
           <Image
             src="/images/aimlogo.png"
-            alt="AIM Logo"
+            alt="AI119 Logo"
             width={36}
             height={36}
             className="rounded-lg"

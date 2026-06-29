@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/lib/store";
@@ -20,9 +20,9 @@ import { useLanguage } from "@/lib/i18n";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const PENDING_POSTS = [
-  { id: "1", user: "aimaster_kim", platform: "Instagram", url: "https://instagram.com/p/ABC", tags: ["#AIM", "#AIcf"], mission: "AI CF 영상", date: "2026-06-14 09:23" },
-  { id: "2", user: "creative_lee", platform: "YouTube", url: "https://youtube.com/watch?v=XYZ", tags: ["#AIM", "#AI리뷰"], mission: "블로그 리뷰", date: "2026-06-14 08:45" },
-  { id: "3", user: "tonhunter", platform: "Blog", url: "https://blog.example.com/post1", tags: ["#AIM", "#AICMsong"], mission: "CM송 제작", date: "2026-06-14 07:30" },
+  { id: "1", user: "aimaster_kim", platform: "Instagram", url: "https://instagram.com/p/ABC", tags: ["#AI119", "#AIcf"], mission: "AI CF 영상", date: "2026-06-14 09:23" },
+  { id: "2", user: "creative_lee", platform: "YouTube", url: "https://youtube.com/watch?v=XYZ", tags: ["#AI119", "#AI리뷰"], mission: "블로그 리뷰", date: "2026-06-14 08:45" },
+  { id: "3", user: "tonhunter", platform: "Blog", url: "https://blog.example.com/post1", tags: ["#AI119", "#AICMsong"], mission: "CM송 제작", date: "2026-06-14 07:30" },
 ];
 
 interface Member {
@@ -768,7 +768,7 @@ export default function AdminPage() {
                   </div>
                   <div className="space-y-1.5 sm:col-span-2">
                     <Label>{t.admin.templateRequiredTags}</Label>
-                    <Input value={tplTags} onChange={(e) => setTplTags(e.target.value)} placeholder="#AIM, #AIcreator" />
+                    <Input value={tplTags} onChange={(e) => setTplTags(e.target.value)} placeholder="#AI119, #AIcreator" />
                   </div>
                 </div>
                 <Button

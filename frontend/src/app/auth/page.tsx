@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -107,7 +107,7 @@ export default function AuthPage() {
         <div className="text-center text-white">
           <div className="flex justify-center mb-4">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-xl">
-              <span className="text-2xl font-black">AIM</span>
+              <span className="text-2xl font-black">AI119</span>
             </div>
           </div>
           <h1 className="text-3xl font-black mb-2">AI119</h1>
