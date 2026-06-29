@@ -140,6 +140,20 @@ export class AuthService {
       const doc = existing.docs[0];
       userId = doc.id;
       user = doc.data();
+      // Backfill mentorId for existing users who registered without one
+      if (!user.mentorId && refCode) {
+        const mentorSnap = await usersRef.where('referralCode', '==', refCode).get();
+        if (!mentorSnap.empty) {
+          const mentorDoc = mentorSnap.docs[0];
+          const mentorData = mentorDoc.data();
+          await usersRef.doc(userId).update({
+            mentorId: mentorDoc.id,
+            mentorUsername: mentorData.username ?? null,
+          });
+          await usersRef.doc(mentorDoc.id).update({ points: ((mentorData.points as number) ?? 0) + 1000 });
+          user = { ...user, mentorId: mentorDoc.id, mentorUsername: mentorData.username ?? null };
+        }
+      }
     } else {
       const byEmail = decoded.email
         ? await usersRef.where('email', '==', decoded.email).get()
@@ -148,8 +162,23 @@ export class AuthService {
       if (byEmail && !byEmail.empty) {
         const doc = byEmail.docs[0];
         userId = doc.id;
+        const docData = doc.data();
         await usersRef.doc(userId).update({ googleId: decoded.uid });
-        user = { ...doc.data(), googleId: decoded.uid };
+        user = { ...docData, googleId: decoded.uid };
+        // Backfill mentorId for existing users who registered without one
+        if (!docData.mentorId && refCode) {
+          const mentorSnap = await usersRef.where('referralCode', '==', refCode).get();
+          if (!mentorSnap.empty) {
+            const mentorDoc = mentorSnap.docs[0];
+            const mentorData = mentorDoc.data();
+            await usersRef.doc(userId).update({
+              mentorId: mentorDoc.id,
+              mentorUsername: mentorData.username ?? null,
+            });
+            await usersRef.doc(mentorDoc.id).update({ points: ((mentorData.points as number) ?? 0) + 1000 });
+            user = { ...user, mentorId: mentorDoc.id, mentorUsername: mentorData.username ?? null };
+          }
+        }
       } else {
         const referralCode = this.generateReferralCode();
         const nameParts = (decoded.name ?? '').split(' ');

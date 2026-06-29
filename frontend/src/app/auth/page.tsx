@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,24 +11,6 @@ import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { toast } from "sonner";
 
-declare global {
-  interface Window {
-    TelegramLoginWidget?: {
-      dataOnauth: (user: TelegramUser) => void;
-    };
-  }
-}
-
-interface TelegramUser {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-  photo_url?: string;
-  auth_date: number;
-  hash: string;
-}
-
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "AIM_Hub_bot";
@@ -36,11 +18,8 @@ const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "AIM_Hub_b
 export default function AuthPage() {
   const router = useRouter();
   const { setUser, setToken } = useAuthStore();
-  const widgetRef = useRef<HTMLDivElement>(null);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [refCode, setRefCode] = useState("");
-  const refCodeRef = useRef(refCode);
-  refCodeRef.current = refCode;
   const { t } = useLanguage();
 
   // Auto-fill referral code from URL ?ref= parameter
@@ -105,52 +84,6 @@ export default function AuthPage() {
     }
   };
 
-  useEffect(() => {
-    const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "AIM_Hub_bot";
-
-    window.TelegramLoginWidget = {
-      dataOnauth: async (telegramUser: TelegramUser) => {
-        try {
-          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}/api/auth/telegram`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...telegramUser, ref: refCodeRef.current || undefined }),
-          });
-
-          if (res.ok) {
-            const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0] };
-            setToken(data.token);
-            setUser(data.user);
-            router.push("/");
-          } else {
-            toast.error("Telegram login failed. Try the bot: send /login");
-          }
-        } catch (err) {
-          console.error("Auth error:", err);
-          toast.error("Login failed — backend unavailable. Try the Telegram bot or Google login.");
-        }
-      },
-    };
-
-    const script = document.createElement("script");
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", botUsername);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-onauth", "TelegramLoginWidget.dataOnauth(user)");
-    script.setAttribute("data-request-access", "write");
-    script.async = true;
-
-    if (widgetRef.current) {
-      widgetRef.current.innerHTML = "";
-      widgetRef.current.appendChild(script);
-    }
-
-    return () => {
-      if (widgetRef.current) {
-        widgetRef.current.innerHTML = "";
-      }
-    };
-  }, [router, setUser, setToken]);
 
   const features = [
     { icon: Shield, text: t.auth.feature1 },
@@ -205,17 +138,6 @@ export default function AuthPage() {
             <p className="text-center text-xs text-slate-500">
               Opens the bot → send <code className="text-slate-400">/login</code> → tap the link to sign in
             </p>
-
-            <div className="flex items-center gap-3">
-              <div className="flex-1 border-t border-slate-600" />
-              <span className="text-xs text-slate-500">or</span>
-              <div className="flex-1 border-t border-slate-600" />
-            </div>
-
-            {/* Telegram Widget (requires BotFather /setdomain to be configured) */}
-            <div className="flex justify-center min-h-[40px]">
-              <div ref={widgetRef} className="telegram-login-widget" />
-            </div>
 
             <div className="flex items-center gap-3">
               <div className="flex-1 border-t border-slate-600" />

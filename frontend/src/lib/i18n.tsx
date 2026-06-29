@@ -155,7 +155,7 @@ const T = {
       ended: "Mission Ended",
     },
     auth: {
-      subtitle: "Create with AI. Earn TON coins.",
+      subtitle: "AI Creation, Missions, Digital Asset Auction & more — Earn TON coins.",
       cardTitle: "Get Started with Telegram",
       cardDesc: "Sign in securely with your Telegram account",
       feature1: "Official Telegram auth · Data secured",
@@ -1031,7 +1031,7 @@ const T = {
       ended: "마감된 미션",
     },
     auth: {
-      subtitle: "AI 창작으로 TON코인을 버세요",
+      subtitle: "AI 창작, 미션, 디지털자산경매 등으로 TON코인을 버세요",
       cardTitle: "텔레그램으로 시작하기",
       cardDesc: "텔레그램 계정으로 안전하게 로그인하세요",
       feature1: "텔레그램 공식 인증 · 개인정보 안전",
@@ -1907,7 +1907,7 @@ const T = {
       ended: "Nhiệm vụ đã kết thúc",
     },
     auth: {
-      subtitle: "Sáng tạo AI. Kiếm TON coin.",
+      subtitle: "Sáng tạo AI, Nhiệm vụ, Đấu giá tài sản số & hơn nữa — Kiếm TON coin.",
       cardTitle: "Bắt đầu với Telegram",
       cardDesc: "Đăng nhập an toàn bằng tài khoản Telegram",
       feature1: "Xác thực Telegram chính thức · Bảo mật dữ liệu",
