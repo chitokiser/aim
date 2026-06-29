@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FieldValue } from 'firebase-admin/firestore';
+import { Telegram } from 'telegraf';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 import type { Query } from 'firebase-admin/firestore';
@@ -9,7 +11,49 @@ export class MissionsService {
   constructor(
     private firebase: FirebaseService,
     private points: PointsService,
+    private config: ConfigService,
   ) {}
+
+  private async notifySubmission(opts: {
+    missionId: string | null;
+    displayName: string;
+    postUrl?: string;
+  }) {
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+    const adminId = this.config.get<string>('ADMIN_TELEGRAM_ID');
+    if (!botToken || !adminId) return;
+
+    let missionTitle = '(일반 제출)';
+    let advertiserTelegramId: string | null = null;
+
+    if (opts.missionId) {
+      try {
+        const mDoc = await this.firebase.collection('missions').doc(opts.missionId).get();
+        if (mDoc.exists) {
+          const mData = mDoc.data() as Record<string, unknown>;
+          missionTitle = (mData.title as string) || '미션';
+          const advertiserId = mData.advertiserId as string | undefined;
+          if (advertiserId) {
+            const advDoc = await this.firebase.collection('users').doc(advertiserId).get();
+            advertiserTelegramId = (advDoc.data()?.telegramId as string | undefined) ?? null;
+          }
+        }
+      } catch (_) {}
+    }
+
+    const msg =
+      `📋 *새 미션 증빙 제출*\n\n` +
+      `👤 회원: ${opts.displayName}\n` +
+      `📌 미션: ${missionTitle}\n` +
+      `🔗 제출 URL: ${opts.postUrl || '(링크 없음)'}\n\n` +
+      `🔍 [관리자 패널에서 확인](https://ai119.netlify.app/admin)`;
+
+    const telegram = new Telegram(botToken);
+    const targets = [adminId];
+    if (advertiserTelegramId && advertiserTelegramId !== adminId) targets.push(advertiserTelegramId);
+    await Promise.all(targets.map((id) => telegram.sendMessage(id, msg, { parse_mode: 'Markdown' }).catch(() => {})));
+  }
+
 
   async findAll(status?: string) {
     let query: Query = this.firebase.collection('missions');
@@ -281,6 +325,7 @@ export class MissionsService {
       createdAt: new Date().toISOString(),
     };
     const ref = await this.firebase.collection('submissions').add(sub);
+    this.notifySubmission({ missionId: dto.missionId ?? null, displayName, postUrl: dto.postUrl }).catch(() => {});
     return { id: ref.id, ...sub };
   }
 
@@ -645,6 +690,9 @@ export class MissionsService {
     await this.firebase.collection('missions').doc(missionId).update({
       participantCount: FieldValue.increment(1),
     });
+
+    const firstLink = links.youtube || links.blog || links.comment || links.screenshot;
+    this.notifySubmission({ missionId, displayName, postUrl: firstLink }).catch(() => {});
 
     return { id: ref.id, ...submission };
   }
