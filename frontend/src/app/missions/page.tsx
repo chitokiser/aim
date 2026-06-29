@@ -37,7 +37,15 @@ type RawMission = Record<string, unknown>;
 
 interface CpxConfig { appId: string; secureHash: string; userId: string; }
 interface OfferwallConfig { apiKey: string; userId: string; }
-interface AdgemConfig { appId: string; userId: string; }
+interface AdgemOffer {
+  id: number | string;
+  name: string;
+  instructions?: string;
+  payout: number;
+  url?: string;
+  icon?: string;
+  [key: string]: unknown;
+}
 
 function fakeParticipants(id: string): number {
   let h = 0;
@@ -105,7 +113,7 @@ export default function MissionsPage() {
   const [cpxLoading, setCpxLoading] = useState(false);
   const [offerwallConfig, setOfferwallConfig] = useState<OfferwallConfig | null>(null);
   const [offerwallLoading, setOfferwallLoading] = useState(false);
-  const [adgemConfig, setAdgemConfig] = useState<AdgemConfig | null>(null);
+  const [adgemOffers, setAdgemOffers] = useState<AdgemOffer[] | null>(null);
   const [adgemLoading, setAdgemLoading] = useState(false);
 
   const refreshJoinedIds = useCallback(() => {
@@ -192,14 +200,19 @@ export default function MissionsPage() {
         .catch(() => {})
         .finally(() => setOfferwallLoading(false));
     }
-    if (value === "adgem" && !adgemConfig && token) {
+    if (value === "adgem" && adgemOffers === null && token) {
       setAdgemLoading(true);
-      void fetch(`${API}/api/adgem/widget-config`, {
+      void fetch(`${API}/api/adgem/offers`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((r) => r.json())
-        .then((data: AdgemConfig) => setAdgemConfig(data))
-        .catch(() => {})
+        .then((data: unknown) => {
+          if (Array.isArray(data)) setAdgemOffers(data as AdgemOffer[]);
+          else if (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).offers))
+            setAdgemOffers((data as { offers: AdgemOffer[] }).offers);
+          else setAdgemOffers([]);
+        })
+        .catch(() => setAdgemOffers([]))
         .finally(() => setAdgemLoading(false));
     }
   };
@@ -220,9 +233,6 @@ export default function MissionsPage() {
     ? `https://offerwall.me/offerwall/${offerwallConfig.apiKey}/${offerwallConfig.userId}`
     : null;
 
-  const adgemIframeUrl = adgemConfig
-    ? `https://wall.adgem.com/?app_id=${adgemConfig.appId}&user_id=${adgemConfig.userId}`
-    : null;
 
   return (
     <div className="container mx-auto px-4 py-10">
@@ -531,20 +541,51 @@ export default function MissionsPage() {
                   {t.offerwall.loginBtn}
                 </a>
               </div>
-            ) : adgemIframeUrl ? (
-              <div className="rounded-2xl overflow-hidden border shadow-sm">
-                <iframe
-                  src={adgemIframeUrl}
-                  className="w-full"
-                  style={{ height: "700px", border: "none" }}
-                  title="AdGem Offers"
-                />
+            ) : adgemOffers && adgemOffers.length > 0 ? (
+              <div className="grid gap-3">
+                {adgemOffers.map((offer) => (
+                  <div
+                    key={offer.id}
+                    className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
+                  >
+                    {offer.icon ? (
+                      <img
+                        src={offer.icon as string}
+                        alt={offer.name}
+                        className="h-12 w-12 rounded-lg object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shrink-0">
+                        <Gift className="h-6 w-6 text-white" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm leading-tight truncate">{offer.name}</p>
+                      {offer.instructions && (
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{offer.instructions as string}</p>
+                      )}
+                      <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 mt-1">
+                        +{(offer.payout as number).toLocaleString()} AP
+                      </p>
+                    </div>
+                    {offer.url && (
+                      <a
+                        href={offer.url as string}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={buttonVariants({ size: "sm", variant: "outline" }) + " shrink-0"}
+                      >
+                        Start
+                      </a>
+                    )}
+                  </div>
+                ))}
               </div>
-            ) : (
+            ) : adgemOffers !== null ? (
               <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
                 {t.offerwall.noOffers}
               </div>
-            )}
+            ) : null}
           </div>
         </TabsContent>
       </Tabs>

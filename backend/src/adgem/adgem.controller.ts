@@ -1,5 +1,6 @@
 import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import * as crypto from 'crypto';
+import * as https from 'https';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -13,11 +14,28 @@ export class AdgemController {
     private points: PointsService,
   ) {}
 
-  @Get('widget-config')
+  @Get('offers')
   @UseGuards(JwtAuthGuard)
-  getWidgetConfig(@Request() req: { user: { sub: string } }) {
+  async getOffers(@Request() req: { user: { sub: string } }) {
     const appId = this.config.get<string>('ADGEM_APP_ID') ?? '';
-    return { appId, userId: req.user.sub };
+    const userId = req.user.sub;
+    const url = `https://api.adgem.com/v1/offers?app_id=${appId}&user_id=${encodeURIComponent(userId)}&device=web`;
+
+    return new Promise((resolve) => {
+      https.get(url, { headers: { 'Accept': 'application/json' } }, (res) => {
+        let data = '';
+        res.on('data', (chunk: string) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch {
+            resolve({ offers: [], error: 'parse_error' });
+          }
+        });
+      }).on('error', () => {
+        resolve({ offers: [], error: 'network_error' });
+      });
+    });
   }
 
   // AdGem calls GET /api/adgem/postback when an offer is completed.
