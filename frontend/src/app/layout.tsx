@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI119 — Revenue Platform",
-  description: "광고주 미션, AI 창작물 거래, 디지털 자산 거래 등으로 수익을 창출하는 플랫폼. Earn TON coins through advertiser missions, AI content trading & digital asset auctions.",
+  title: "AI119 — Earn TON Crypto with Missions, AI Content & Auctions",
+  description: "Earn TON crypto on AI119: complete advertiser missions, trade AI-generated content, and bid in digital asset auctions. 광고주 미션·AI 창작물·디지털 자산 경매로 수익 창출.",
   metadataBase: new URL("https://ai119.netlify.app"),
   icons: {
     icon: "/images/favicon.png",
@@ -32,8 +32,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "AI119 — Revenue Platform",
-    description: "광고주 미션, AI 창작물 거래, 디지털 자산 거래 등으로 수익을 창출하는 플랫폼. Earn TON coins through advertiser missions, AI content trading & digital asset auctions.",
+    title: "AI119 — Earn TON Crypto with Missions, AI Content & Auctions",
+    description: "Earn TON crypto on AI119: complete advertiser missions, trade AI content, and bid in digital asset auctions. 광고주 미션·AI 창작물·디지털 자산 경매.",
     url: "https://ai119.netlify.app",
     siteName: "AI119",
     type: "website",
@@ -41,8 +41,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI119 — Revenue Platform",
-    description: "광고주 미션, AI 창작물 거래, 디지털 자산 거래 등으로 수익을 창출하는 플랫폼.",
+    title: "AI119 — Earn TON Crypto with Missions, AI Content & Auctions",
+    description: "Complete advertiser missions, trade AI content, and bid in digital asset auctions to earn TON crypto.",
     images: ["/images/aimlogo.png"],
   },
   robots: {
@@ -57,7 +57,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>
           <Suspense>
