@@ -29,6 +29,7 @@ import {
   ClipboardList,
   Gift,
   TrendingUp,
+  UserPlus,
 } from "lucide-react";
 
 const SAMPLE_MISSIONS = [
@@ -90,42 +91,39 @@ export default function HomePage() {
     { label: h.statsCreatives, value: "12,400+", icon: Sparkles },
   ];
 
-  const CORE_SERVICES = [
+  const MAIN_PILLARS = [
     {
       href: "/missions",
       icon: Megaphone,
-      gradient: "from-cyan-500 to-blue-500",
+      gradient: "from-cyan-500 to-blue-600",
       bg: "from-cyan-50 to-blue-50 dark:from-cyan-950/20 dark:to-blue-950/20",
       border: "border-cyan-200 dark:border-cyan-800",
+      accentText: "text-cyan-600 dark:text-cyan-400",
       title: h.service3Title,
       desc: h.service3Desc,
-    },
-    {
-      href: "/auction",
-      icon: Gavel,
-      gradient: "from-amber-500 to-orange-500",
-      bg: "from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20",
-      border: "border-amber-200 dark:border-amber-800",
-      title: h.service1Title,
-      desc: h.service1Desc,
-    },
-    {
-      href: "/marketplace",
-      icon: Store,
-      gradient: "from-violet-500 to-purple-600",
-      bg: "from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20",
-      border: "border-violet-200 dark:border-violet-800",
-      title: h.service2Title,
-      desc: h.service2Desc,
+      earn: h.earnM1Value,
     },
     {
       href: "/creative-market",
       icon: Sparkles,
-      gradient: "from-pink-500 to-rose-500",
-      bg: "from-pink-50 to-rose-50 dark:from-pink-950/20 dark:to-rose-950/20",
-      border: "border-pink-200 dark:border-pink-800",
+      gradient: "from-violet-500 to-pink-600",
+      bg: "from-violet-50 to-pink-50 dark:from-violet-950/20 dark:to-pink-950/20",
+      border: "border-violet-200 dark:border-violet-800",
+      accentText: "text-violet-600 dark:text-violet-400",
       title: h.service4Title,
       desc: h.service4Desc,
+      earn: h.earnM1Value,
+    },
+    {
+      href: "/auction",
+      icon: Gavel,
+      gradient: "from-amber-500 to-orange-600",
+      bg: "from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20",
+      border: "border-amber-200 dark:border-amber-800",
+      accentText: "text-amber-600 dark:text-amber-400",
+      title: h.service1Title,
+      desc: h.service1Desc,
+      earn: h.earnM1Value,
     },
   ];
 
@@ -158,13 +156,11 @@ export default function HomePage() {
               {h.badge}
             </Badge>
             <h1 className="text-3xl md:text-5xl lg:text-6xl font-black mb-5 leading-tight">
-              <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">Auction</span>
-              <span className="text-slate-600 mx-2 md:mx-3">·</span>
-              <span className="bg-gradient-to-r from-violet-400 to-purple-400 bg-clip-text text-transparent">Catalog</span>
-              <span className="text-slate-600 mx-2 md:mx-3">·</span>
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">Mission</span>
-              <span className="text-slate-600 mx-2 md:mx-3">·</span>
-              <span className="bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">Creative</span>
+              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">{h.heroKw1}</span>
+              <span className="text-slate-500 mx-2 md:mx-3">·</span>
+              <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">{h.heroKw2}</span>
+              <span className="text-slate-500 mx-2 md:mx-3">·</span>
+              <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">{h.heroKw3}</span>
             </h1>
             <p className="text-lg md:text-xl text-slate-300 mb-3 leading-relaxed font-medium">
               {h.platformDesc}
@@ -202,6 +198,59 @@ export default function HomePage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* 3 Core Revenue Channels */}
+      <section className="py-20 container mx-auto px-4">
+        <div className="text-center mb-12">
+          <Badge className="mb-4 bg-violet-500/10 text-violet-600 border-violet-200 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/30 px-4 py-1.5">
+            <Target className="h-3.5 w-3.5 mr-1.5" />
+            TON Coin
+          </Badge>
+          <h2 className="text-3xl md:text-4xl font-black mb-3">{h.servicesTitle}</h2>
+          <p className="text-muted-foreground text-lg">{h.heroSubtitle}</p>
+        </div>
+
+        {/* 3 main pillars */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto mb-6">
+          {MAIN_PILLARS.map(({ href, icon: Icon, gradient, bg, border, accentText, title, desc, earn }) => (
+            <Link key={href} href={href} className="group">
+              <Card className={`h-full border ${border} bg-gradient-to-br ${bg} hover:shadow-xl transition-all duration-200 group-hover:scale-[1.02]`}>
+                <CardContent className="p-6">
+                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-md`}>
+                    <Icon className="h-7 w-7 text-white" />
+                  </div>
+                  <div className="flex items-start justify-between mb-2">
+                    <h3 className="font-bold text-lg leading-tight">{title}</h3>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 mt-1 ml-2" />
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed mb-4">{desc}</p>
+                  <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full bg-white/60 dark:bg-white/10 ${accentText}`}>
+                    {earn}
+                  </span>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+
+        {/* 4th service — bot marketplace, secondary */}
+        <div className="max-w-5xl mx-auto">
+          <Link href="/marketplace" className="group">
+            <Card className="border border-slate-200 dark:border-slate-700 bg-muted/30 hover:bg-muted/60 transition-all">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-500 to-slate-600 flex items-center justify-center shadow shrink-0">
+                  <Store className="h-5 w-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm">{h.service2Title}</h3>
+                  <p className="text-xs text-muted-foreground truncate">{h.service2Desc}</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground shrink-0" />
+              </CardContent>
+            </Card>
+          </Link>
         </div>
       </section>
 
@@ -273,34 +322,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 4 Core Services */}
-      <section className="py-20 container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-black mb-3">{h.servicesTitle}</h2>
-          <p className="text-muted-foreground text-lg">{h.heroSubtitle}</p>
-        </div>
-        <div className="grid sm:grid-cols-2 gap-5 max-w-5xl mx-auto">
-          {CORE_SERVICES.map(({ href, icon: Icon, gradient, bg, border, title, desc }) => (
-            <Link key={href} href={href} className="group">
-              <Card className={`h-full border ${border} bg-gradient-to-br ${bg} hover:shadow-xl transition-all duration-200 group-hover:scale-[1.02]`}>
-                <CardContent className="p-6 flex gap-4">
-                  <div className={`shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md`}>
-                    <Icon className="h-7 w-7 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-lg leading-tight">{title}</h3>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 ml-2" />
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{desc}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-      </section>
-
       {/* How It Works */}
       <section className="py-20 bg-muted/20">
         <div className="container mx-auto px-4">
@@ -367,6 +388,31 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Referral / Invite Friends */}
+      <section className="py-20 bg-gradient-to-br from-emerald-50 to-cyan-50 dark:from-emerald-950/20 dark:to-cyan-950/20 border-y border-emerald-100 dark:border-emerald-900/30">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="flex flex-col md:flex-row items-center gap-10">
+            <div className="flex-shrink-0 w-24 h-24 rounded-3xl bg-gradient-to-br from-emerald-500 to-cyan-500 flex items-center justify-center shadow-xl shadow-emerald-500/20">
+              <UserPlus className="h-12 w-12 text-white" />
+            </div>
+            <div className="flex-1 text-center md:text-left">
+              <Badge className="mb-3 bg-emerald-500/10 text-emerald-700 border-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300 dark:border-emerald-500/30 px-4 py-1">
+                10% Passive Income
+              </Badge>
+              <h2 className="text-2xl md:text-3xl font-black mb-3">{h.referralTitle}</h2>
+              <p className="text-muted-foreground leading-relaxed mb-2">{h.referralDesc}</p>
+              <p className="text-sm text-emerald-600 dark:text-emerald-400 font-semibold mb-6">{h.referralNote}</p>
+              <Link href={ctaHref}>
+                <Button className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:opacity-90 text-white font-bold px-7 h-12 rounded-full shadow-md shadow-emerald-500/20">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  {h.referralCTA}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA */}
       <section className="py-20 bg-gradient-to-r from-violet-600 to-cyan-500 text-white">
         <div className="container mx-auto px-4 text-center">
@@ -416,6 +462,9 @@ export default function HomePage() {
             </div>
             <p className="text-sm text-muted-foreground">© 2026 AIM. 10,000 AP = 1 USD · TON Network</p>
             <div className="flex gap-4 text-sm text-muted-foreground">
+              <a href="https://t.me/ai119link" target="_blank" rel="noopener noreferrer" className="hover:text-foreground font-medium text-emerald-600 dark:text-emerald-400">
+                💬 {h.communityLink}
+              </a>
               <Link href="/terms" className="hover:text-foreground">{h.terms}</Link>
               <Link href="/privacy" className="hover:text-foreground">{h.privacy}</Link>
               <Link href="/advertiser" className="hover:text-foreground">{h.advertiserLink}</Link>
