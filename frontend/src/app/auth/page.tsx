@@ -7,7 +7,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Bot, Shield, Zap, Coins } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
-import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import {
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  GoogleAuthProvider,
+  UserCredential,
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { toast } from "sonner";
 
@@ -37,21 +43,29 @@ export default function AuthPage() {
     }
   }, []);
 
-  const handleGoogleLogin = async () => {
+  // Handle redirect result on iOS (signInWithRedirect lands back here)
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) handleCredential(result);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleCredential = async (result: UserCredential) => {
     setGoogleLoading(true);
     try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
       const idToken = await result.user.getIdToken();
+      const savedRef = sessionStorage.getItem("pendingRefCode");
 
-      // Try backend exchange (registers user in DB, returns custom JWT)
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 8000);
         const res = await fetch(`${API}/api/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ idToken, refCode: refCode || undefined }),
+          body: JSON.stringify({ idToken, refCode: savedRef || refCode || undefined }),
           signal: controller.signal,
         });
         clearTimeout(tid);
@@ -68,9 +82,10 @@ export default function AuthPage() {
         // Backend unavailable — fall back to Firebase client auth below
       }
 
-      // Fallback: use Firebase user directly with Firebase ID token
+      // Fallback: use Firebase user directly
       const fbUser = result.user;
       const nameParts = (fbUser.displayName ?? "").split(" ");
+      sessionStorage.removeItem("pendingRefCode");
       setToken(idToken);
       setUser({
         id: fbUser.uid,
@@ -89,6 +104,28 @@ export default function AuthPage() {
       console.error("Google login error:", err);
       toast.error("Google login failed. Please try again.");
     } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    setGoogleLoading(true);
+    try {
+      // signInWithPopup works on iOS Safari (opens a new tab, not a blocked popup).
+      // Only fall back to redirect if the popup is truly blocked (e.g. Telegram WebView).
+      const result = await signInWithPopup(auth, provider);
+      await handleCredential(result);
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code;
+      if (code === "auth/popup-blocked" || code === "auth/cancelled-popup-request") {
+        // Popup was actually blocked — redirect flow as last resort
+        const p = new GoogleAuthProvider();
+        await signInWithRedirect(auth, p);
+        return;
+      }
+      console.error("Google login error:", err);
+      toast.error("Google login failed. Please try again.");
       setGoogleLoading(false);
     }
   };
