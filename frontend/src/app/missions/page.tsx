@@ -27,6 +27,10 @@ import {
   CheckCircle,
   ChevronRight,
   Gift,
+  Coins,
+  ArrowRightLeft,
+  TrendingUp,
+  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { buttonVariants } from "@/components/ui/button";
@@ -251,6 +255,49 @@ export default function MissionsPage() {
             미션 추가
           </Button>
         )}
+      </div>
+
+      {/* AP Earn & Toncoin Banner */}
+      <div className="mb-8 rounded-2xl border bg-gradient-to-br from-violet-50 via-cyan-50 to-blue-50 dark:from-violet-950/30 dark:via-cyan-950/20 dark:to-blue-950/30 p-6 shadow-sm">
+        {/* Header row */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-cyan-500 shadow-md shrink-0">
+              <Coins className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-black text-lg leading-tight text-violet-800 dark:text-violet-300">
+                {m.earnBanner.title}
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">{m.earnBanner.desc}</p>
+            </div>
+          </div>
+          <div className="sm:ml-auto flex items-center gap-2 rounded-xl bg-white/70 dark:bg-white/5 border px-4 py-2 shrink-0">
+            <ArrowRightLeft className="h-4 w-4 text-cyan-600 shrink-0" />
+            <span className="text-xs font-bold text-cyan-700 dark:text-cyan-400">{m.earnBanner.rate}</span>
+          </div>
+        </div>
+
+        {/* 4 service cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {[
+            { icon: Film,          title: m.earnBanner.s1Title, desc: m.earnBanner.s1Desc, range: m.earnBanner.s1Range, color: "from-violet-500 to-purple-500" },
+            { icon: FileText,      title: m.earnBanner.s2Title, desc: m.earnBanner.s2Desc, range: m.earnBanner.s2Range, color: "from-emerald-500 to-teal-500" },
+            { icon: TrendingUp,    title: m.earnBanner.s3Title, desc: m.earnBanner.s3Desc, range: m.earnBanner.s3Range, color: "from-orange-500 to-amber-500" },
+            { icon: Gift,          title: m.earnBanner.s4Title, desc: m.earnBanner.s4Desc, range: m.earnBanner.s4Range, color: "from-blue-500 to-cyan-500" },
+          ].map(({ icon: Icon, title, desc, range, color }) => (
+            <div key={title} className="rounded-xl bg-white/60 dark:bg-white/5 border p-3 flex gap-3">
+              <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${color} shrink-0 mt-0.5`}>
+                <Icon className="h-4 w-4 text-white" />
+              </div>
+              <div className="min-w-0">
+                <p className="font-bold text-sm leading-tight">{title}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-tight">{desc}</p>
+                <p className="text-xs font-semibold text-cyan-600 dark:text-cyan-400 mt-1">{range}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Main Tabs */}
