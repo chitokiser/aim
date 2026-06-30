@@ -20,11 +20,6 @@ import { useLanguage } from "@/lib/i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-const PENDING_POSTS = [
-  { id: "1", user: "aimaster_kim", platform: "Instagram", url: "https://instagram.com/p/ABC", tags: ["#AI119", "#AIcf"], mission: "AI CF 영상", date: "2026-06-14 09:23" },
-  { id: "2", user: "creative_lee", platform: "YouTube", url: "https://youtube.com/watch?v=XYZ", tags: ["#AI119", "#AI리뷰"], mission: "블로그 리뷰", date: "2026-06-14 08:45" },
-  { id: "3", user: "tonhunter", platform: "Blog", url: "https://blog.example.com/post1", tags: ["#AI119", "#AICMsong"], mission: "CM송 제작", date: "2026-06-14 07:30" },
-];
 
 interface Member {
   id: string;
@@ -720,13 +715,35 @@ export default function AdminPage() {
     }
   };
 
-  const approvePost = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
-  const rejectPost = (id: string) => toast.error(`#${id} ${t.admin.reject}`);
-  const suspendUser = (id: string) => toast.warning(`#${id} ${t.admin.suspend}`);
-  const sendNotice = () => {
+  const suspendUser = async (id: string) => {
+    try {
+      const res = await fetch(`${API}/api/users/${id}/suspend`, {
+        method: "PATCH",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json() as { isSuspended: boolean };
+      toast.success(data.isSuspended ? `#${id} ${t.admin.suspend}` : `#${id} 정지 해제됨`);
+      loadMembers(search);
+    } catch {
+      toast.error("사용자 정지에 실패했습니다");
+    }
+  };
+
+  const sendNotice = async () => {
     if (!notice.trim()) return;
-    toast.success(t.admin.sendNotice);
-    setNotice("");
+    try {
+      const res = await fetch(`${API}/api/admin/notice`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ content: notice }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.sendNotice);
+      setNotice("");
+    } catch {
+      toast.error("공지 전송에 실패했습니다");
+    }
   };
 
   const formatAp = (n: number) => {
@@ -828,43 +845,12 @@ export default function AdminPage() {
         {/* Posts Review */}
         <TabsContent value="posts">
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base">{t.admin.postsPending} ({PENDING_POSTS.length})</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <div className="divide-y">
-                {PENDING_POSTS.map((post) => (
-                  <div key={post.id} className="p-4 flex flex-col sm:flex-row gap-4">
-                    <div className="flex-1 space-y-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline">@{post.user}</Badge>
-                        <Badge variant="secondary">{post.platform}</Badge>
-                        <span className="text-xs text-muted-foreground">{post.mission}</span>
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {post.tags.map((tag) => (
-                          <span key={tag} className="text-xs font-mono bg-muted px-2 py-0.5 rounded">{tag}</span>
-                        ))}
-                      </div>
-                      <a href={post.url} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-violet-500 hover:underline truncate block">
-                        {post.url}
-                      </a>
-                      <p className="text-xs text-muted-foreground">{post.date}</p>
-                    </div>
-                    <div className="flex sm:flex-col gap-2 sm:justify-center">
-                      <Button size="sm" className="bg-green-500 hover:bg-green-600 text-white flex-1 sm:flex-none"
-                        onClick={() => approvePost(post.id)}>
-                        <CheckCircle className="h-3.5 w-3.5 mr-1" /> {t.admin.approve}
-                      </Button>
-                      <Button size="sm" variant="destructive" className="flex-1 sm:flex-none"
-                        onClick={() => rejectPost(post.id)}>
-                        <XCircle className="h-3.5 w-3.5 mr-1" /> {t.admin.reject}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent className="py-14 text-center">
+              <CheckCircle className="h-10 w-10 mx-auto mb-4 text-muted-foreground/30" />
+              <p className="font-semibold mb-1">SNS 게시물 검토</p>
+              <p className="text-sm text-muted-foreground">
+                미션 게시물 제출 내역은 <strong>제출 내역</strong> 탭에서 확인하고 승인·거절하세요.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Put, Post, Param, Body, Query,
+  Controller, Get, Put, Post, Patch, Param, Body, Query,
   UseGuards, Request, ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
@@ -97,6 +97,19 @@ export class UsersController {
   ) {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     return this.usersService.saveTelegramSettings(body);
+  }
+
+  @Patch(':id/suspend')
+  @UseGuards(JwtAuthGuard)
+  async toggleSuspend(
+    @Request() req: { user: { sub: string } },
+    @Param('id') id: string,
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    const user = await this.usersService.findById(id) as { isSuspended?: boolean };
+    const isSuspended = !user.isSuspended;
+    await this.usersService.update(id, { isSuspended });
+    return { id, isSuspended };
   }
 
   @Get(':id')
