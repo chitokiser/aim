@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
-  ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight,
+  ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -190,6 +190,9 @@ export default function AdminPage() {
   const [coupangName, setCoupangName] = useState("");
   const [coupangVideo, setCoupangVideo] = useState("");
   const [coupangSaving, setCoupangSaving] = useState(false);
+  const [editingCoupangId, setEditingCoupangId] = useState<string | null>(null);
+  const [editCoupangName, setEditCoupangName] = useState("");
+  const [editCoupangVideo, setEditCoupangVideo] = useState("");
 
   // Withdrawal management state
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
@@ -712,6 +715,32 @@ export default function AdminPage() {
       );
     } catch {
       toast.error("상태 변경에 실패했습니다");
+    }
+  };
+
+  const startEditCoupang = (p: CoupangProduct) => {
+    setEditingCoupangId(p.id);
+    setEditCoupangName(p.name);
+    setEditCoupangVideo(p.videoUrl ?? "");
+  };
+
+  const handleCoupangUpdate = async (id: string) => {
+    try {
+      const res = await fetch(`${API}/api/coupang/products/${id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ name: editCoupangName.trim(), videoUrl: editCoupangVideo.trim() || null }),
+      });
+      if (!res.ok) throw new Error();
+      setCoupangProducts((prev) =>
+        prev.map((item) => item.id === id
+          ? { ...item, name: editCoupangName.trim(), videoUrl: editCoupangVideo.trim() || null }
+          : item),
+      );
+      toast.success("수정되었습니다");
+      setEditingCoupangId(null);
+    } catch {
+      toast.error("수정에 실패했습니다");
     }
   };
 
@@ -1936,63 +1965,100 @@ export default function AdminPage() {
                 ) : (
                   <div className="divide-y">
                     {coupangProducts.map((p) => (
-                      <div key={p.id} className="p-4 flex items-start gap-4 flex-wrap">
-                        {/* Preview iframe */}
-                        <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
-                          <iframe
-                            src={p.iframeSrc}
-                            width={Math.min(p.iframeWidth || 120, 120)}
-                            height={Math.min(p.iframeHeight || 240, 200)}
-                            frameBorder="0"
-                            scrolling="no"
-                            referrerPolicy="unsafe-url"
-                            title={p.name}
-                          />
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="font-mono text-xs">#{p.productNo ?? "—"}</Badge>
-                            {!p.active && <Badge variant="secondary" className="text-xs">비활성</Badge>}
+                      <div key={p.id} className="p-4 border-b last:border-b-0">
+                        <div className="flex items-start gap-4 flex-wrap">
+                          {/* Preview iframe */}
+                          <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
+                            <iframe
+                              src={p.iframeSrc}
+                              width={Math.min(p.iframeWidth || 120, 120)}
+                              height={Math.min(p.iframeHeight || 240, 200)}
+                              frameBorder="0"
+                              scrolling="no"
+                              referrerPolicy="unsafe-url"
+                              title={p.name}
+                            />
                           </div>
-                          <p className="font-semibold text-sm">{p.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{p.iframeSrc}</p>
-                          {p.videoUrl && (
-                            <div className="flex items-center gap-1 text-xs text-red-500">
-                              <Play className="h-3 w-3 fill-current" />
-                              <a href={p.videoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-xs">
-                                {p.videoUrl}
-                              </a>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="font-mono text-xs">#{p.productNo ?? "—"}</Badge>
+                              {!p.active && <Badge variant="secondary" className="text-xs">비활성</Badge>}
                             </div>
-                          )}
-                          <p className="text-xs text-muted-foreground">
-                            {p.createdAt?.slice(0, 10)}
-                          </p>
+                            <p className="font-semibold text-sm">{p.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{p.iframeSrc}</p>
+                            {p.videoUrl && (
+                              <div className="flex items-center gap-1 text-xs text-red-500">
+                                <Play className="h-3 w-3 fill-current" />
+                                <a href={p.videoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-xs">
+                                  {p.videoUrl}
+                                </a>
+                              </div>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {p.createdAt?.slice(0, 10)}
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => editingCoupangId === p.id ? setEditingCoupangId(null) : startEditCoupang(p)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title={p.active ? "비활성화" : "활성화"}
+                              onClick={() => void handleCoupangToggle(p)}
+                            >
+                              {p.active ? (
+                                <ToggleRight className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => void handleCoupangDelete(p.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
                         </div>
 
-                        {/* Actions */}
-                        <div className="flex gap-2 shrink-0">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            title={p.active ? "비활성화" : "활성화"}
-                            onClick={() => void handleCoupangToggle(p)}
-                          >
-                            {p.active ? (
-                              <ToggleRight className="h-4 w-4 text-green-500" />
-                            ) : (
-                              <ToggleLeft className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => void handleCoupangDelete(p.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        {/* Inline edit form */}
+                        {editingCoupangId === p.id && (
+                          <div className="mt-3 ml-24 space-y-2 p-3 bg-muted/30 rounded-lg border">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">상품명</label>
+                              <Input
+                                value={editCoupangName}
+                                onChange={(e) => setEditCoupangName(e.target.value)}
+                                className="h-8 text-sm"
+                                placeholder="상품명"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">영상 URL (선택)</label>
+                              <Input
+                                value={editCoupangVideo}
+                                onChange={(e) => setEditCoupangVideo(e.target.value)}
+                                className="h-8 text-sm"
+                                placeholder="YouTube 또는 직접 영상 URL"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => void handleCoupangUpdate(p.id)}>저장</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditingCoupangId(null)}>취소</Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
