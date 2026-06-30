@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
   Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film, Music,
-  ArrowLeftRight, TrendingUp, ShoppingBag,
+  ArrowLeftRight, ShoppingBag,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -187,17 +187,6 @@ export function Navbar() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* 트랜드픽 standalone link */}
-          <Link
-            href="/coupang"
-            className={cn(
-              "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-              pathname === "/coupang" ? "bg-accent text-accent-foreground" : "text-orange-500 hover:text-orange-600"
-            )}
-          >
-            <TrendingUp className="h-4 w-4" />
-            트랜드픽
-          </Link>
         </nav>
 
         {/* Right side */}
@@ -393,19 +382,6 @@ export function Navbar() {
                 {label}
               </Link>
             ))}
-          </div>
-          <div className="pt-1 border-t mt-1">
-            <Link
-              href="/coupang"
-              onClick={() => setMobileOpen(false)}
-              className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent",
-                pathname === "/coupang" ? "bg-accent text-accent-foreground" : "text-orange-500"
-              )}
-            >
-              <TrendingUp className="h-4 w-4" />
-              트랜드픽
-            </Link>
           </div>
           {(mounted && user) && (
             <div className="pt-2 border-t mt-2 space-y-1">
