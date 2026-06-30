@@ -393,6 +393,34 @@ export class MissionsService {
     });
   }
 
+  // ── User: list own submissions across all missions ────────────────────────────
+
+  async getMySubmissions(userId: string) {
+    const snap = await this.firebase
+      .collection('submissions')
+      .where('userId', '==', userId)
+      .get();
+    const submissions = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const aTime = ((a as Record<string, unknown>).createdAt as string) ?? '';
+        const bTime = ((b as Record<string, unknown>).createdAt as string) ?? '';
+        return bTime.localeCompare(aTime);
+      });
+    const missionIds = [...new Set(submissions.map((s) => (s as Record<string, unknown>).missionId as string).filter(Boolean))];
+    const missionTitles: Record<string, string> = {};
+    await Promise.all(
+      missionIds.map(async (mid) => {
+        const doc = await this.firebase.collection('missions').doc(mid).get();
+        if (doc.exists) missionTitles[mid] = (doc.data()?.title as string) || mid;
+      }),
+    );
+    return submissions.map((s) => {
+      const rec = s as Record<string, unknown>;
+      return { ...rec, missionTitle: rec.missionId ? (missionTitles[rec.missionId as string] ?? null) : null };
+    });
+  }
+
   // ── Admin: list all pending submissions across all missions ─────────────────
 
   async getAllPendingSubmissions() {

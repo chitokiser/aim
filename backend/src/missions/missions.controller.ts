@@ -59,6 +59,12 @@ export class MissionsController {
     return this.missionsService.findByAdvertiser(req.user.sub);
   }
 
+  @Get('my-submissions')
+  @UseGuards(JwtAuthGuard)
+  getMySubmissions(@Request() req: { user: { sub: string } }) {
+    return this.missionsService.getMySubmissions(req.user.sub);
+  }
+
   @Get(':id/pending-submissions')
   @UseGuards(JwtAuthGuard)
   getPendingSubmissions(
