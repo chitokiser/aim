@@ -122,6 +122,9 @@ export default function MissionsPage() {
   const [adgemOffers, setAdgemOffers] = useState<AdgemOffer[] | null>(null);
   const [adgemLoading, setAdgemLoading] = useState(false);
 
+  // EarnWall state
+  const [earnwallReady, setEarnwallReady] = useState(false);
+
   // Paymentwall state
   const [pwPackages, setPwPackages] = useState<PwPackage[] | null>(null);
   const [pwWidgetUrl, setPwWidgetUrl] = useState<string | null>(null);
@@ -226,6 +229,9 @@ export default function MissionsPage() {
         })
         .catch(() => setAdgemOffers([]))
         .finally(() => setAdgemLoading(false));
+    }
+    if (value === "earnwall" && !earnwallReady) {
+      setEarnwallReady(true);
     }
     if (value === "paymentwall" && pwPackages === null) {
       void fetch(`${API}/api/paymentwall/packages`)
@@ -346,6 +352,10 @@ export default function MissionsPage() {
           <TabsTrigger value="adgem" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
             {m.tabAdgem}
+          </TabsTrigger>
+          <TabsTrigger value="earnwall" className="flex items-center gap-2">
+            <Gift className="h-4 w-4" />
+            {m.tabEarnwall}
           </TabsTrigger>
           <TabsTrigger value="paymentwall" className="flex items-center gap-2">
             <Coins className="h-4 w-4" />
@@ -667,7 +677,60 @@ export default function MissionsPage() {
             ) : null}
           </div>
         </TabsContent>
-        {/* ── Tab 5: Paymentwall ── */}
+        {/* ── Tab 5: EarnWall ── */}
+        <TabsContent value="earnwall">
+          <div className="max-w-4xl">
+            <div className="mb-6 rounded-2xl border bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-950/20 dark:to-orange-950/20 p-5">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-rose-500 to-orange-500 shadow-md">
+                  <Gift className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-rose-800 dark:text-rose-300">{m.earnwall.howTitle}</h2>
+                </div>
+              </div>
+              <ol className="space-y-1.5 mb-3">
+                {[m.earnwall.how1, m.earnwall.how2, m.earnwall.how3].map((step, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm text-rose-700 dark:text-rose-400">
+                    <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <ChevronRight className="h-3.5 w-3.5" />
+                <span>{m.earnwall.earning}</span>
+              </div>
+            </div>
+
+            {!user || !token ? (
+              <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+                <p className="text-muted-foreground">{m.earnwall.loginRequired}</p>
+                <a
+                  href="/auth"
+                  className={buttonVariants({ variant: "default" }) + " bg-gradient-to-r from-rose-600 to-orange-500 text-white hover:opacity-90"}
+                >
+                  {m.earnwall.loginBtn}
+                </a>
+              </div>
+            ) : earnwallReady ? (
+              <div className="rounded-2xl overflow-hidden border shadow-sm">
+                <iframe
+                  src={`https://earnwall.net/offerwall/xiv8yzy0mqelq17xa9vyjopgwy8183/${user.id}`}
+                  className="w-full"
+                  style={{ height: "700px", border: "none" }}
+                  title="EarnWall Offers"
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-96 text-muted-foreground text-sm">
+                {m.earnwall.loadingWidget}
+              </div>
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Tab 6: Paymentwall ── */}
         <TabsContent value="paymentwall">
           <div className="max-w-4xl">
             {/* Info banner */}

@@ -26,6 +26,8 @@ import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { OfferwallModule } from './offerwall/offerwall.module';
 import { AdgemModule } from './adgem/adgem.module';
 import { PaymentwallModule } from './paymentwall/paymentwall.module';
+import { EarnwallModule } from './earnwall/earnwall.module';
+import { CoupangModule } from './coupang/coupang.module';
 
 @Module({
   imports: [
@@ -54,6 +56,8 @@ import { PaymentwallModule } from './paymentwall/paymentwall.module';
     OfferwallModule,
     AdgemModule,
     PaymentwallModule,
+    EarnwallModule,
+    CoupangModule,
   ],
   controllers: [AppController],
   providers: [AppService],

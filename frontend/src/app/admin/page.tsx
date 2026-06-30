@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
+  ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -174,6 +175,26 @@ export default function AdminPage() {
   }
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+
+  // Coupang products state
+  interface CoupangProduct {
+    id: string;
+    regNo: string;
+    name: string;
+    iframeCode: string;
+    iframeSrc: string;
+    iframeWidth: number;
+    iframeHeight: number;
+    videoUrl?: string | null;
+    active: boolean;
+    createdAt: string;
+  }
+  const [coupangProducts, setCoupangProducts] = useState<CoupangProduct[]>([]);
+  const [coupangLoading, setCoupangLoading] = useState(false);
+  const [coupangIframe, setCoupangIframe] = useState("");
+  const [coupangName, setCoupangName] = useState("");
+  const [coupangVideo, setCoupangVideo] = useState("");
+  const [coupangSaving, setCoupangSaving] = useState(false);
 
   // Withdrawal management state
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
@@ -628,6 +649,77 @@ export default function AdminPage() {
     }
   };
 
+  const loadCoupangProducts = useCallback(async () => {
+    if (!token) return;
+    setCoupangLoading(true);
+    try {
+      const res = await fetch(`${API}/api/coupang/products/all`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setCoupangProducts(await res.json());
+    } catch {
+      toast.error("Failed to load Coupang products");
+    } finally {
+      setCoupangLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const handleCoupangCreate = async () => {
+    if (!coupangIframe.trim()) return;
+    setCoupangSaving(true);
+    try {
+      const res = await fetch(`${API}/api/coupang/products`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({
+          name: coupangName.trim() || undefined,
+          iframeCode: coupangIframe.trim(),
+          videoUrl: coupangVideo.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("상품이 등록되었습니다");
+      setCoupangIframe("");
+      setCoupangName("");
+      setCoupangVideo("");
+      void loadCoupangProducts();
+    } catch {
+      toast.error("상품 등록에 실패했습니다");
+    } finally {
+      setCoupangSaving(false);
+    }
+  };
+
+  const handleCoupangDelete = async (id: string) => {
+    if (!confirm("이 상품을 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(`${API}/api/coupang/products/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("삭제되었습니다");
+      setCoupangProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      toast.error("삭제에 실패했습니다");
+    }
+  };
+
+  const handleCoupangToggle = async (p: { id: string; active: boolean }) => {
+    try {
+      const res = await fetch(`${API}/api/coupang/products/${p.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ active: !p.active }),
+      });
+      if (!res.ok) throw new Error();
+      setCoupangProducts((prev) =>
+        prev.map((item) => item.id === p.id ? { ...item, active: !item.active } : item),
+      );
+    } catch {
+      toast.error("상태 변경에 실패했습니다");
+    }
+  };
+
   const approvePost = (id: string) => toast.success(`#${id} ${t.admin.approve}`);
   const rejectPost = (id: string) => toast.error(`#${id} ${t.admin.reject}`);
   const suspendUser = (id: string) => toast.warning(`#${id} ${t.admin.suspend}`);
@@ -726,6 +818,10 @@ export default function AdminPage() {
           <TabsTrigger value="tags" onClick={loadTags}>{t.admin.tabTags}</TabsTrigger>
           <TabsTrigger value="withdrawals" onClick={() => void loadWithdrawals("pending")}>
             출금 관리
+          </TabsTrigger>
+          <TabsTrigger value="coupang" onClick={loadCoupangProducts}>
+            <ShoppingBag className="h-3.5 w-3.5 mr-1" />
+            쿠팡 상품
           </TabsTrigger>
         </TabsList>
 
@@ -1771,6 +1867,153 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+        {/* Coupang Products */}
+        <TabsContent value="coupang">
+          <div className="space-y-6">
+            {/* Add form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <ShoppingBag className="h-4 w-4 text-red-500" />
+                  쿠팡 파트너스 상품 등록
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  쿠팡 파트너스에서 받은 iframe 코드를 붙여넣으세요.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>상품명 (선택 — 미입력시 자동 생성)</Label>
+                  <Input
+                    placeholder="예: 삼성 갤럭시 버즈 3 프로"
+                    value={coupangName}
+                    onChange={(e) => setCoupangName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>iframe 코드 *</Label>
+                  <textarea
+                    className="w-full min-h-24 rounded-md border bg-background px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder='<iframe src="https://coupa.ng/cnJKHV" width="120" height="240" frameborder="0" scrolling="no" referrerpolicy="unsafe-url" browsingtopics></iframe>'
+                    value={coupangIframe}
+                    onChange={(e) => setCoupangIframe(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-1.5">
+                    <Play className="h-3.5 w-3.5 text-red-500" />
+                    상품 영상 링크 (선택 — YouTube 또는 직접 영상 URL)
+                  </Label>
+                  <Input
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    value={coupangVideo}
+                    onChange={(e) => setCoupangVideo(e.target.value)}
+                  />
+                </div>
+                <Button
+                  className="bg-gradient-to-r from-red-500 to-orange-500 text-white hover:opacity-90"
+                  disabled={coupangSaving || !coupangIframe.trim()}
+                  onClick={handleCoupangCreate}
+                >
+                  {coupangSaving ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />등록 중...</>
+                  ) : (
+                    <><ShoppingBag className="h-4 w-4 mr-2" />상품 등록</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Product list */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    등록된 상품 {coupangProducts.length > 0 && `(${coupangProducts.length})`}
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={loadCoupangProducts}>
+                    새로고침
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {coupangLoading ? (
+                  <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">불러오는 중...</span>
+                  </div>
+                ) : coupangProducts.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    등록된 상품이 없습니다.
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {coupangProducts.map((p) => (
+                      <div key={p.id} className="p-4 flex items-start gap-4 flex-wrap">
+                        {/* Preview iframe */}
+                        <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
+                          <iframe
+                            src={p.iframeSrc}
+                            width={Math.min(p.iframeWidth || 120, 120)}
+                            height={Math.min(p.iframeHeight || 240, 200)}
+                            frameBorder="0"
+                            scrolling="no"
+                            referrerPolicy="unsafe-url"
+                            title={p.name}
+                          />
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="font-mono text-xs">{p.regNo}</Badge>
+                            {!p.active && <Badge variant="secondary" className="text-xs">비활성</Badge>}
+                          </div>
+                          <p className="font-semibold text-sm">{p.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{p.iframeSrc}</p>
+                          {p.videoUrl && (
+                            <div className="flex items-center gap-1 text-xs text-red-500">
+                              <Play className="h-3 w-3 fill-current" />
+                              <a href={p.videoUrl} target="_blank" rel="noopener noreferrer" className="hover:underline truncate max-w-xs">
+                                {p.videoUrl}
+                              </a>
+                            </div>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            {p.createdAt?.slice(0, 10)}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            title={p.active ? "비활성화" : "활성화"}
+                            onClick={() => void handleCoupangToggle(p)}
+                          >
+                            {p.active ? (
+                              <ToggleRight className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                            )}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => void handleCoupangDelete(p.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
 

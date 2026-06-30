@@ -228,7 +228,7 @@ export default function TopUpPage() {
       {/* === TON TAB === */}
       {tab === "ton" && (
         <TonTab
-          tt={tt}
+          tt={tt as unknown as Record<string, string>}
           wallet={TON_WALLET}
           copied={copiedAddress}
           onCopy={copy}
@@ -246,7 +246,7 @@ export default function TopUpPage() {
             <Badge variant="secondary" className="text-xs">{tt.usdtNote}</Badge>
           </div>
 
-          <UsdtAutoGuide tt={tt} botUsername={BOT_USERNAME} />
+          <UsdtAutoGuide tt={tt as unknown as Record<string, string>} botUsername={BOT_USERNAME} />
 
           <WalletCard
             address={USDT_WALLET}
