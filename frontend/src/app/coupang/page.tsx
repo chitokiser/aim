@@ -8,7 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 interface CoupangProduct {
   id: string;
-  regNo: string;
+  productNo?: number;
   name: string;
   iframeCode: string;
   iframeSrc: string;
@@ -93,7 +93,7 @@ export default function CoupangPage() {
               {/* Info */}
               <div className="p-3 flex flex-col gap-2 flex-1">
                 <Badge variant="outline" className="text-xs w-fit font-mono text-muted-foreground">
-                  {product.regNo}
+                  #{product.productNo ?? "—"}
                 </Badge>
                 <p className="text-sm font-semibold leading-snug line-clamp-2">
                   {product.name}

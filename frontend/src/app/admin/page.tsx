@@ -174,7 +174,7 @@ export default function AdminPage() {
   // Coupang products state
   interface CoupangProduct {
     id: string;
-    regNo: string;
+    productNo?: number;
     name: string;
     iframeCode: string;
     iframeSrc: string;
@@ -1953,7 +1953,7 @@ export default function AdminPage() {
                         {/* Info */}
                         <div className="flex-1 min-w-0 space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Badge variant="outline" className="font-mono text-xs">{p.regNo}</Badge>
+                            <Badge variant="outline" className="font-mono text-xs">#{p.productNo ?? "—"}</Badge>
                             {!p.active && <Badge variant="secondary" className="text-xs">비활성</Badge>}
                           </div>
                           <p className="font-semibold text-sm">{p.name}</p>

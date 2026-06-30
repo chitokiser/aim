@@ -64,14 +64,14 @@ export class CoupangController {
     const iframeWidth = widthMatch ? parseInt(widthMatch[1]) : 120;
     const iframeHeight = heightMatch ? parseInt(heightMatch[1]) : 240;
 
-    const now = new Date();
-    const pad = (n: number) => n.toString().padStart(2, '0');
-    const regNo = `CPN-${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+    const countSnap = await this.firebase.collection('coupang_products').get();
+    const productNo = countSnap.size + 1;
 
-    const name = body.name?.trim() || `쿠팡 상품 #${shortCode}`;
+    const name = body.name?.trim() || `쿠팡 상품 #${productNo}`;
+    const now = new Date();
 
     const doc = {
-      regNo,
+      productNo,
       name,
       iframeCode: body.iframeCode,
       iframeSrc,
