@@ -1970,9 +1970,9 @@ export default function AdminPage() {
                           {/* Preview iframe */}
                           <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
                             <iframe
-                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;}</style></head><body>${p.iframeCode}</body></html>`}
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${p.iframeCode}</body></html>`}
                               width={Math.min(p.iframeWidth || 120, 120)}
-                              height={Math.min(p.iframeHeight || 240, 200)}
+                              height={Math.min(p.iframeHeight || 240, 200) - 28}
                               frameBorder="0"
                               scrolling="no"
                               title={p.name}

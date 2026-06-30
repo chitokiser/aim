@@ -77,11 +77,11 @@ export default function CoupangPage() {
               className="rounded-xl border bg-card overflow-hidden flex flex-col hover:shadow-lg transition-shadow"
             >
               {/* Iframe area */}
-              <div className="flex items-center justify-center bg-muted/30 p-3 min-h-[260px]">
+              <div className="flex items-center justify-center bg-muted/30 p-3 min-h-[230px]">
                 <iframe
-                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;}</style></head><body>${product.iframeCode}</body></html>`}
+                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${product.iframeCode}</body></html>`}
                   width={product.iframeWidth || 120}
-                  height={product.iframeHeight || 240}
+                  height={(product.iframeHeight || 240) - 28}
                   frameBorder="0"
                   scrolling="no"
                   title={product.name}
