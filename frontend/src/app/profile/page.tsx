@@ -2,7 +2,7 @@
 
 import { useAuthStore } from "@/lib/store";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Suspense } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -47,7 +47,7 @@ const MY_POSTS = [
   { id: "3", platform: "Blog", url: "https://blog.example.com/post", tags: ["#AI119", "#AICMsong"], status: "rejected", points: 0, date: "2026-06-11" },
 ];
 
-export default function ProfilePage() {
+function ProfileContent() {
   const { user, token } = useAuthStore();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -492,5 +492,13 @@ export default function ProfilePage() {
         </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense>
+      <ProfileContent />
+    </Suspense>
   );
 }
