@@ -79,12 +79,11 @@ export default function CoupangPage() {
               {/* Iframe area */}
               <div className="flex items-center justify-center bg-muted/30 p-3 min-h-[260px]">
                 <iframe
-                  src={product.iframeSrc}
+                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;}</style></head><body>${product.iframeCode}</body></html>`}
                   width={product.iframeWidth || 120}
                   height={product.iframeHeight || 240}
                   frameBorder="0"
                   scrolling="no"
-                  referrerPolicy="unsafe-url"
                   title={product.name}
                   style={{ maxWidth: "100%" }}
                 />

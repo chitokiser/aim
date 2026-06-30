@@ -1970,12 +1970,11 @@ export default function AdminPage() {
                           {/* Preview iframe */}
                           <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
                             <iframe
-                              src={p.iframeSrc}
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;padding:0;overflow:hidden;}</style></head><body>${p.iframeCode}</body></html>`}
                               width={Math.min(p.iframeWidth || 120, 120)}
                               height={Math.min(p.iframeHeight || 240, 200)}
                               frameBorder="0"
                               scrolling="no"
-                              referrerPolicy="unsafe-url"
                               title={p.name}
                             />
                           </div>
