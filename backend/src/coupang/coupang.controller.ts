@@ -38,9 +38,8 @@ export class CoupangController {
 
   @Get('products/all')
   @UseGuards(JwtAuthGuard)
-  async findAllAdmin(@Request() req: { user: { userId: string } }) {
-    const user = await this.usersService.findById(req.user.userId);
-    if (!user?.isAdmin) throw new ForbiddenException();
+  async findAllAdmin(@Request() req: { user: { sub: string } }) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     const snap = await this.firebase
       .collection('coupang_products')
       .orderBy('createdAt', 'desc')
@@ -51,11 +50,10 @@ export class CoupangController {
   @Post('products')
   @UseGuards(JwtAuthGuard)
   async create(
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { sub: string } },
     @Body() body: CoupangCreateDto,
   ) {
-    const user = await this.usersService.findById(req.user.userId);
-    if (!user?.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
 
     const srcMatch = body.iframeCode.match(/src="([^"]+)"/);
     const iframeSrc = srcMatch?.[1] ?? '';
@@ -91,12 +89,11 @@ export class CoupangController {
   @Patch('products/:id')
   @UseGuards(JwtAuthGuard)
   async update(
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { sub: string } },
     @Param('id') id: string,
     @Body() body: CoupangUpdateDto,
   ) {
-    const user = await this.usersService.findById(req.user.userId);
-    if (!user?.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
 
     const update: Record<string, unknown> = {};
     if (typeof body.active === 'boolean') update['active'] = body.active;
@@ -110,11 +107,10 @@ export class CoupangController {
   @Delete('products/:id')
   @UseGuards(JwtAuthGuard)
   async remove(
-    @Request() req: { user: { userId: string } },
+    @Request() req: { user: { sub: string } },
     @Param('id') id: string,
   ) {
-    const user = await this.usersService.findById(req.user.userId);
-    if (!user?.isAdmin) throw new ForbiddenException();
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
     await this.firebase.collection('coupang_products').doc(id).delete();
     return { ok: true };
   }
