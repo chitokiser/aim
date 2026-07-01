@@ -16,6 +16,7 @@ interface CoupangUpdateDto {
   active?: boolean;
   name?: string;
   videoUrl?: string;
+  iframeCode?: string;
 }
 
 @Controller('coupang')
@@ -99,6 +100,16 @@ export class CoupangController {
     if (typeof body.active === 'boolean') update['active'] = body.active;
     if (body.name?.trim()) update['name'] = body.name.trim();
     if (body.videoUrl !== undefined) update['videoUrl'] = body.videoUrl?.trim() || null;
+    if (body.iframeCode?.trim()) {
+      const code = body.iframeCode.trim();
+      const srcMatch = code.match(/src="([^"]+)"/);
+      const widthMatch = code.match(/width="(\d+)"/);
+      const heightMatch = code.match(/height="(\d+)"/);
+      update['iframeCode'] = code;
+      update['iframeSrc'] = srcMatch?.[1] ?? '';
+      update['iframeWidth'] = widthMatch ? parseInt(widthMatch[1]) : 120;
+      update['iframeHeight'] = heightMatch ? parseInt(heightMatch[1]) : 240;
+    }
 
     await this.firebase.collection('coupang_products').doc(id).update(update);
     return { ok: true };

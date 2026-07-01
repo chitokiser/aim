@@ -193,6 +193,7 @@ export default function AdminPage() {
   const [editingCoupangId, setEditingCoupangId] = useState<string | null>(null);
   const [editCoupangName, setEditCoupangName] = useState("");
   const [editCoupangVideo, setEditCoupangVideo] = useState("");
+  const [editCoupangIframe, setEditCoupangIframe] = useState("");
 
   // Withdrawal management state
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
@@ -722,19 +723,36 @@ export default function AdminPage() {
     setEditingCoupangId(p.id);
     setEditCoupangName(p.name);
     setEditCoupangVideo(p.videoUrl ?? "");
+    setEditCoupangIframe(p.iframeCode ?? "");
   };
 
   const handleCoupangUpdate = async (id: string) => {
     try {
+      const body: Record<string, unknown> = {
+        name: editCoupangName.trim(),
+        videoUrl: editCoupangVideo.trim() || null,
+      };
+      if (editCoupangIframe.trim()) body.iframeCode = editCoupangIframe.trim();
       const res = await fetch(`${API}/api/coupang/products/${id}`, {
         method: "PATCH",
         headers: authHeader(),
-        body: JSON.stringify({ name: editCoupangName.trim(), videoUrl: editCoupangVideo.trim() || null }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
+      const iframeSrc = editCoupangIframe.trim()
+        ? (editCoupangIframe.match(/src="([^"]+)"/) ?? [])[1] ?? ""
+        : undefined;
       setCoupangProducts((prev) =>
         prev.map((item) => item.id === id
-          ? { ...item, name: editCoupangName.trim(), videoUrl: editCoupangVideo.trim() || null }
+          ? {
+              ...item,
+              name: editCoupangName.trim(),
+              videoUrl: editCoupangVideo.trim() || null,
+              ...(editCoupangIframe.trim() && {
+                iframeCode: editCoupangIframe.trim(),
+                iframeSrc: iframeSrc ?? item.iframeSrc,
+              }),
+            }
           : item),
       );
       toast.success("수정되었습니다");
@@ -2046,6 +2064,15 @@ export default function AdminPage() {
                                 onChange={(e) => setEditCoupangName(e.target.value)}
                                 className="h-8 text-sm"
                                 placeholder="상품명"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">iframe 코드 (수정 시 입력)</label>
+                              <textarea
+                                className="w-full min-h-20 rounded-md border bg-background px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                                placeholder='<iframe src="https://coupa.ng/..." width="120" height="240" ...></iframe>'
+                                value={editCoupangIframe}
+                                onChange={(e) => setEditCoupangIframe(e.target.value)}
                               />
                             </div>
                             <div>
