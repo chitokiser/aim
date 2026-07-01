@@ -11,7 +11,7 @@ interface CoupangProduct {
   id: string;
   productNo?: number;
   name: string;
-  iframeCode: string;
+  iframeCode?: string;
   iframeSrc: string;
   iframeWidth: number;
   iframeHeight: number;
@@ -122,7 +122,12 @@ export default function CoupangPage() {
                 {/* Iframe area */}
                 <div className="flex items-center justify-center bg-muted/30 p-3 min-h-[230px]">
                   <iframe
-                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${product.iframeCode}</body></html>`}
+                    srcDoc={(() => {
+                    const w = product.iframeWidth || 120;
+                    const h = product.iframeHeight || 240;
+                    const code = product.iframeCode || `<iframe src="${product.iframeSrc}" width="${w}" height="${h}" frameborder="0" scrolling="no" referrerpolicy="unsafe-url"></iframe>`;
+                    return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${code}</body></html>`;
+                  })()}
                     width={product.iframeWidth || 120}
                     height={(product.iframeHeight || 240) - 28}
                     frameBorder="0"

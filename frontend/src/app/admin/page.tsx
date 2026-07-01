@@ -176,7 +176,7 @@ export default function AdminPage() {
     id: string;
     productNo?: number;
     name: string;
-    iframeCode: string;
+    iframeCode?: string;
     iframeSrc: string;
     iframeWidth: number;
     iframeHeight: number;
@@ -1970,7 +1970,12 @@ export default function AdminPage() {
                           {/* Preview iframe */}
                           <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
                             <iframe
-                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${p.iframeCode}</body></html>`}
+                              srcDoc={(() => {
+                                const w = Math.min(p.iframeWidth || 120, 120);
+                                const h = Math.min(p.iframeHeight || 240, 200);
+                                const code = p.iframeCode || `<iframe src="${p.iframeSrc}" width="${w}" height="${h}" frameborder="0" scrolling="no" referrerpolicy="unsafe-url"></iframe>`;
+                                return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${code}</body></html>`;
+                              })()}
                               width={Math.min(p.iframeWidth || 120, 120)}
                               height={Math.min(p.iframeHeight || 240, 200) - 28}
                               frameBorder="0"
