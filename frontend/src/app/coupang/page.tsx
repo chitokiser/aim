@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { TrendingUp, Play, ExternalLink, Search, X } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const CACHE_KEY = "coupang_products_v1";
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 interface CoupangProduct {
   id: string;
@@ -27,10 +29,34 @@ export default function CoupangPage() {
   const [query, setQuery] = useState("");
 
   useEffect(() => {
+    // Show cached data instantly if available
+    let cacheIsFresh = false;
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw) as { data: CoupangProduct[]; ts: number };
+        if (Array.isArray(data) && data.length > 0) {
+          setProducts(data);
+          setLoading(false);
+          cacheIsFresh = Date.now() - ts < CACHE_TTL_MS;
+        }
+      }
+    } catch { /* ignore */ }
+
+    // Skip network fetch if cache is still fresh
+    if (cacheIsFresh) return;
+
     fetch(`${API}/api/coupang/products`)
       .then((r) => r.json())
-      .then((data) => setProducts(Array.isArray(data) ? data : []))
-      .catch(() => setProducts([]))
+      .then((data: unknown) => {
+        if (Array.isArray(data)) {
+          setProducts(data as CoupangProduct[]);
+          try {
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts: Date.now() }));
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(() => { /* keep showing cached data on error */ })
       .finally(() => setLoading(false));
   }, []);
 
