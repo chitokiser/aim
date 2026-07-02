@@ -106,6 +106,17 @@ export class CjShopController {
     return this.cjShopService.refreshOrderStatus(id);
   }
 
+  @Patch('admin/orders/:id/complete')
+  @UseGuards(JwtAuthGuard)
+  async complete(
+    @Request() req: { user: { sub: string } },
+    @Param('id') id: string,
+    @Body() dto: { trackNumber?: string; trackingProvider?: string },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.cjShopService.completeOrder(id, dto?.trackNumber, dto?.trackingProvider);
+  }
+
   @Get('admin/balance')
   @UseGuards(JwtAuthGuard)
   async balance(@Request() req: { user: { sub: string } }) {

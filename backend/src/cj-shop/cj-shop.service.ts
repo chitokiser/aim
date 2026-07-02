@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Telegram } from 'telegraf';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 
@@ -199,6 +200,9 @@ export class CjShopService {
 
   // ── Checkout (AP only) ────────────────────────────────────────────────────
 
+  // NOTE: CJ prepaid balance is not funded yet, so we don't call createOrderV3/payBalance
+  // automatically here. Instead the order is recorded as 'pending' and the admin is notified
+  // via Telegram to fund the CJ wallet and place the order manually on CJ's own site.
   async createOrder(userId: string, dto: CreateOrderDto) {
     const quantity = Math.max(1, dto.quantity || 1);
     const productSnap = await this.firebase.collection('cj_products').doc(dto.productId).get();
@@ -212,70 +216,55 @@ export class CjShopService {
     await this.points.deduct(userId, totalAp, `CJ Shop 주문: ${product.nameKo as string}`);
 
     const orderNumber = `AIM-${Date.now()}`;
-    const fullAddress = [dto.shipping.address, dto.shipping.detailAddress].filter(Boolean).join(' ');
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    const userData = userSnap.data() as Record<string, unknown> | undefined;
+    const username = (userData?.username as string) || (userData?.name as string) || userId;
 
-    try {
-      const created = await this.cjRequest<{ orderId: string }>('POST', '/api2.0/v1/shopping/order/createOrderV3', {
-        body: {
-          orderNumber,
-          shippingCustomerName: dto.shipping.name,
-          shippingAddress: fullAddress,
-          shippingCity: '',
-          shippingCountryCode: 'KR',
-          shippingCountry: 'Korea',
-          shippingProvince: '',
-          shippingZip: dto.shipping.zip,
-          shippingPhone: dto.shipping.phone,
-          products: [{ vid: product.cjVariantId, quantity }],
-          logisticName: 'CJPacket Ordinary',
-          fromCountryCode: 'CN',
-        },
-      });
+    const order = {
+      userId,
+      productId: dto.productId,
+      cjOrderId: null as string | null,
+      cjOrderNumber: orderNumber,
+      quantity,
+      apCharged: totalAp,
+      shipping: dto.shipping,
+      status: 'pending' as const,
+      cjStatus: null as string | null,
+      trackNumber: null as string | null,
+      trackingProvider: null as string | null,
+      failReason: null as string | null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const ref = await this.firebase.collection('cj_orders').add(order);
 
-      await this.cjRequest('POST', '/api2.0/v1/shopping/pay/payBalance', {
-        body: { orderId: created.orderId },
-      });
+    this.notifyAdmin(username, product.nameKo as string, quantity, totalAp, (product.cjPriceUsd as number) * quantity, dto.shipping);
 
-      const order = {
-        userId,
-        productId: dto.productId,
-        cjOrderId: created.orderId,
-        cjOrderNumber: orderNumber,
-        quantity,
-        apCharged: totalAp,
-        shipping: dto.shipping,
-        status: 'paid' as const,
-        cjStatus: null as string | null,
-        trackNumber: null as string | null,
-        trackingProvider: null as string | null,
-        failReason: null as string | null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      const ref = await this.firebase.collection('cj_orders').add(order);
-      return { id: ref.id, ...order };
-    } catch (err) {
-      await this.points.award(userId, totalAp, 'cj_shop_refund', 'CJ 주문 실패 환불');
-      const failReason = err instanceof Error ? err.message : 'unknown error';
-      const order = {
-        userId,
-        productId: dto.productId,
-        cjOrderId: null as string | null,
-        cjOrderNumber: orderNumber,
-        quantity,
-        apCharged: totalAp,
-        shipping: dto.shipping,
-        status: 'failed' as const,
-        cjStatus: null as string | null,
-        trackNumber: null as string | null,
-        trackingProvider: null as string | null,
-        failReason,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await this.firebase.collection('cj_orders').add(order);
-      throw new BadRequestException(`주문 처리에 실패하여 AP가 환불되었습니다: ${failReason}`);
-    }
+    return { id: ref.id, ...order };
+  }
+
+  private notifyAdmin(
+    username: string,
+    productName: string,
+    quantity: number,
+    apCharged: number,
+    cjCostUsd: number,
+    shipping: ShippingInfo,
+  ) {
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+    const adminId = this.config.get<string>('ADMIN_TELEGRAM_ID');
+    if (!botToken || !adminId) return;
+
+    const msg =
+      `🛒 *CJ 쇼핑몰 주문 접수*\n\n` +
+      `👤 회원: ${username}\n` +
+      `📦 상품: ${productName} x${quantity}\n` +
+      `💰 차감 AP: ${apCharged.toLocaleString()} AP\n` +
+      `💵 CJ 발주 필요 금액: $${cjCostUsd.toFixed(2)} (CJ 잔액 충전 후 수동 발주 필요)\n` +
+      `🏠 배송지: ${shipping.name} / ${shipping.phone} / ${shipping.address} ${shipping.detailAddress ?? ''} (${shipping.zip})\n\n` +
+      `🔍 [관리자 패널에서 확인](https://ai119.netlify.app/admin)`;
+
+    new Telegram(botToken).sendMessage(adminId, msg, { parse_mode: 'Markdown' }).catch(() => {});
   }
 
   async getMyOrders(userId: string) {
@@ -317,6 +306,24 @@ export class CjShopService {
       cjStatus: detail.orderStatus,
       trackNumber: detail.trackNumber ?? null,
       trackingProvider: detail.trackingProvider ?? null,
+      updatedAt: new Date().toISOString(),
+    };
+    await ref.update(update);
+    return { id, ...order, ...update };
+  }
+
+  // Admin manually marks an order as fulfilled after placing it on CJ's own site
+  // and paying from the (manually topped-up) CJ wallet.
+  async completeOrder(id: string, trackNumber?: string, trackingProvider?: string) {
+    const ref = this.firebase.collection('cj_orders').doc(id);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Order not found');
+    const order = snap.data() as Record<string, unknown>;
+
+    const update = {
+      status: 'completed' as const,
+      trackNumber: trackNumber || (order.trackNumber as string | null) || null,
+      trackingProvider: trackingProvider || (order.trackingProvider as string | null) || null,
       updatedAt: new Date().toISOString(),
     };
     await ref.update(update);

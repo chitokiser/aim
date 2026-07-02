@@ -668,6 +668,8 @@ const T = {
       noOrders: "No orders yet.",
       orderStatusPaid: "Order Placed",
       orderStatusFailed: "Failed (Refunded)",
+      orderStatusPending: "Pending Fulfillment",
+      orderStatusCompleted: "Fulfilled",
       trackingLabel: "Tracking Number",
       admin: {
         tabTitle: "CJ Shop",
@@ -687,6 +689,9 @@ const T = {
         refreshSuccess: "Order status updated.",
         noResults: "No search results.",
         registerSuccess: "Product registered!",
+        completeBtn: "Mark Fulfilled",
+        completeSuccess: "Order marked as fulfilled.",
+        trackNumberPlaceholder: "Tracking number (optional)",
       },
     },
     creativeMarket: {
@@ -1679,6 +1684,8 @@ const T = {
       noOrders: "주문 내역이 없습니다.",
       orderStatusPaid: "주문 완료",
       orderStatusFailed: "실패 (환불됨)",
+      orderStatusPending: "발주 대기중",
+      orderStatusCompleted: "발주 완료",
       trackingLabel: "송장번호",
       admin: {
         tabTitle: "CJ 쇼핑몰",
@@ -1698,6 +1705,9 @@ const T = {
         refreshSuccess: "주문 상태가 갱신되었습니다.",
         noResults: "검색 결과가 없습니다.",
         registerSuccess: "상품이 등록되었습니다!",
+        completeBtn: "발주 완료 처리",
+        completeSuccess: "발주 완료로 처리되었습니다.",
+        trackNumberPlaceholder: "송장번호 (선택)",
       },
     },
     creativeMarket: {
@@ -2690,6 +2700,8 @@ const T = {
       noOrders: "Chưa có đơn hàng nào.",
       orderStatusPaid: "Đã đặt hàng",
       orderStatusFailed: "Thất bại (đã hoàn tiền)",
+      orderStatusPending: "Chờ xử lý đặt hàng",
+      orderStatusCompleted: "Đã đặt hàng xong",
       trackingLabel: "Mã vận đơn",
       admin: {
         tabTitle: "Cửa hàng CJ",
@@ -2709,6 +2721,9 @@ const T = {
         refreshSuccess: "Đã cập nhật trạng thái đơn hàng.",
         noResults: "Không có kết quả tìm kiếm.",
         registerSuccess: "Đã đăng ký sản phẩm!",
+        completeBtn: "Đánh dấu đã xử lý",
+        completeSuccess: "Đơn hàng đã được đánh dấu xử lý xong.",
+        trackNumberPlaceholder: "Mã vận đơn (tùy chọn)",
       },
     },
     creativeMarket: {

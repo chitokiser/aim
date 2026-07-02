@@ -207,7 +207,8 @@ export default function AdminPage() {
   }
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number;
-    status: string; cjStatus: string | null; trackNumber: string | null; createdAt: string;
+    status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
+    shipping?: { name: string; phone: string; address: string; detailAddress?: string; zip: string };
   }
   const [cjSearchKeyword, setCjSearchKeyword] = useState("");
   const [cjSearchResults, setCjSearchResults] = useState<CjSearchResult[]>([]);
@@ -222,6 +223,9 @@ export default function AdminPage() {
   const [editCjMargin, setEditCjMargin] = useState("");
   const [cjOrders, setCjOrders] = useState<CjOrderAdmin[]>([]);
   const [cjOrdersLoading, setCjOrdersLoading] = useState(false);
+  const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
+  const [completeTrackNumber, setCompleteTrackNumber] = useState("");
+  const [cjCompletingId, setCjCompletingId] = useState<string | null>(null);
   const [cjRefreshingId, setCjRefreshingId] = useState<string | null>(null);
   const [cjBalance, setCjBalance] = useState<number | null>(null);
 
@@ -959,6 +963,30 @@ export default function AdminPage() {
       toast.error("Network error");
     } finally {
       setCjRefreshingId(null);
+    }
+  };
+
+  const handleCjCompleteOrder = async (id: string) => {
+    setCjCompletingId(id);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/orders/${id}/complete`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ trackNumber: completeTrackNumber.trim() || undefined }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "처리에 실패했습니다");
+        return;
+      }
+      toast.success(t.shop.admin.completeSuccess);
+      setCompletingOrderId(null);
+      setCompleteTrackNumber("");
+      void loadCjOrders();
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setCjCompletingId(null);
     }
   };
 
@@ -2514,27 +2542,74 @@ export default function AdminPage() {
                   <div className="py-12 text-center text-sm text-muted-foreground">{t.shop.noOrders}</div>
                 ) : (
                   <div className="divide-y">
-                    {cjOrders.map((o) => (
-                      <div key={o.id} className="p-3 flex items-center gap-3 flex-wrap text-sm">
-                        <Badge variant={o.status === "paid" ? "outline" : "secondary"} className="text-xs shrink-0">
-                          {o.status === "paid" ? t.shop.orderStatusPaid : t.shop.orderStatusFailed}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">{o.cjStatus ?? "—"}</span>
-                        <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
-                          {o.trackNumber ? `${t.shop.trackingLabel}: ${o.trackNumber}` : ""}
-                        </span>
-                        <span className="text-xs font-bold text-violet-600 shrink-0">{o.apCharged.toLocaleString()} AP</span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          disabled={cjRefreshingId === o.id}
-                          onClick={() => void handleCjRefreshOrder(o.id)}
-                        >
-                          {cjRefreshingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.shop.admin.refreshBtn}
-                        </Button>
-                      </div>
-                    ))}
+                    {cjOrders.map((o) => {
+                      const productName = cjProducts.find((p) => p.id === o.productId)?.nameKo ?? o.productId;
+                      const isCompleted = o.status === "completed";
+                      const isPending = o.status === "pending";
+                      const statusLabel = isPending
+                        ? t.shop.orderStatusPending
+                        : isCompleted
+                        ? t.shop.orderStatusCompleted
+                        : o.status === "paid"
+                        ? t.shop.orderStatusPaid
+                        : t.shop.orderStatusFailed;
+                      return (
+                        <div key={o.id} className="p-3 space-y-2 text-sm">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <Badge variant={isCompleted ? "outline" : "secondary"} className="text-xs shrink-0">
+                              {statusLabel}
+                            </Badge>
+                            <span className="text-xs font-medium truncate">{productName} × {o.quantity}</span>
+                            <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+                              {o.trackNumber ? `${t.shop.trackingLabel}: ${o.trackNumber}` : ""}
+                            </span>
+                            <span className="text-xs font-bold text-violet-600 shrink-0">{o.apCharged.toLocaleString()} AP</span>
+                            {o.cjOrderId && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="shrink-0"
+                                disabled={cjRefreshingId === o.id}
+                                onClick={() => void handleCjRefreshOrder(o.id)}
+                              >
+                                {cjRefreshingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.shop.admin.refreshBtn}
+                              </Button>
+                            )}
+                            {!isCompleted && (
+                              <Button
+                                size="sm"
+                                className="shrink-0"
+                                onClick={() => {
+                                  setCompletingOrderId(completingOrderId === o.id ? null : o.id);
+                                  setCompleteTrackNumber(o.trackNumber ?? "");
+                                }}
+                              >
+                                {t.shop.admin.completeBtn}
+                              </Button>
+                            )}
+                          </div>
+                          {o.shipping && (
+                            <p className="text-xs text-muted-foreground">
+                              {o.shipping.name} · {o.shipping.phone} · {o.shipping.address} {o.shipping.detailAddress ?? ""} ({o.shipping.zip})
+                            </p>
+                          )}
+                          {completingOrderId === o.id && (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                className="h-8 text-xs"
+                                placeholder={t.shop.admin.trackNumberPlaceholder}
+                                value={completeTrackNumber}
+                                onChange={(e) => setCompleteTrackNumber(e.target.value)}
+                              />
+                              <Button size="sm" disabled={cjCompletingId === o.id} onClick={() => void handleCjCompleteOrder(o.id)}>
+                                {cjCompletingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "저장"}
+                              </Button>
+                              <Button size="sm" variant="ghost" onClick={() => setCompletingOrderId(null)}>취소</Button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

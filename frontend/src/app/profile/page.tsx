@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Coins, Copy, Trophy, Target, TrendingUp, Users,
-  ExternalLink, CheckCircle, XCircle, Loader2, ChevronRight,
+  ExternalLink, CheckCircle, XCircle, Loader2, ChevronRight, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLanguage } from "@/lib/i18n";
@@ -53,7 +53,7 @@ interface CjOrder {
   id: string;
   quantity: number;
   apCharged: number;
-  status: "paid" | "failed";
+  status: "pending" | "completed" | "paid" | "failed";
   cjStatus: string | null;
   trackNumber: string | null;
   trackingProvider: string | null;
@@ -397,9 +397,29 @@ function ProfileContent() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <span className={`flex items-center gap-1 text-xs ${order.status === "paid" ? "text-green-500" : "text-red-500"}`}>
-                          {order.status === "paid" ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                          {order.status === "paid" ? t.shop.orderStatusPaid : t.shop.orderStatusFailed}
+                        <span
+                          className={`flex items-center gap-1 text-xs ${
+                            order.status === "completed" || order.status === "paid"
+                              ? "text-green-500"
+                              : order.status === "pending"
+                              ? "text-amber-500"
+                              : "text-red-500"
+                          }`}
+                        >
+                          {order.status === "completed" || order.status === "paid" ? (
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          ) : order.status === "pending" ? (
+                            <Clock className="h-3.5 w-3.5" />
+                          ) : (
+                            <XCircle className="h-3.5 w-3.5" />
+                          )}
+                          {order.status === "completed"
+                            ? t.shop.orderStatusCompleted
+                            : order.status === "pending"
+                            ? t.shop.orderStatusPending
+                            : order.status === "paid"
+                            ? t.shop.orderStatusPaid
+                            : t.shop.orderStatusFailed}
                         </span>
                         <span className="text-xs font-bold text-violet-600">{order.apCharged.toLocaleString()} AP</span>
                       </div>
