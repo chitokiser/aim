@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ArrowLeft, Coins, Loader2, Minus, Package, Plus } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -32,7 +33,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const [product, setProduct] = useState<CjProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [shipping, setShipping] = useState({ name: "", phone: "", address: "", detailAddress: "", zip: "" });
+  const [shipping, setShipping] = useState({ name: "", phone: "", address: "", detailAddress: "", zip: "", country: "KR" });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -134,7 +135,19 @@ export default function ShopDetailClient({ id }: { id: string }) {
           <Card className="mb-6">
             <CardContent className="p-5 space-y-3">
               <p className="font-semibold text-sm">{sh.shippingTitle}</p>
-              <p className="text-xs text-muted-foreground -mt-2">{sh.koreaOnlyNote}</p>
+              <p className="text-xs text-muted-foreground -mt-2">{sh.shippingCountriesNote}</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs">{sh.shippingCountry}</Label>
+                <Select value={shipping.country} onValueChange={(v) => setShipping((s) => ({ ...s, country: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="KR">{sh.countryKr}</SelectItem>
+                    <SelectItem value="VN">{sh.countryVn}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">{sh.shippingName}</Label>
                 <Input value={shipping.name} onChange={(e) => setShipping((s) => ({ ...s, name: e.target.value }))} />

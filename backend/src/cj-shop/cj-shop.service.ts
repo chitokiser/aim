@@ -45,6 +45,7 @@ export interface ShippingInfo {
   address: string;
   detailAddress?: string;
   zip: string;
+  country?: string; // ISO country code, e.g. "KR" or "VN" — defaults to "KR" for older orders
 }
 
 interface CreateOrderDto {
@@ -255,12 +256,14 @@ export class CjShopService {
     const adminId = this.config.get<string>('ADMIN_TELEGRAM_ID');
     if (!botToken || !adminId) return;
 
+    const country = shipping.country || 'KR';
     const msg =
       `🛒 *CJ 쇼핑몰 주문 접수*\n\n` +
       `👤 회원: ${username}\n` +
       `📦 상품: ${productName} x${quantity}\n` +
       `💰 차감 AP: ${apCharged.toLocaleString()} AP\n` +
       `💵 CJ 발주 필요 금액: $${cjCostUsd.toFixed(2)} (CJ 잔액 충전 후 수동 발주 필요)\n` +
+      `🌍 배송국가: ${country}\n` +
       `🏠 배송지: ${shipping.name} / ${shipping.phone} / ${shipping.address} ${shipping.detailAddress ?? ''} (${shipping.zip})\n\n` +
       `🔍 [관리자 패널에서 확인](https://ai119.netlify.app/admin)`;
 

@@ -29,7 +29,7 @@ export class CjShopController {
   @UseGuards(JwtAuthGuard)
   createOrder(
     @Request() req: { user: { sub: string } },
-    @Body() dto: { productId: string; quantity: number; shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string } },
+    @Body() dto: { productId: string; quantity: number; shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string } },
   ) {
     return this.cjShopService.createOrder(req.user.sub, dto);
   }

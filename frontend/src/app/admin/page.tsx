@@ -208,7 +208,7 @@ export default function AdminPage() {
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
-    shipping?: { name: string; phone: string; address: string; detailAddress?: string; zip: string };
+    shipping?: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string };
   }
   const [cjSearchKeyword, setCjSearchKeyword] = useState("");
   const [cjSearchResults, setCjSearchResults] = useState<CjSearchResult[]>([]);
@@ -2590,7 +2590,7 @@ export default function AdminPage() {
                           </div>
                           {o.shipping && (
                             <p className="text-xs text-muted-foreground">
-                              {o.shipping.name} · {o.shipping.phone} · {o.shipping.address} {o.shipping.detailAddress ?? ""} ({o.shipping.zip})
+                              [{o.shipping.country ?? "KR"}] {o.shipping.name} · {o.shipping.phone} · {o.shipping.address} {o.shipping.detailAddress ?? ""} ({o.shipping.zip})
                             </p>
                           )}
                           {completingOrderId === o.id && (
