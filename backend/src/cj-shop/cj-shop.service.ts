@@ -27,6 +27,8 @@ interface RegisterProductDto {
   cjVariantId: string;
   nameKo: string;
   images?: string[];
+  video?: string;
+  description?: string;
   cjPriceUsd: number;
   marginPercent?: number;
   category?: string;
@@ -35,6 +37,8 @@ interface RegisterProductDto {
 interface UpdateProductDto {
   nameKo?: string;
   images?: string[];
+  video?: string;
+  description?: string;
   cjPriceUsd?: number;
   marginPercent?: number;
   active?: boolean;
@@ -158,6 +162,8 @@ export class CjShopService {
       cjVariantId: dto.cjVariantId,
       nameKo: dto.nameKo,
       images: dto.images ?? [],
+      video: dto.video || null,
+      description: dto.description || '',
       cjPriceUsd: dto.cjPriceUsd,
       marginPercent,
       apPrice: computeApPrice(dto.cjPriceUsd, marginPercent),

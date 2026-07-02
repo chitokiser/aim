@@ -218,6 +218,9 @@ export default function AdminPage() {
   const [cjSearching, setCjSearching] = useState(false);
   const [cjRegisteringId, setCjRegisteringId] = useState<string | null>(null);
   const [cjDetailVariants, setCjDetailVariants] = useState<CjVariant[]>([]);
+  const [cjDetailImages, setCjDetailImages] = useState<string[]>([]);
+  const [cjDetailVideo, setCjDetailVideo] = useState<string | null>(null);
+  const [cjDetailDescription, setCjDetailDescription] = useState("");
   const [cjDetailLoading, setCjDetailLoading] = useState(false);
   const [cjMarginInput, setCjMarginInput] = useState("100");
   const [cjCategoryInput, setCjCategoryInput] = useState("other");
@@ -863,13 +866,21 @@ export default function AdminPage() {
   const openCjRegister = async (item: CjSearchResult) => {
     setCjRegisteringId(item.id);
     setCjDetailVariants([]);
+    setCjDetailImages([]);
+    setCjDetailVideo(null);
+    setCjDetailDescription("");
     setCjMarginInput("100");
     setCjCategoryInput("other");
     setCjDetailLoading(true);
     try {
       const res = await fetch(`${API}/api/cj-shop/admin/products/${item.id}/detail`, { headers: authHeader() });
-      const data = await res.json() as { variants?: CjVariant[] };
+      const data = await res.json() as {
+        variants?: CjVariant[]; productImageSet?: string[]; productVideo?: string | null; description?: string;
+      };
       setCjDetailVariants(Array.isArray(data.variants) ? data.variants : []);
+      setCjDetailImages(Array.isArray(data.productImageSet) ? data.productImageSet : []);
+      setCjDetailVideo(data.productVideo || null);
+      setCjDetailDescription(data.description || "");
     } catch {
       toast.error("상품 상세 조회에 실패했습니다");
     } finally {
@@ -879,6 +890,9 @@ export default function AdminPage() {
 
   const handleCjRegister = async (item: CjSearchResult, variant: CjVariant) => {
     const marginPercent = parseFloat(cjMarginInput);
+    const gallery = Array.from(
+      new Set([variant.variantImage, item.bigImage, ...cjDetailImages].filter(Boolean)),
+    ) as string[];
     try {
       const res = await fetch(`${API}/api/cj-shop/admin/products`, {
         method: "POST",
@@ -887,7 +901,9 @@ export default function AdminPage() {
           cjProductId: item.id,
           cjVariantId: variant.vid,
           nameKo: item.nameEn,
-          images: [variant.variantImage || item.bigImage].filter(Boolean),
+          images: gallery,
+          video: cjDetailVideo || undefined,
+          description: cjDetailDescription || undefined,
           cjPriceUsd: parseFloat(variant.variantSellPrice || item.sellPrice || "0") || 0,
           marginPercent: isNaN(marginPercent) ? 100 : marginPercent,
           category: cjCategoryInput,

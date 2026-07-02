@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
+import DOMPurify from "isomorphic-dompurify";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -20,6 +21,8 @@ interface CjProduct {
   id: string;
   nameKo: string;
   images: string[];
+  video?: string | null;
+  description?: string;
   apPrice: number;
   active: boolean;
 }
@@ -33,6 +36,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const [product, setProduct] = useState<CjProduct | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
+  const [activeImage, setActiveImage] = useState(0);
   const [shipping, setShipping] = useState({ name: "", phone: "", address: "", detailAddress: "", zip: "", country: "KR" });
   const [submitting, setSubmitting] = useState(false);
 
@@ -100,14 +104,37 @@ export default function ShopDetailClient({ id }: { id: string }) {
       </Link>
 
       <div className="grid md:grid-cols-2 gap-8">
-        <div className="aspect-square rounded-2xl bg-muted overflow-hidden">
-          {product.images?.[0] ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.images[0]} alt={product.nameKo} className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center">
-              <Package className="h-16 w-16 text-muted-foreground/30" />
+        <div>
+          <div className="aspect-square rounded-2xl bg-muted overflow-hidden">
+            {product.images?.[activeImage] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={product.images[activeImage]} alt={product.nameKo} className="h-full w-full object-cover" />
+            ) : (
+              <div className="h-full w-full flex items-center justify-center">
+                <Package className="h-16 w-16 text-muted-foreground/30" />
+              </div>
+            )}
+          </div>
+          {product.images && product.images.length > 1 && (
+            <div className="flex gap-2 mt-3 overflow-x-auto">
+              {product.images.map((img, i) => (
+                <button
+                  key={img}
+                  onClick={() => setActiveImage(i)}
+                  className={`shrink-0 h-16 w-16 rounded-lg overflow-hidden border-2 ${
+                    i === activeImage ? "border-violet-500" : "border-transparent"
+                  }`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img} alt={`${product.nameKo} ${i + 1}`} className="h-full w-full object-cover" />
+                </button>
+              ))}
             </div>
+          )}
+          {product.video && (
+            <video controls className="w-full rounded-xl mt-3 bg-black">
+              <source src={product.video} />
+            </video>
           )}
         </div>
 
@@ -187,6 +214,18 @@ export default function ShopDetailClient({ id }: { id: string }) {
           </Button>
         </div>
       </div>
+
+      {product.description && (
+        <Card className="mt-8">
+          <CardContent className="p-6">
+            <h2 className="font-bold text-lg mb-4">{sh.detailTitle}</h2>
+            <div
+              className="text-sm leading-relaxed [&_img]:max-w-full [&_img]:h-auto [&_img]:rounded-lg [&_p]:mb-2"
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.description) }}
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
