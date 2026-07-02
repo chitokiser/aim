@@ -218,8 +218,19 @@ export class CjShopService {
 
   async getProduct(id: string) {
     const snap = await this.firebase.collection('cj_products').doc(id).get();
-    if (!snap.exists) throw new NotFoundException('Product not found');
-    return { id: snap.id, ...snap.data() };
+    if (snap.exists) return { id: snap.id, ...snap.data() };
+
+    // Netlify's CDN 301-redirects mixed-case product URLs to lowercase, but
+    // Firestore auto-generated doc IDs are case-sensitive — fall back to a
+    // case-insensitive scan so those links still resolve.
+    const match = await this.findProductDocByIdCaseInsensitive(id);
+    if (!match) throw new NotFoundException('Product not found');
+    return { id: match.id, ...match.data() };
+  }
+
+  private async findProductDocByIdCaseInsensitive(id: string) {
+    const all = await this.firebase.collection('cj_products').get();
+    return all.docs.find((d) => d.id.toLowerCase() === id.toLowerCase()) ?? null;
   }
 
   // ── Checkout (AP only) ────────────────────────────────────────────────────
@@ -229,8 +240,16 @@ export class CjShopService {
   // via Telegram to fund the CJ wallet and place the order manually on CJ's own site.
   async createOrder(userId: string, dto: CreateOrderDto) {
     const quantity = Math.max(1, dto.quantity || 1);
-    const productSnap = await this.firebase.collection('cj_products').doc(dto.productId).get();
-    if (!productSnap.exists) throw new NotFoundException('Product not found');
+    let productSnap = await this.firebase.collection('cj_products').doc(dto.productId).get();
+    let productId = dto.productId;
+    if (!productSnap.exists) {
+      // Netlify's CDN 301-redirects mixed-case product URLs to lowercase,
+      // so the checkout form may submit a lowercased id — resolve it back.
+      const match = await this.findProductDocByIdCaseInsensitive(dto.productId);
+      if (!match) throw new NotFoundException('Product not found');
+      productSnap = match;
+      productId = match.id;
+    }
     const product = productSnap.data() as Record<string, unknown>;
     if (product.active !== true) throw new BadRequestException('Product is not available');
 
@@ -258,7 +277,7 @@ export class CjShopService {
 
     const order = {
       userId,
-      productId: dto.productId,
+      productId,
       cjOrderId: null as string | null,
       cjOrderNumber: orderNumber,
       quantity,
