@@ -215,7 +215,7 @@ export default function AdminPage() {
   const [cjRegisteringId, setCjRegisteringId] = useState<string | null>(null);
   const [cjDetailVariants, setCjDetailVariants] = useState<CjVariant[]>([]);
   const [cjDetailLoading, setCjDetailLoading] = useState(false);
-  const [cjMarginInput, setCjMarginInput] = useState("40");
+  const [cjMarginInput, setCjMarginInput] = useState("100");
   const [cjProducts, setCjProducts] = useState<CjProductAdmin[]>([]);
   const [cjProductsLoading, setCjProductsLoading] = useState(false);
   const [editingCjId, setEditingCjId] = useState<string | null>(null);
@@ -854,7 +854,7 @@ export default function AdminPage() {
   const openCjRegister = async (item: CjSearchResult) => {
     setCjRegisteringId(item.id);
     setCjDetailVariants([]);
-    setCjMarginInput("40");
+    setCjMarginInput("100");
     setCjDetailLoading(true);
     try {
       const res = await fetch(`${API}/api/cj-shop/admin/products/${item.id}/detail`, { headers: authHeader() });
@@ -879,7 +879,7 @@ export default function AdminPage() {
           nameKo: item.nameEn,
           images: [variant.variantImage || item.bigImage].filter(Boolean),
           cjPriceUsd: parseFloat(variant.variantSellPrice || item.sellPrice || "0") || 0,
-          marginPercent: isNaN(marginPercent) ? 40 : marginPercent,
+          marginPercent: isNaN(marginPercent) ? 100 : marginPercent,
         }),
       });
       if (!res.ok) {

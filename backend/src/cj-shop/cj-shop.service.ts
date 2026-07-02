@@ -5,7 +5,7 @@ import { PointsService } from '../points/points.service';
 
 const CJ_BASE = 'https://developers.cjdropshipping.com';
 const AP_PER_USD = 10000;
-const DEFAULT_MARGIN_PERCENT = 40;
+const DEFAULT_MARGIN_PERCENT = 100;
 
 interface CjEnvelope<T> {
   code?: number;
