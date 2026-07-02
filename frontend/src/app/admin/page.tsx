@@ -840,8 +840,9 @@ export default function AdminPage() {
         headers: authHeader(),
       });
       const data = await res.json() as Record<string, unknown>;
-      const content = data.content as Record<string, unknown> | undefined;
-      const list = (content?.productList ?? data.list ?? (Array.isArray(data) ? data : [])) as CjSearchResult[];
+      // CJ's listV2 response nests results as data.content[0].productList
+      const contentArr = data.content as Array<Record<string, unknown>> | undefined;
+      const list = (contentArr?.[0]?.productList ?? []) as CjSearchResult[];
       setCjSearchResults(Array.isArray(list) ? list : []);
     } catch {
       toast.error("검색에 실패했습니다");
