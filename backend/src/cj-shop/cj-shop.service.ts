@@ -265,15 +265,22 @@ export class CjShopService {
     const expUsed = Math.min(requestedExp, maxExpPayable, userSpendableExp);
     const apToCharge = totalPrice - expUsed;
 
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    const userData = userSnap.data() as Record<string, unknown> | undefined;
+    const username = (userData?.username as string) || (userData?.name as string) || userId;
+    const mentorId = (userData?.mentorId as string | null) ?? null;
+
     await this.points.deduct(userId, apToCharge, `CJ Shop 주문: ${product.nameKo as string}`);
     if (expUsed > 0) {
       await this.levelService.spendExp(userId, expUsed);
     }
 
+    const mentorBonus = Math.floor(apToCharge * 0.1);
+    if (mentorId && mentorBonus > 0) {
+      await this.points.award(mentorId, mentorBonus, 'mentor_bonus', `멘토 수당: 멘티 CJ 쇼핑몰 구매 (${product.nameKo as string})`);
+    }
+
     const orderNumber = `AIM-${Date.now()}`;
-    const userSnap = await this.firebase.collection('users').doc(userId).get();
-    const userData = userSnap.data() as Record<string, unknown> | undefined;
-    const username = (userData?.username as string) || (userData?.name as string) || userId;
 
     const order = {
       userId,
@@ -284,6 +291,8 @@ export class CjShopService {
       totalPrice,
       expUsed,
       apCharged: apToCharge,
+      mentorId,
+      mentorBonus: mentorId ? mentorBonus : 0,
       shipping: dto.shipping,
       status: 'pending' as const,
       cjStatus: null as string | null,
@@ -295,7 +304,7 @@ export class CjShopService {
     };
     const ref = await this.firebase.collection('cj_orders').add(order);
 
-    this.notifyAdmin(username, product.nameKo as string, quantity, apToCharge, expUsed, (product.cjPriceUsd as number) * quantity, dto.shipping);
+    this.notifyAdmin(username, product.nameKo as string, quantity, apToCharge, expUsed, mentorId ? mentorBonus : 0, (product.cjPriceUsd as number) * quantity, dto.shipping);
 
     return { id: ref.id, ...order };
   }
@@ -306,6 +315,7 @@ export class CjShopService {
     quantity: number,
     apCharged: number,
     expUsed: number,
+    mentorBonus: number,
     cjCostUsd: number,
     shipping: ShippingInfo,
   ) {
@@ -319,6 +329,7 @@ export class CjShopService {
       `👤 회원: ${username}\n` +
       `📦 상품: ${productName} x${quantity}\n` +
       `💰 차감 AP: ${apCharged.toLocaleString()} AP` + (expUsed > 0 ? ` (+ EXP 결제 ${expUsed.toLocaleString()})\n` : `\n`) +
+      (mentorBonus > 0 ? `🎁 멘토 수당: ${mentorBonus.toLocaleString()} AP\n` : ``) +
       `💵 CJ 발주 필요 금액: $${cjCostUsd.toFixed(2)} (CJ 잔액 충전 후 수동 발주 필요)\n` +
       `🌍 배송국가: ${country}\n` +
       `🏠 배송지: ${shipping.name} / ${shipping.phone} / ${shipping.address} ${shipping.detailAddress ?? ''} (${shipping.zip})\n\n` +
