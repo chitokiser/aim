@@ -16,6 +16,7 @@ interface CjProduct {
   images: string[];
   apPrice: number;
   active: boolean;
+  category?: string;
 }
 
 export default function ShopPage() {
@@ -23,6 +24,7 @@ export default function ShopPage() {
   const sh = t.shop;
   const [products, setProducts] = useState<CjProduct[]>([]);
   const [loading, setLoading] = useState(true);
+  const [category, setCategory] = useState("all");
 
   const loadProducts = useCallback(async () => {
     try {
@@ -38,6 +40,9 @@ export default function ShopPage() {
 
   useEffect(() => { void loadProducts(); }, [loadProducts]);
 
+  const availableCategories = Array.from(new Set(products.map((p) => p.category || "other")));
+  const filteredProducts = category === "all" ? products : products.filter((p) => (p.category || "other") === category);
+
   return (
     <div className="container mx-auto px-4 py-10">
       <div className="mb-8">
@@ -48,17 +53,37 @@ export default function ShopPage() {
         <p className="text-muted-foreground">{sh.subtitle}</p>
       </div>
 
+      {availableCategories.length > 1 && (
+        <div className="flex flex-wrap gap-2 mb-6">
+          <button
+            onClick={() => setCategory("all")}
+            className={buttonVariants({ size: "sm", variant: category === "all" ? "default" : "outline" })}
+          >
+            {sh.categories.all}
+          </button>
+          {availableCategories.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategory(c)}
+              className={buttonVariants({ size: "sm", variant: category === c ? "default" : "outline" })}
+            >
+              {sh.categories[c as keyof typeof sh.categories] ?? sh.categories.other}
+            </button>
+          ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
           {[1, 2, 3, 4].map((n) => (
             <div key={n} className="h-64 rounded-2xl bg-muted animate-pulse" />
           ))}
         </div>
-      ) : products.length === 0 ? (
+      ) : filteredProducts.length === 0 ? (
         <p className="text-center text-sm text-muted-foreground py-16">{sh.noProducts}</p>
       ) : (
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {products.map((p) => (
+          {filteredProducts.map((p) => (
             <Link key={p.id} href={`/shop/${p.id}`} className="group">
               <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-200 group-hover:-translate-y-0.5">
                 <div className="aspect-square bg-muted overflow-hidden">

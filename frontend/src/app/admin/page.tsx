@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
@@ -204,7 +205,9 @@ export default function AdminPage() {
   interface CjProductAdmin {
     id: string; cjProductId: string; cjVariantId: string; nameKo: string;
     images: string[]; cjPriceUsd: number; marginPercent: number; apPrice: number; active: boolean; createdAt: string;
+    category?: string;
   }
+  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "other"] as const;
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
@@ -217,10 +220,12 @@ export default function AdminPage() {
   const [cjDetailVariants, setCjDetailVariants] = useState<CjVariant[]>([]);
   const [cjDetailLoading, setCjDetailLoading] = useState(false);
   const [cjMarginInput, setCjMarginInput] = useState("100");
+  const [cjCategoryInput, setCjCategoryInput] = useState("other");
   const [cjProducts, setCjProducts] = useState<CjProductAdmin[]>([]);
   const [cjProductsLoading, setCjProductsLoading] = useState(false);
   const [editingCjId, setEditingCjId] = useState<string | null>(null);
   const [editCjMargin, setEditCjMargin] = useState("");
+  const [editCjCategory, setEditCjCategory] = useState("other");
   const [cjOrders, setCjOrders] = useState<CjOrderAdmin[]>([]);
   const [cjOrdersLoading, setCjOrdersLoading] = useState(false);
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
@@ -859,6 +864,7 @@ export default function AdminPage() {
     setCjRegisteringId(item.id);
     setCjDetailVariants([]);
     setCjMarginInput("100");
+    setCjCategoryInput("other");
     setCjDetailLoading(true);
     try {
       const res = await fetch(`${API}/api/cj-shop/admin/products/${item.id}/detail`, { headers: authHeader() });
@@ -884,6 +890,7 @@ export default function AdminPage() {
           images: [variant.variantImage || item.bigImage].filter(Boolean),
           cjPriceUsd: parseFloat(variant.variantSellPrice || item.sellPrice || "0") || 0,
           marginPercent: isNaN(marginPercent) ? 100 : marginPercent,
+          category: cjCategoryInput,
         }),
       });
       if (!res.ok) {
@@ -907,7 +914,7 @@ export default function AdminPage() {
       const res = await fetch(`${API}/api/cj-shop/admin/products/${id}`, {
         method: "PATCH",
         headers: authHeader(),
-        body: JSON.stringify({ marginPercent }),
+        body: JSON.stringify({ marginPercent, category: editCjCategory }),
       });
       if (!res.ok) { toast.error("수정에 실패했습니다"); return; }
       setEditingCjId(null);
@@ -2417,6 +2424,19 @@ export default function AdminPage() {
                                     onChange={(e) => setCjMarginInput(e.target.value)}
                                   />
                                 </div>
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs shrink-0">{t.shop.admin.categoryLabel}</Label>
+                                  <Select value={cjCategoryInput} onValueChange={setCjCategoryInput}>
+                                    <SelectTrigger className="h-8 text-sm w-40">
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {CJ_CATEGORY_VALUES.map((c) => (
+                                        <SelectItem key={c} value={c}>{t.shop.categories[c]}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
                                 {cjDetailVariants.length === 0 ? (
                                   <p className="text-xs text-muted-foreground">변형 정보를 찾을 수 없습니다.</p>
                                 ) : (
@@ -2478,6 +2498,9 @@ export default function AdminPage() {
                               ${p.cjPriceUsd} · {p.marginPercent}% → {p.apPrice.toLocaleString()} AP
                             </p>
                           </div>
+                          <Badge variant="secondary" className="text-xs shrink-0">
+                            {t.shop.categories[(p.category as typeof CJ_CATEGORY_VALUES[number]) ?? "other"]}
+                          </Badge>
                           <Badge variant={p.active ? "outline" : "secondary"} className="text-xs shrink-0">
                             {p.active ? t.shop.admin.activeLabel : t.shop.admin.inactiveLabel}
                           </Badge>
@@ -2489,6 +2512,7 @@ export default function AdminPage() {
                                 if (editingCjId === p.id) { setEditingCjId(null); return; }
                                 setEditingCjId(p.id);
                                 setEditCjMargin(String(p.marginPercent));
+                                setEditCjCategory(p.category ?? "other");
                               }}
                             >
                               <Pencil className="h-3.5 w-3.5" />
@@ -2502,7 +2526,7 @@ export default function AdminPage() {
                           </div>
                         </div>
                         {editingCjId === p.id && (
-                          <div className="mt-3 ml-16 flex items-center gap-2">
+                          <div className="mt-3 ml-16 flex items-center gap-2 flex-wrap">
                             <Label className="text-xs shrink-0">{t.shop.admin.marginLabel}</Label>
                             <Input
                               type="number"
@@ -2510,6 +2534,17 @@ export default function AdminPage() {
                               value={editCjMargin}
                               onChange={(e) => setEditCjMargin(e.target.value)}
                             />
+                            <Label className="text-xs shrink-0">{t.shop.admin.categoryLabel}</Label>
+                            <Select value={editCjCategory} onValueChange={setEditCjCategory}>
+                              <SelectTrigger className="h-8 text-sm w-40">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {CJ_CATEGORY_VALUES.map((c) => (
+                                  <SelectItem key={c} value={c}>{t.shop.categories[c]}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <Button size="sm" onClick={() => void handleCjMarginSave(p.id)}>저장</Button>
                             <Button size="sm" variant="ghost" onClick={() => setEditingCjId(null)}>취소</Button>
                           </div>

@@ -71,7 +71,7 @@ export class CjShopController {
   @UseGuards(JwtAuthGuard)
   async register(@Request() req: { user: { sub: string } }, @Body() dto: Record<string, unknown>) {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
-    return this.cjShopService.registerProduct(dto as { cjProductId: string; cjVariantId: string; nameKo: string; images?: string[]; cjPriceUsd: number; marginPercent?: number });
+    return this.cjShopService.registerProduct(dto as { cjProductId: string; cjVariantId: string; nameKo: string; images?: string[]; cjPriceUsd: number; marginPercent?: number; category?: string });
   }
 
   @Patch('admin/products/:id')

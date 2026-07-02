@@ -29,6 +29,7 @@ interface RegisterProductDto {
   images?: string[];
   cjPriceUsd: number;
   marginPercent?: number;
+  category?: string;
 }
 
 interface UpdateProductDto {
@@ -37,6 +38,7 @@ interface UpdateProductDto {
   cjPriceUsd?: number;
   marginPercent?: number;
   active?: boolean;
+  category?: string;
 }
 
 export interface ShippingInfo {
@@ -159,6 +161,7 @@ export class CjShopService {
       cjPriceUsd: dto.cjPriceUsd,
       marginPercent,
       apPrice: computeApPrice(dto.cjPriceUsd, marginPercent),
+      category: dto.category || 'other',
       active: true,
       createdAt: new Date().toISOString(),
     };
