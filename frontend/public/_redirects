@@ -6,4 +6,4 @@
 # Netlify only applies this rule when no matching static file exists, so
 # pre-built product pages are served directly; unknown IDs fall back to the
 # "_" shell, which then fetches the real product client-side via useParams().
-/shop/:id /shop/_.html 200
+/shop/* /shop/_.html 200
