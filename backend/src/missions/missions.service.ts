@@ -4,7 +4,11 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { Telegram } from 'telegraf';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
+import { LevelService } from '../level/level.service';
 import type { Query } from 'firebase-admin/firestore';
+
+const POST_SUBMIT_EXP = 1000;
+const MISSION_COMPLETE_EXP = 10000;
 
 @Injectable()
 export class MissionsService {
@@ -12,6 +16,7 @@ export class MissionsService {
     private firebase: FirebaseService,
     private points: PointsService,
     private config: ConfigService,
+    private levelService: LevelService,
   ) {}
 
   private async notifySubmission(opts: {
@@ -328,6 +333,7 @@ export class MissionsService {
     await this.firebase.collection('users').doc(userId).update({
       missionsCompleted: FieldValue.increment(1),
     });
+    await this.levelService.awardExp(userId, POST_SUBMIT_EXP);
     this.notifySubmission({ missionId: dto.missionId ?? null, displayName, postUrl: dto.postUrl }).catch(() => {});
     return { id: ref.id, ...sub };
   }
@@ -503,6 +509,7 @@ export class MissionsService {
     const platformShare = rewardPerUnit - userShare - mentorShare;
 
     await this.points.award(userId, userShare, 'mission_reward', `미션 보상: ${mission.title as string}`, missionId);
+    await this.levelService.awardExp(userId, MISSION_COMPLETE_EXP);
 
     if (mentorId) {
       await this.points.award(mentorId, mentorShare, 'mentor_bonus', `멘토 수당: ${mission.title as string}`, missionId);
@@ -577,6 +584,7 @@ export class MissionsService {
     const platformShare = rewardPerUnit - userShare - mentorShare;
 
     await this.points.award(userId, userShare, 'mission_reward', `미션 보상: ${mission.title as string}`, missionId);
+    await this.levelService.awardExp(userId, MISSION_COMPLETE_EXP);
 
     if (mentorId) {
       await this.points.award(mentorId, mentorShare, 'mentor_bonus', `멘토 수당: ${mission.title as string}`, missionId);
@@ -745,6 +753,8 @@ export class MissionsService {
         missionsCompleted: FieldValue.increment(1),
       }),
     ]);
+
+    await this.levelService.awardExp(userId, POST_SUBMIT_EXP);
 
     const firstLink = links.youtube || links.blog || links.comment || links.screenshot;
     this.notifySubmission({ missionId, displayName, postUrl: firstLink }).catch(() => {});
@@ -955,6 +965,7 @@ export class MissionsService {
     };
 
     const postRef = await this.firebase.collection('posts').add(post);
+    await this.levelService.awardExp(userId, POST_SUBMIT_EXP);
     await this.verifyAndAwardPost(postRef.id, missionId, userId, data);
     return { id: postRef.id, ...post };
   }
@@ -980,6 +991,7 @@ export class MissionsService {
     });
 
     await this.points.award(userId, userShare, 'mission_reward', `미션 보상: ${mission.title}`, missionId, postId);
+    await this.levelService.awardExp(userId, MISSION_COMPLETE_EXP);
 
     if (mentorId) {
       await this.points.award(mentorId, mentorShare, 'mentor_bonus', `멘토 수당: 멘티 미션 완료`, missionId, postId);

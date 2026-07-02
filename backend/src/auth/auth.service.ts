@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as crypto from 'crypto';
 import { FirebaseService } from '../firebase/firebase.service';
+import { LevelService } from '../level/level.service';
 import type { DocumentData } from 'firebase-admin/firestore';
+
+const REFERRAL_EXP = 40000;
 
 @Injectable()
 export class AuthService {
@@ -11,6 +14,7 @@ export class AuthService {
     private config: ConfigService,
     private jwt: JwtService,
     private firebase: FirebaseService,
+    private levelService: LevelService,
   ) {}
 
   verifyTelegramAuth(data: Record<string, string>): boolean {
@@ -151,6 +155,7 @@ export class AuthService {
             mentorUsername: mentorData.username ?? null,
           });
           await usersRef.doc(mentorDoc.id).update({ points: ((mentorData.points as number) ?? 0) + 1000 });
+          await this.levelService.awardExp(mentorDoc.id, REFERRAL_EXP);
           user = { ...user, mentorId: mentorDoc.id, mentorUsername: mentorData.username ?? null };
         }
       }
@@ -176,6 +181,7 @@ export class AuthService {
               mentorUsername: mentorData.username ?? null,
             });
             await usersRef.doc(mentorDoc.id).update({ points: ((mentorData.points as number) ?? 0) + 1000 });
+            await this.levelService.awardExp(mentorDoc.id, REFERRAL_EXP);
             user = { ...user, mentorId: mentorDoc.id, mentorUsername: mentorData.username ?? null };
           }
         }
@@ -229,6 +235,7 @@ export class AuthService {
 
         if (mentorId && mentorCurrentPoints !== null) {
           await usersRef.doc(mentorId).update({ points: mentorCurrentPoints + 1000 });
+          await this.levelService.awardExp(mentorId, REFERRAL_EXP);
         }
       }
     }
@@ -302,6 +309,7 @@ export class AuthService {
       // Credit 1,000 AP referral bonus to mentor
       if (mentorId && mentorCurrentPoints !== null) {
         await usersRef.doc(mentorId).update({ points: mentorCurrentPoints + 1000 });
+        await this.levelService.awardExp(mentorId, REFERRAL_EXP);
       }
     }
 

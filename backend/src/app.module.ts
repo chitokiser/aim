@@ -28,6 +28,7 @@ import { PaymentwallModule } from './paymentwall/paymentwall.module';
 import { EarnwallModule } from './earnwall/earnwall.module';
 import { CoupangModule } from './coupang/coupang.module';
 import { CjShopModule } from './cj-shop/cj-shop.module';
+import { LevelModule } from './level/level.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { CjShopModule } from './cj-shop/cj-shop.module';
     EarnwallModule,
     CoupangModule,
     CjShopModule,
+    LevelModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -243,7 +243,7 @@ const T = {
     },
     profile: {
       mentor: "Mentor",
-      levelProgress: "{n} AP to next level",
+      levelProgress: "{n} EXP to next level",
       totalPoints: "Total Points",
       postCount: "Posts",
       ranking: "Ranking",
@@ -1274,7 +1274,7 @@ const T = {
     },
     profile: {
       mentor: "멘토",
-      levelProgress: "다음 레벨까지 {n} AP",
+      levelProgress: "다음 레벨까지 {n} EXP",
       totalPoints: "총 포인트",
       postCount: "게시물 수",
       ranking: "랭킹",
@@ -2305,7 +2305,7 @@ const T = {
     },
     profile: {
       mentor: "Cố vấn",
-      levelProgress: "Còn {n} AP lên cấp tiếp",
+      levelProgress: "Còn {n} EXP lên cấp tiếp",
       totalPoints: "Tổng điểm",
       postCount: "Bài đăng",
       ranking: "Xếp hạng",

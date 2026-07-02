@@ -9,6 +9,8 @@ export interface User {
   photoUrl?: string | null;
   points: number;
   freePoints?: number;
+  level?: number;
+  exp?: number;
   mentorId?: string;
   mentorUsername?: string;
   referralCode: string;

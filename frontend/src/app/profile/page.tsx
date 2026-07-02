@@ -199,12 +199,17 @@ function ProfileContent() {
   };
 
   const levelInfo = (() => {
-    const p = user.points;
-    if (p >= 1000000) return { level: "Diamond", next: null, progress: 100, color: "from-cyan-400 to-blue-600" };
-    if (p >= 500000) return { level: "Platinum", next: 1000000, progress: (p - 500000) / 5000, color: "from-violet-400 to-purple-600" };
-    if (p >= 100000) return { level: "Gold", next: 500000, progress: (p - 100000) / 4000, color: "from-amber-400 to-yellow-600" };
-    if (p >= 10000) return { level: "Silver", next: 100000, progress: (p - 10000) / 900, color: "from-slate-400 to-slate-600" };
-    return { level: "Bronze", next: 10000, progress: p / 100, color: "from-amber-700 to-amber-900" };
+    const level = user.level ?? 1;
+    const exp = user.exp ?? 0;
+    const expToNext = level * 40000; // must match backend LevelService formula: level * 2 * 2 * 10000
+    return {
+      level: `Lv.${level}`,
+      exp,
+      expToNext,
+      next: expToNext,
+      progress: Math.min(100, (exp / expToNext) * 100),
+      color: "from-violet-500 to-cyan-500",
+    };
   })();
 
   const statusConfig = {
@@ -251,15 +256,13 @@ function ProfileContent() {
             </div>
           </div>
 
-          {levelInfo.next && (
-            <div className="mt-4 space-y-1.5">
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>{levelInfo.level}</span>
-                <span>{t.profile.levelProgress.replace("{n}", (levelInfo.next - user.points).toLocaleString())}</span>
-              </div>
-              <Progress value={levelInfo.progress} className="h-2" />
+          <div className="mt-4 space-y-1.5">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>{levelInfo.level}</span>
+              <span>{t.profile.levelProgress.replace("{n}", (levelInfo.expToNext - levelInfo.exp).toLocaleString())}</span>
             </div>
-          )}
+            <Progress value={levelInfo.progress} className="h-2" />
+          </div>
         </CardContent>
       </Card>
 
