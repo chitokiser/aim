@@ -17,6 +17,15 @@ import { ArrowLeft, Coins, Loader2, Minus, Package, Plus, Sparkles } from "lucid
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
+interface ProductVariant {
+  vid: string;
+  label: string;
+  image?: string;
+  cjPriceUsd: number;
+  supplyApPrice: number;
+  apPrice: number;
+}
+
 interface CjProduct {
   id: string;
   nameKo: string;
@@ -26,6 +35,7 @@ interface CjProduct {
   apPrice: number;
   supplyApPrice?: number;
   active: boolean;
+  variants?: ProductVariant[];
 }
 
 export default function ShopDetailClient({ id }: { id: string }) {
@@ -44,6 +54,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeImage, setActiveImage] = useState(0);
+  const [selectedVid, setSelectedVid] = useState<string | null>(null);
   const [shipping, setShipping] = useState({ name: "", phone: "", address: "", detailAddress: "", zip: "", country: "KR" });
   const [submitting, setSubmitting] = useState(false);
   const [spendableExp, setSpendableExp] = useState(0);
@@ -53,10 +64,17 @@ export default function ShopDetailClient({ id }: { id: string }) {
     setLoading(true);
     fetch(`${API}/api/cj-shop/products/${productId}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setProduct(data))
+      .then((data: CjProduct | null) => {
+        setProduct(data);
+        setSelectedVid(data?.variants?.[0]?.vid ?? null);
+      })
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
   }, [productId]);
+
+  const activeVariant = product?.variants?.find((v) => v.vid === selectedVid) ?? product?.variants?.[0] ?? null;
+  const displayApPrice = activeVariant?.apPrice ?? product?.apPrice ?? 0;
+  const displaySupplyApPrice = activeVariant?.supplyApPrice ?? product?.supplyApPrice;
 
   useEffect(() => {
     if (!token) return;
@@ -66,9 +84,9 @@ export default function ShopDetailClient({ id }: { id: string }) {
       .catch(() => setSpendableExp(0));
   }, [token]);
 
-  const totalAp = product ? product.apPrice * quantity : 0;
-  const maxExpPayable = product?.supplyApPrice !== undefined
-    ? Math.max(0, product.apPrice - product.supplyApPrice) * quantity
+  const totalAp = product ? displayApPrice * quantity : 0;
+  const maxExpPayable = displaySupplyApPrice !== undefined
+    ? Math.max(0, displayApPrice - displaySupplyApPrice) * quantity
     : 0;
   const expCap = Math.min(maxExpPayable, spendableExp);
   const clampedExpToUse = Math.min(expToUse, expCap);
@@ -87,7 +105,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
       const res = await fetch(`${API}/api/cj-shop/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ productId, quantity, shipping, expToUse: clampedExpToUse }),
+        body: JSON.stringify({ productId, quantity, shipping, expToUse: clampedExpToUse, selectedVid: activeVariant?.vid }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { message?: string };
@@ -166,13 +184,45 @@ export default function ShopDetailClient({ id }: { id: string }) {
           <h1 className="text-2xl font-bold mb-3">{product.nameKo}</h1>
           <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1.5 text-base px-3 py-1.5 mb-2">
             <Coins className="h-4 w-4" />
-            {product.apPrice.toLocaleString()} AP
+            {displayApPrice.toLocaleString()} AP
           </Badge>
           {maxExpPayable > 0 && (
             <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium mb-4">
               <Sparkles className="h-3.5 w-3.5" />
               {sh.maxExpPayable.replace("{n}", maxExpPayable.toLocaleString())}
             </p>
+          )}
+
+          {product.variants && product.variants.length > 1 && (
+            <div className="mb-6">
+              <Label className="text-xs mb-2 block">{sh.selectOptionLabel}</Label>
+              <div className="flex flex-wrap gap-2">
+                {product.variants.map((v) => (
+                  <button
+                    key={v.vid}
+                    type="button"
+                    onClick={() => {
+                      setSelectedVid(v.vid);
+                      if (v.image) {
+                        const idx = product.images?.indexOf(v.image) ?? -1;
+                        if (idx >= 0) setActiveImage(idx);
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg border-2 px-3 py-1.5 text-xs font-medium transition-colors ${
+                      v.vid === (selectedVid ?? product.variants?.[0]?.vid)
+                        ? "border-violet-500 bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300"
+                        : "border-transparent bg-muted hover:bg-muted/70"
+                    }`}
+                  >
+                    {v.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={v.image} alt={v.label} className="h-5 w-5 rounded object-cover" />
+                    )}
+                    {v.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           <div className="flex items-center gap-3 mb-6">

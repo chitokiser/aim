@@ -202,22 +202,25 @@ export default function AdminPage() {
   // CJ Shop state
   interface CjSearchResult { id: string; nameEn: string; sku?: string; bigImage?: string; sellPrice?: string }
   interface CjVariant { vid: string; variantNameEn?: string; variantSellPrice?: string; variantImage?: string }
+  interface CjProductVariant { vid: string; label: string; image?: string; cjPriceUsd: number; supplyApPrice: number; apPrice: number }
   interface CjProductAdmin {
     id: string; cjProductId: string; cjVariantId: string; nameKo: string;
     images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
-    category?: string;
+    category?: string; variants?: CjProductVariant[];
   }
   const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "other"] as const;
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number; expUsed?: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
     shipping?: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string };
+    variantLabel?: string | null;
   }
   const [cjSearchKeyword, setCjSearchKeyword] = useState("");
   const [cjSearchResults, setCjSearchResults] = useState<CjSearchResult[]>([]);
   const [cjSearching, setCjSearching] = useState(false);
   const [cjRegisteringId, setCjRegisteringId] = useState<string | null>(null);
   const [cjDetailVariants, setCjDetailVariants] = useState<CjVariant[]>([]);
+  const [selectedVariantVids, setSelectedVariantVids] = useState<Set<string>>(new Set());
   const [cjDetailImages, setCjDetailImages] = useState<string[]>([]);
   const [cjDetailVideo, setCjDetailVideo] = useState<string | null>(null);
   const [cjDetailDescription, setCjDetailDescription] = useState("");
@@ -884,6 +887,7 @@ export default function AdminPage() {
   const openCjRegister = async (item: CjSearchResult) => {
     setCjRegisteringId(item.id);
     setCjDetailVariants([]);
+    setSelectedVariantVids(new Set());
     setCjDetailImages([]);
     setCjDetailVideo(null);
     setCjDetailDescription("");
@@ -895,7 +899,10 @@ export default function AdminPage() {
       const data = await res.json() as {
         variants?: CjVariant[]; productImageSet?: string[]; productVideo?: string | null; description?: string;
       };
-      setCjDetailVariants(Array.isArray(data.variants) ? data.variants : []);
+      const variants = Array.isArray(data.variants) ? data.variants : [];
+      setCjDetailVariants(variants);
+      // Default to selecting all options so multi-color/size products work out of the box.
+      setSelectedVariantVids(new Set(variants.map((v) => v.vid)));
       setCjDetailImages(Array.isArray(data.productImageSet) ? data.productImageSet : []);
       setCjDetailVideo(data.productVideo || null);
       setCjDetailDescription(data.description || "");
@@ -906,10 +913,29 @@ export default function AdminPage() {
     }
   };
 
-  const handleCjRegister = async (item: CjSearchResult, variant: CjVariant) => {
+  const toggleVariantSelected = (vid: string) => {
+    setSelectedVariantVids((prev) => {
+      const next = new Set(prev);
+      if (next.has(vid)) next.delete(vid); else next.add(vid);
+      return next;
+    });
+  };
+
+  const handleCjRegister = async (item: CjSearchResult) => {
+    const chosen = cjDetailVariants.filter((v) => selectedVariantVids.has(v.vid));
+    if (chosen.length === 0) {
+      toast.error(t.shop.admin.selectAtLeastOne);
+      return;
+    }
     const marginPercent = parseFloat(cjMarginInput);
+    const variants = chosen.map((v) => ({
+      vid: v.vid,
+      label: v.variantNameEn || v.vid,
+      image: v.variantImage || undefined,
+      cjPriceUsd: parseFloat(v.variantSellPrice || item.sellPrice || "0") || 0,
+    }));
     const gallery = Array.from(
-      new Set([variant.variantImage, item.bigImage, ...cjDetailImages].filter(Boolean)),
+      new Set([...chosen.map((v) => v.variantImage), item.bigImage, ...cjDetailImages].filter(Boolean)),
     ) as string[];
     try {
       const res = await fetch(`${API}/api/cj-shop/admin/products`, {
@@ -917,12 +943,11 @@ export default function AdminPage() {
         headers: authHeader(),
         body: JSON.stringify({
           cjProductId: item.id,
-          cjVariantId: variant.vid,
+          variants,
           nameKo: item.nameEn,
           images: gallery,
           video: cjDetailVideo || undefined,
           description: cjDetailDescription || undefined,
-          cjPriceUsd: parseFloat(variant.variantSellPrice || item.sellPrice || "0") || 0,
           marginPercent: isNaN(marginPercent) ? 100 : marginPercent,
           category: cjCategoryInput,
         }),
@@ -935,6 +960,7 @@ export default function AdminPage() {
       toast.success(t.shop.admin.registerSuccess);
       setCjRegisteringId(null);
       setCjDetailVariants([]);
+      setSelectedVariantVids(new Set());
       void loadCjProducts();
     } catch {
       toast.error("Network error");
@@ -2482,14 +2508,23 @@ export default function AdminPage() {
                                 {cjDetailVariants.length === 0 ? (
                                   <p className="text-xs text-muted-foreground">변형 정보를 찾을 수 없습니다.</p>
                                 ) : (
-                                  cjDetailVariants.map((v) => (
-                                    <div key={v.vid} className="flex items-center justify-between gap-2 text-xs">
-                                      <span className="truncate">{v.variantNameEn || v.vid} — ${v.variantSellPrice}</span>
-                                      <Button size="sm" className="h-7 text-xs shrink-0" onClick={() => void handleCjRegister(item, v)}>
-                                        {t.shop.admin.registerBtn}
-                                      </Button>
-                                    </div>
-                                  ))
+                                  <>
+                                    <p className="text-xs text-muted-foreground">{t.shop.admin.selectVariantsHint}</p>
+                                    {cjDetailVariants.map((v) => (
+                                      <label key={v.vid} className="flex items-center gap-2 text-xs cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          className="h-3.5 w-3.5 accent-violet-500 shrink-0"
+                                          checked={selectedVariantVids.has(v.vid)}
+                                          onChange={() => toggleVariantSelected(v.vid)}
+                                        />
+                                        <span className="truncate">{v.variantNameEn || v.vid} — ${v.variantSellPrice}</span>
+                                      </label>
+                                    ))}
+                                    <Button size="sm" className="h-7 text-xs w-full mt-1" onClick={() => void handleCjRegister(item)}>
+                                      {t.shop.admin.registerBtn} ({selectedVariantVids.size})
+                                    </Button>
+                                  </>
                                 )}
                               </>
                             )}
@@ -2535,7 +2570,14 @@ export default function AdminPage() {
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{p.nameKo}</p>
+                            <p className="text-sm font-semibold truncate">
+                              {p.nameKo}
+                              {p.variants && p.variants.length > 1 && (
+                                <span className="ml-1.5 text-[11px] font-normal text-violet-600 dark:text-violet-400">
+                                  {t.shop.admin.variantsCount.replace("{n}", String(p.variants.length))}
+                                </span>
+                              )}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               ${p.cjPriceUsd} · {p.marginPercent}% → {p.apPrice.toLocaleString()} AP
                             </p>
@@ -2641,7 +2683,9 @@ export default function AdminPage() {
                             <Badge variant={isCompleted ? "outline" : "secondary"} className="text-xs shrink-0">
                               {statusLabel}
                             </Badge>
-                            <span className="text-xs font-medium truncate">{productName} × {o.quantity}</span>
+                            <span className="text-xs font-medium truncate">
+                              {productName}{o.variantLabel ? ` (${o.variantLabel})` : ""} × {o.quantity}
+                            </span>
                             <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
                               {o.trackNumber ? `${t.shop.trackingLabel}: ${o.trackNumber}` : ""}
                             </span>

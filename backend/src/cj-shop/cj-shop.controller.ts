@@ -31,7 +31,7 @@ export class CjShopController {
   @UseGuards(JwtAuthGuard)
   createOrder(
     @Request() req: { user: { sub: string } },
-    @Body() dto: { productId: string; quantity: number; shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string }; expToUse?: number },
+    @Body() dto: { productId: string; quantity: number; shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string }; expToUse?: number; selectedVid?: string },
   ) {
     return this.cjShopService.createOrder(req.user.sub, dto);
   }
@@ -80,7 +80,11 @@ export class CjShopController {
   @UseGuards(JwtAuthGuard)
   async register(@Request() req: { user: { sub: string } }, @Body() dto: Record<string, unknown>) {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
-    return this.cjShopService.registerProduct(dto as { cjProductId: string; cjVariantId: string; nameKo: string; images?: string[]; video?: string; description?: string; cjPriceUsd: number; marginPercent?: number; category?: string });
+    return this.cjShopService.registerProduct(dto as {
+      cjProductId: string;
+      variants: { vid: string; label: string; image?: string; cjPriceUsd: number }[];
+      nameKo: string; images?: string[]; video?: string; description?: string; marginPercent?: number; category?: string;
+    });
   }
 
   @Patch('admin/products/:id')

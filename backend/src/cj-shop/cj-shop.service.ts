@@ -23,14 +23,29 @@ interface CjAuthData {
   refreshTokenExpiryDate: string;
 }
 
+export interface ProductVariant {
+  vid: string;
+  label: string;
+  image?: string;
+  cjPriceUsd: number;
+  supplyApPrice: number;
+  apPrice: number;
+}
+
+interface RegisterVariantInput {
+  vid: string;
+  label: string;
+  image?: string;
+  cjPriceUsd: number;
+}
+
 interface RegisterProductDto {
   cjProductId: string;
-  cjVariantId: string;
+  variants: RegisterVariantInput[];
   nameKo: string;
   images?: string[];
   video?: string;
   description?: string;
-  cjPriceUsd: number;
   marginPercent?: number;
   category?: string;
 }
@@ -60,6 +75,7 @@ interface CreateOrderDto {
   quantity: number;
   shipping: ShippingInfo;
   expToUse?: number;
+  selectedVid?: string;
 }
 
 function computeSupplyApPrice(cjPriceUsd: number): number {
@@ -163,18 +179,34 @@ export class CjShopService {
   // ── Admin: curated product catalog (cj_products) ─────────────────────────
 
   async registerProduct(dto: RegisterProductDto) {
+    if (!dto.variants || dto.variants.length === 0) {
+      throw new BadRequestException('At least one variant is required');
+    }
     const marginPercent = dto.marginPercent ?? DEFAULT_MARGIN_PERCENT;
+    const variants: ProductVariant[] = dto.variants.map((v) => ({
+      vid: v.vid,
+      label: v.label,
+      image: v.image,
+      cjPriceUsd: v.cjPriceUsd,
+      supplyApPrice: computeSupplyApPrice(v.cjPriceUsd),
+      apPrice: computeApPrice(v.cjPriceUsd, marginPercent),
+    }));
+    const primary = variants[0];
     const product = {
       cjProductId: dto.cjProductId,
-      cjVariantId: dto.cjVariantId,
       nameKo: dto.nameKo,
       images: dto.images ?? [],
       video: dto.video || null,
       description: dto.description || '',
-      cjPriceUsd: dto.cjPriceUsd,
       marginPercent,
-      supplyApPrice: computeSupplyApPrice(dto.cjPriceUsd),
-      apPrice: computeApPrice(dto.cjPriceUsd, marginPercent),
+      variants,
+      // Mirror the primary (first) variant's pricing at the top level so the
+      // shop grid / EXP badge, which read these fields directly, keep working
+      // for both single- and multi-variant products.
+      cjVariantId: primary.vid,
+      cjPriceUsd: primary.cjPriceUsd,
+      supplyApPrice: primary.supplyApPrice,
+      apPrice: primary.apPrice,
       category: dto.category || 'other',
       active: true,
       createdAt: new Date().toISOString(),
@@ -189,13 +221,32 @@ export class CjShopService {
     if (!snap.exists) throw new NotFoundException('Product not found');
     const current = snap.data() as Record<string, unknown>;
     const marginPercent = dto.marginPercent ?? (current.marginPercent as number);
-    const cjPriceUsd = dto.cjPriceUsd ?? (current.cjPriceUsd as number);
+
+    // Legacy products (registered before variant support) have no `variants`
+    // array — synthesize a single implicit variant from their top-level fields.
+    const currentVariants: ProductVariant[] = (current.variants as ProductVariant[] | undefined) ?? [
+      {
+        vid: current.cjVariantId as string,
+        label: current.nameKo as string,
+        cjPriceUsd: (dto.cjPriceUsd ?? current.cjPriceUsd) as number,
+        supplyApPrice: 0,
+        apPrice: 0,
+      },
+    ];
+    const variants = currentVariants.map((v) => ({
+      ...v,
+      supplyApPrice: computeSupplyApPrice(v.cjPriceUsd),
+      apPrice: computeApPrice(v.cjPriceUsd, marginPercent),
+    }));
+    const primary = variants[0];
+
     const update = {
       ...dto,
       marginPercent,
-      cjPriceUsd,
-      supplyApPrice: computeSupplyApPrice(cjPriceUsd),
-      apPrice: computeApPrice(cjPriceUsd, marginPercent),
+      variants,
+      cjPriceUsd: primary.cjPriceUsd,
+      supplyApPrice: primary.supplyApPrice,
+      apPrice: primary.apPrice,
     };
     await ref.update(update);
     return { id, ...current, ...update };
@@ -253,10 +304,13 @@ export class CjShopService {
     const product = productSnap.data() as Record<string, unknown>;
     if (product.active !== true) throw new BadRequestException('Product is not available');
 
-    const apPrice = product.apPrice as number;
+    const variants = product.variants as ProductVariant[] | undefined;
+    const selectedVariant = variants?.find((v) => v.vid === dto.selectedVid) ?? variants?.[0] ?? null;
+
+    const apPrice = selectedVariant?.apPrice ?? (product.apPrice as number);
     // Legacy products registered before EXP-payment support have no supplyApPrice —
     // fall back to apPrice so their maxExpPayable is 0 (no EXP discount) until re-saved.
-    const supplyApPrice = (product.supplyApPrice as number) ?? apPrice;
+    const supplyApPrice = selectedVariant?.supplyApPrice ?? (product.supplyApPrice as number) ?? apPrice;
     const totalPrice = apPrice * quantity;
     const maxExpPayable = Math.max(0, apPrice - supplyApPrice) * quantity;
 
@@ -285,6 +339,8 @@ export class CjShopService {
     const order = {
       userId,
       productId,
+      variantVid: selectedVariant?.vid ?? null,
+      variantLabel: selectedVariant?.label ?? null,
       cjOrderId: null as string | null,
       cjOrderNumber: orderNumber,
       quantity,
@@ -304,7 +360,8 @@ export class CjShopService {
     };
     const ref = await this.firebase.collection('cj_orders').add(order);
 
-    this.notifyAdmin(username, product.nameKo as string, quantity, apToCharge, expUsed, mentorId ? mentorBonus : 0, (product.cjPriceUsd as number) * quantity, dto.shipping);
+    const productLabel = selectedVariant?.label ? `${product.nameKo as string} (${selectedVariant.label})` : (product.nameKo as string);
+    this.notifyAdmin(username, productLabel, quantity, apToCharge, expUsed, mentorId ? mentorBonus : 0, (selectedVariant?.cjPriceUsd ?? (product.cjPriceUsd as number)) * quantity, dto.shipping);
 
     return { id: ref.id, ...order };
   }
