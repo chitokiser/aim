@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
@@ -33,6 +33,12 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const sh = t.shop;
   const router = useRouter();
   const { user, token } = useAuthStore();
+  // When this page is served from the static-export fallback (id="_", e.g. via
+  // a Netlify _redirects rewrite for a product created after the last build),
+  // useParams() still reflects the real browser URL — prefer it over the
+  // build-time prop so newly registered products work without a redeploy.
+  const routeParams = useParams();
+  const productId = (routeParams?.id as string) || id;
 
   const [product, setProduct] = useState<CjProduct | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,12 +50,13 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const [expToUse, setExpToUse] = useState(0);
 
   useEffect(() => {
-    fetch(`${API}/api/cj-shop/products/${id}`)
+    setLoading(true);
+    fetch(`${API}/api/cj-shop/products/${productId}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setProduct(data))
       .catch(() => setProduct(null))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [productId]);
 
   useEffect(() => {
     if (!token) return;
@@ -80,7 +87,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
       const res = await fetch(`${API}/api/cj-shop/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ productId: id, quantity, shipping, expToUse: clampedExpToUse }),
+        body: JSON.stringify({ productId, quantity, shipping, expToUse: clampedExpToUse }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { message?: string };
