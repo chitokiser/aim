@@ -41,11 +41,22 @@ interface WithdrawalDoc {
   processedAt: string | null;
 }
 
-const MY_POSTS = [
-  { id: "1", platform: "Instagram", url: "https://instagram.com/p/example", tags: ["#AI119", "#AIcf"], status: "approved", points: 51000, date: "2026-06-14" },
-  { id: "2", platform: "YouTube", url: "https://youtube.com/watch?v=example", tags: ["#AI119", "#AI리뷰"], status: "pending", points: 0, date: "2026-06-13" },
-  { id: "3", platform: "Blog", url: "https://blog.example.com/post", tags: ["#AI119", "#AICMsong"], status: "rejected", points: 0, date: "2026-06-11" },
-];
+interface MySubmission {
+  id: string;
+  missionTitle: string | null;
+  description: string;
+  status: "approved" | "pending" | "rejected";
+  createdAt: string;
+}
+
+function submissionUrl(description: string): string | null {
+  try {
+    const parsed = JSON.parse(description) as Record<string, string>;
+    return parsed.taskUrl ?? parsed.myProfile ?? parsed.screenshot ?? null;
+  } catch {
+    return description || null;
+  }
+}
 
 function ProfileContent() {
   const { user, token } = useAuthStore();
@@ -60,6 +71,8 @@ function ProfileContent() {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawHistory, setWithdrawHistory] = useState<WithdrawalDoc[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [mySubmissions, setMySubmissions] = useState<MySubmission[]>([]);
+  const [submissionsLoaded, setSubmissionsLoaded] = useState(false);
 
   const loadMentees = useCallback(async () => {
     if (!token || menteesLoaded) return;
@@ -98,6 +111,23 @@ function ProfileContent() {
   useEffect(() => {
     void loadWithdrawHistory();
   }, [loadWithdrawHistory]);
+
+  const loadMySubmissions = useCallback(async () => {
+    if (!token || submissionsLoaded) return;
+    try {
+      const res = await fetch(`${API}/api/missions/my-submissions`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json() as MySubmission[];
+      setMySubmissions(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ } finally {
+      setSubmissionsLoaded(true);
+    }
+  }, [token, submissionsLoaded]);
+
+  useEffect(() => {
+    void loadMySubmissions();
+  }, [loadMySubmissions]);
 
   if (!user) return null;
 
@@ -278,37 +308,38 @@ function ProfileContent() {
               <CardTitle className="text-base">{t.profile.myPostsTab}</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="divide-y">
-                {MY_POSTS.map((post) => {
-                  const statusConf = statusConfig[post.status as keyof typeof statusConfig];
-                  const StatusIcon = statusConf.icon;
-                  return (
-                    <div key={post.id} className="flex items-center gap-3 px-4 py-3">
-                      <Badge variant="outline" className="text-xs shrink-0">{post.platform}</Badge>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap gap-1 mb-1">
-                          {post.tags.map((tag) => (
-                            <span key={tag} className="text-xs font-mono text-muted-foreground">{tag}</span>
-                          ))}
+              {mySubmissions.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">{t.profile.noPosts}</p>
+              ) : (
+                <div className="divide-y">
+                  {mySubmissions.map((post) => {
+                    const statusConf = statusConfig[post.status] ?? statusConfig.pending;
+                    const StatusIcon = statusConf.icon;
+                    const url = submissionUrl(post.description);
+                    return (
+                      <div key={post.id} className="flex items-center gap-3 px-4 py-3">
+                        <Badge variant="outline" className="text-xs shrink-0 max-w-[8rem] truncate">
+                          {post.missionTitle ?? "—"}
+                        </Badge>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground">{post.createdAt?.slice(0, 10)}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">{post.date}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className={`flex items-center gap-1 text-xs ${statusConf.color}`}>
-                          <StatusIcon className="h-3.5 w-3.5" />
-                          <span>{statusConf.label}</span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className={`flex items-center gap-1 text-xs ${statusConf.color}`}>
+                            <StatusIcon className="h-3.5 w-3.5" />
+                            <span>{statusConf.label}</span>
+                          </div>
+                          {url && (
+                            <a href={url} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
+                            </a>
+                          )}
                         </div>
-                        {post.points > 0 && (
-                          <span className="text-xs font-bold text-violet-600">+{post.points.toLocaleString()} AP</span>
-                        )}
-                        <a href={post.url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground hover:text-foreground" />
-                        </a>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

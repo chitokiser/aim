@@ -24,7 +24,6 @@ import { MusicGenModule } from './music-gen/music-gen.module';
 import { CpxModule } from './cpx/cpx.module';
 import { WithdrawalsModule } from './withdrawals/withdrawals.module';
 import { OfferwallModule } from './offerwall/offerwall.module';
-import { AdgemModule } from './adgem/adgem.module';
 import { PaymentwallModule } from './paymentwall/paymentwall.module';
 import { EarnwallModule } from './earnwall/earnwall.module';
 import { CoupangModule } from './coupang/coupang.module';
@@ -54,7 +53,6 @@ import { CoupangModule } from './coupang/coupang.module';
     CpxModule,
     WithdrawalsModule,
     OfferwallModule,
-    AdgemModule,
     PaymentwallModule,
     EarnwallModule,
     CoupangModule,

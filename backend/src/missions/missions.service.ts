@@ -446,11 +446,30 @@ export class MissionsService {
       }),
     );
 
+    // Enrich with submitter name/username for display
+    const userIds = [...new Set(submissions.map((s) => (s as Record<string, unknown>).userId as string).filter(Boolean))];
+    const userInfo: Record<string, { name: string | null; username: string | null }> = {};
+    await Promise.all(
+      userIds.map(async (uid) => {
+        const doc = await this.firebase.collection('users').doc(uid).get();
+        if (doc.exists) {
+          const data = doc.data();
+          userInfo[uid] = {
+            name: (data?.firstName as string) || null,
+            username: (data?.username as string) || null,
+          };
+        }
+      }),
+    );
+
     return submissions.map((s) => {
       const rec = s as Record<string, unknown>;
+      const uid = rec.userId as string;
       return {
         ...rec,
         missionTitle: rec.missionId ? (missionTitles[rec.missionId as string] ?? null) : null,
+        userName: uid ? (userInfo[uid]?.name ?? null) : null,
+        username: uid ? (userInfo[uid]?.username ?? null) : null,
       };
     });
   }

@@ -144,6 +144,8 @@ export default function AdminPage() {
   interface PendingSubmission {
     id: string;
     userId: string;
+    userName?: string | null;
+    username?: string | null;
     missionId: string;
     missionTitle: string;
     description: string;
@@ -1207,7 +1209,11 @@ export default function AdminPage() {
                         <div className="flex-1 min-w-0 space-y-1">
                           <p className="font-semibold text-sm">{s.missionTitle}</p>
                           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                            <Badge variant="outline" className="text-xs">사용자 ID: {s.userId}</Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {s.userName || s.username
+                                ? `${s.userName ?? ""}${s.username ? ` @${s.username}` : ""}`.trim()
+                                : `사용자 ID: ${s.userId}`}
+                            </Badge>
                             {s.createdAt && <span>{s.createdAt.slice(0, 16).replace("T", " ")}</span>}
                           </div>
                           {taskUrl && (

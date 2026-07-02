@@ -60,13 +60,16 @@ function FeaturedBannerCard({
   listing: Listing;
   t: Record<string, string>;
 }) {
-  const href = listing.link.startsWith("http")
-    ? listing.link
-    : `https://t.me/${listing.link.replace(/^@/, "")}`;
+  const hasLink = !!listing.link?.trim();
+  const href = hasLink
+    ? (listing.link.startsWith("http") ? listing.link : `https://t.me/${listing.link.replace(/^@/, "")}`)
+    : undefined;
 
   return (
     <a
       href={href}
+      aria-disabled={!hasLink}
+      onClick={hasLink ? undefined : (e) => e.preventDefault()}
       target="_blank"
       rel="noopener noreferrer"
       className="w-full rounded-xl border border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/20 p-4 hover:shadow-lg transition-shadow group block"

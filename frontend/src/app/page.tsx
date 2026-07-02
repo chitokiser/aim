@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,47 +32,28 @@ import {
   UserPlus,
 } from "lucide-react";
 
-const SAMPLE_MISSIONS = [
-  {
-    id: "1",
-    title: "AI Brand CF Video",
-    description: "Create a 30-second CF video using AI tools and upload to SNS.",
-    reward: 50000,
-    remainingBudget: 2500000,
-    totalBudget: 5000000,
-    requiredTags: ["#AI119", "#AIcf"],
-    participantCount: 234,
-    missionType: "cf_video" as const,
-    status: "active" as const,
-    advertiserName: "BrandX",
-  },
-  {
-    id: "2",
-    title: "AI Product Review Blog",
-    description: "Write an AI tool review on your blog and share the link.",
-    reward: 30000,
-    remainingBudget: 1200000,
-    totalBudget: 3000000,
-    requiredTags: ["#AI119", "#AIReview"],
-    participantCount: 567,
-    missionType: "blog_post" as const,
-    status: "active" as const,
-    advertiserName: "TechCorp",
-  },
-  {
-    id: "3",
-    title: "AI CM Song Challenge",
-    description: "Create a CM song using AI music tools and upload as a short video.",
-    reward: 80000,
-    remainingBudget: 800000,
-    totalBudget: 4000000,
-    requiredTags: ["#AI119", "#AICMsong"],
-    participantCount: 89,
-    missionType: "cm_song" as const,
-    status: "active" as const,
-    advertiserName: "MusicBrand",
-  },
-];
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+type RawMission = Record<string, unknown>;
+
+type CardMissionType = "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao" | "survey";
+
+function toCardMission(m: RawMission) {
+  return {
+    id: String(m.id ?? ""),
+    title: String(m.title ?? ""),
+    description: String(m.description ?? ""),
+    reward: Number(m.reward ?? 0),
+    remainingBudget: Number(m.remainingBudget ?? m.totalBudget ?? 0),
+    totalBudget: Number(m.totalBudget ?? 0),
+    requiredTags: (m.requiredTags as string[]) ?? [],
+    participantCount: Number(m.participantCount ?? 0),
+    missionType: String(m.missionType ?? "cf_video") as CardMissionType,
+    status: String(m.status ?? "active") as "active" | "ended" | "pending",
+    advertiserName: String(m.advertiserName ?? ""),
+    targetUrl: m.targetUrl ? String(m.targetUrl) : undefined,
+  };
+}
 
 export default function HomePage() {
   const { t } = useLanguage();
@@ -83,6 +64,27 @@ export default function HomePage() {
   const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
   const [detailMission, setDetailMission] = useState<MissionFlowData | null>(null);
   const [submitMission, setSubmitMission] = useState<MissionFlowData | null>(null);
+
+  const [activeMissions, setActiveMissions] = useState<RawMission[]>([]);
+  const [missionsLoading, setMissionsLoading] = useState(true);
+
+  const loadActiveMissions = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/missions`);
+      if (!res.ok) throw new Error("fetch failed");
+      const data = (await res.json()) as RawMission[];
+      const sorted = [...data].sort((a, b) =>
+        String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")),
+      );
+      setActiveMissions(sorted.slice(0, 3));
+    } catch {
+      setActiveMissions([]);
+    } finally {
+      setMissionsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { void loadActiveMissions(); }, [loadActiveMissions]);
 
   const STATS = [
     { label: h.statsAuctions, value: "128+", icon: Gavel },
@@ -101,7 +103,6 @@ export default function HomePage() {
       accentText: "text-cyan-600 dark:text-cyan-400",
       title: h.service3Title,
       desc: h.service3Desc,
-      earn: h.earnM1Value,
     },
     {
       href: "/creative-market",
@@ -112,7 +113,6 @@ export default function HomePage() {
       accentText: "text-violet-600 dark:text-violet-400",
       title: h.service4Title,
       desc: h.service4Desc,
-      earn: h.earnM1Value,
     },
     {
       href: "/auction",
@@ -123,7 +123,6 @@ export default function HomePage() {
       accentText: "text-amber-600 dark:text-amber-400",
       title: h.service1Title,
       desc: h.service1Desc,
-      earn: h.earnM1Value,
     },
   ];
 
@@ -214,7 +213,7 @@ export default function HomePage() {
 
         {/* 3 main pillars */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto mb-6">
-          {MAIN_PILLARS.map(({ href, icon: Icon, gradient, bg, border, accentText, title, desc, earn }) => (
+          {MAIN_PILLARS.map(({ href, icon: Icon, gradient, bg, border, title, desc }) => (
             <Link key={href} href={href} className="group">
               <Card className={`h-full border ${border} bg-gradient-to-br ${bg} hover:shadow-xl transition-all duration-200 group-hover:scale-[1.02]`}>
                 <CardContent className="p-6">
@@ -226,9 +225,6 @@ export default function HomePage() {
                     <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors shrink-0 mt-1 ml-2" />
                   </div>
                   <p className="text-sm text-muted-foreground leading-relaxed mb-4">{desc}</p>
-                  <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full bg-white/60 dark:bg-white/10 ${accentText}`}>
-                    {earn}
-                  </span>
                 </CardContent>
               </Card>
             </Link>
@@ -265,13 +261,12 @@ export default function HomePage() {
             <h2 className="text-3xl md:text-4xl font-black mb-3">{h.earnSubtitle}</h2>
           </div>
 
-          {/* 4 earning method cards */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto mb-10">
+          {/* 3 earning method cards */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto mb-10">
             {[
               { icon: Megaphone, gradient: "from-cyan-500 to-blue-600", title: h.earnM1Title, desc: h.earnM1Desc, value: h.earnM1Value },
               { icon: ClipboardList, gradient: "from-violet-500 to-purple-600", title: h.earnM2Title, desc: h.earnM2Desc, value: h.earnM2Value },
               { icon: Gift, gradient: "from-pink-500 to-rose-600", title: h.earnM3Title, desc: h.earnM3Desc, value: h.earnM3Value },
-              { icon: Gift, gradient: "from-blue-500 to-cyan-600", title: h.earnM4Title, desc: h.earnM4Desc, value: h.earnM4Value },
             ].map(({ icon: Icon, gradient, title, desc, value }) => (
               <div key={title} className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-5 hover:bg-white/10 transition-colors">
                 <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center mb-4 shadow-lg`}>
@@ -363,11 +358,22 @@ export default function HomePage() {
             </Button>
           </Link>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {SAMPLE_MISSIONS.map((mission) => (
-            <MissionCard key={mission.id} mission={mission} onJoin={setJoinMission} />
-          ))}
-        </div>
+        {missionsLoading ? (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="h-72 rounded-2xl bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : activeMissions.length === 0 ? (
+          <div className="py-12 text-center text-sm text-muted-foreground">{h.noActiveMissions}</div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {activeMissions.map((raw) => {
+              const mission = toCardMission(raw);
+              return <MissionCard key={mission.id} mission={mission} onJoin={setJoinMission} />;
+            })}
+          </div>
+        )}
       </section>
 
       {/* AP Reward System */}
@@ -465,8 +471,10 @@ export default function HomePage() {
               <a href="https://t.me/ai119link" target="_blank" rel="noopener noreferrer" className="hover:text-foreground font-medium text-emerald-600 dark:text-emerald-400">
                 💬 {h.communityLink}
               </a>
-              <Link href="/terms" className="hover:text-foreground">{h.terms}</Link>
+              <Link href="/about" className="hover:text-foreground">{t.footer.about}</Link>
               <Link href="/privacy" className="hover:text-foreground">{h.privacy}</Link>
+              <Link href="/terms" className="hover:text-foreground">{h.terms}</Link>
+              <Link href="/contact" className="hover:text-foreground">{t.footer.contactUs}</Link>
               <Link href="/advertiser" className="hover:text-foreground">{h.advertiserLink}</Link>
             </div>
           </div>

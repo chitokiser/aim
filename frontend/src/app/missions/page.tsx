@@ -41,15 +41,6 @@ type RawMission = Record<string, unknown>;
 
 interface CpxConfig { appId: string; secureHash: string; userId: string; }
 interface OfferwallConfig { apiKey: string; userId: string; }
-interface AdgemOffer {
-  id: number | string;
-  name: string;
-  instructions?: string;
-  payout: number;
-  url?: string;
-  icon?: string;
-  [key: string]: unknown;
-}
 interface PwPackage { id: string; ap: number; usd: number; label: string; bonus: string; }
 interface PwWidgetUrl { url: string; package: PwPackage; }
 
@@ -119,8 +110,6 @@ export default function MissionsPage() {
   const [cpxLoading, setCpxLoading] = useState(false);
   const [offerwallConfig, setOfferwallConfig] = useState<OfferwallConfig | null>(null);
   const [offerwallLoading, setOfferwallLoading] = useState(false);
-  const [adgemOffers, setAdgemOffers] = useState<AdgemOffer[] | null>(null);
-  const [adgemLoading, setAdgemLoading] = useState(false);
 
   // EarnWall state
   const [earnwallReady, setEarnwallReady] = useState(false);
@@ -215,21 +204,6 @@ export default function MissionsPage() {
         .catch(() => {})
         .finally(() => setOfferwallLoading(false));
     }
-    if (value === "adgem" && adgemOffers === null && token) {
-      setAdgemLoading(true);
-      void fetch(`${API}/api/adgem/offers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((r) => r.json())
-        .then((data: unknown) => {
-          if (Array.isArray(data)) setAdgemOffers(data as AdgemOffer[]);
-          else if (data && typeof data === 'object' && Array.isArray((data as Record<string, unknown>).offers))
-            setAdgemOffers((data as { offers: AdgemOffer[] }).offers);
-          else setAdgemOffers([]);
-        })
-        .catch(() => setAdgemOffers([]))
-        .finally(() => setAdgemLoading(false));
-    }
     if (value === "earnwall" && !earnwallReady) {
       setEarnwallReady(true);
     }
@@ -312,13 +286,12 @@ export default function MissionsPage() {
           </div>
         </div>
 
-        {/* 4 service cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* 3 service cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {[
             { icon: Film,          title: m.earnBanner.s1Title, desc: m.earnBanner.s1Desc, range: m.earnBanner.s1Range, color: "from-violet-500 to-purple-500" },
             { icon: FileText,      title: m.earnBanner.s2Title, desc: m.earnBanner.s2Desc, range: m.earnBanner.s2Range, color: "from-emerald-500 to-teal-500" },
             { icon: TrendingUp,    title: m.earnBanner.s3Title, desc: m.earnBanner.s3Desc, range: m.earnBanner.s3Range, color: "from-orange-500 to-amber-500" },
-            { icon: Gift,          title: m.earnBanner.s4Title, desc: m.earnBanner.s4Desc, range: m.earnBanner.s4Range, color: "from-blue-500 to-cyan-500" },
           ].map(({ icon: Icon, title, desc, range, color }) => (
             <div key={title} className="rounded-xl bg-white/60 dark:bg-white/5 border p-3 flex gap-3">
               <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br ${color} shrink-0 mt-0.5`}>
@@ -348,10 +321,6 @@ export default function MissionsPage() {
           <TabsTrigger value="offerwall" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
             {m.tabOfferwall}
-          </TabsTrigger>
-          <TabsTrigger value="adgem" className="flex items-center gap-2">
-            <Gift className="h-4 w-4" />
-            {m.tabAdgem}
           </TabsTrigger>
           <TabsTrigger value="earnwall" className="flex items-center gap-2">
             <Gift className="h-4 w-4" />
@@ -590,94 +559,7 @@ export default function MissionsPage() {
           </div>
         </TabsContent>
 
-        {/* ── Tab 4: AdGem ── */}
-        <TabsContent value="adgem">
-          <div className="max-w-4xl">
-            <div className="mb-6 rounded-2xl border bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 p-5">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-md">
-                  <Gift className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h2 className="font-bold text-blue-800 dark:text-blue-300">AdGem Offerwall</h2>
-                </div>
-              </div>
-              <ol className="space-y-1.5 mb-3">
-                {["Complete offers, surveys, and app installs", "Rewards are automatically converted to AP", "10,000 AP = 1 USD"].map((step, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-blue-700 dark:text-blue-400">
-                    <CheckCircle className="h-4 w-4 mt-0.5 shrink-0" />
-                    <span>{step}</span>
-                  </li>
-                ))}
-              </ol>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <ChevronRight className="h-3.5 w-3.5" />
-                <span>{t.offerwall.earning}</span>
-              </div>
-            </div>
-
-            {adgemLoading ? (
-              <div className="flex items-center justify-center h-96 text-muted-foreground text-sm">
-                {t.offerwall.loadingWidget}
-              </div>
-            ) : !user || !token ? (
-              <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
-                <p className="text-muted-foreground">{t.offerwall.loginRequired}</p>
-                <a
-                  href="/auth"
-                  className={buttonVariants({ variant: "default" }) + " bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90"}
-                >
-                  {t.offerwall.loginBtn}
-                </a>
-              </div>
-            ) : adgemOffers && adgemOffers.length > 0 ? (
-              <div className="grid gap-3">
-                {adgemOffers.map((offer) => (
-                  <div
-                    key={offer.id}
-                    className="flex items-center gap-4 rounded-xl border bg-card p-4 shadow-sm hover:shadow-md transition-shadow"
-                  >
-                    {offer.icon ? (
-                      <img
-                        src={offer.icon as string}
-                        alt={offer.name}
-                        className="h-12 w-12 rounded-lg object-cover shrink-0"
-                      />
-                    ) : (
-                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 shrink-0">
-                        <Gift className="h-6 w-6 text-white" />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-sm leading-tight truncate">{offer.name}</p>
-                      {offer.instructions && (
-                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{offer.instructions as string}</p>
-                      )}
-                      <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 mt-1">
-                        +{(offer.payout as number).toLocaleString()} AP
-                      </p>
-                    </div>
-                    {offer.url && (
-                      <a
-                        href={offer.url as string}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={buttonVariants({ size: "sm", variant: "outline" }) + " shrink-0"}
-                      >
-                        Start
-                      </a>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : adgemOffers !== null ? (
-              <div className="flex items-center justify-center h-64 text-muted-foreground text-sm">
-                {t.offerwall.noOffers}
-              </div>
-            ) : null}
-          </div>
-        </TabsContent>
-        {/* ── Tab 5: EarnWall ── */}
+        {/* ── Tab 4: EarnWall ── */}
         <TabsContent value="earnwall">
           <div className="max-w-4xl">
             <div className="mb-6 rounded-2xl border bg-gradient-to-r from-rose-50 to-orange-50 dark:from-rose-950/20 dark:to-orange-950/20 p-5">
@@ -716,7 +598,7 @@ export default function MissionsPage() {
             ) : earnwallReady ? (
               <div className="rounded-2xl overflow-hidden border shadow-sm">
                 <iframe
-                  src={`https://earnwall.net/offerwall/xiv8yzy0mqelq17xa9vyjopgwy8183/${user.id}`}
+                  src={`https://earnwall.net/offerwall/7gj1tnwarwv1nti8wygv69ybv3xnif/${user.id}`}
                   className="w-full"
                   style={{ height: "700px", border: "none" }}
                   title="EarnWall Offers"

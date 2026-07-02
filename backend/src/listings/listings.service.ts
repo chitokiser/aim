@@ -34,6 +34,13 @@ export class ListingsService {
   }
 
   async create(userId: string, dto: Record<string, unknown>): Promise<{ id: string }> {
+    if (typeof dto.title !== 'string' || !dto.title.trim()) {
+      throw new BadRequestException('title is required');
+    }
+    if (typeof dto.link !== 'string' || !dto.link.trim()) {
+      throw new BadRequestException('link is required');
+    }
+
     const userSnap = await this.firebase.collection('users').doc(userId).get();
     if (!userSnap.exists) throw new NotFoundException('User not found');
     const user = userSnap.data()!;
@@ -43,9 +50,9 @@ export class ListingsService {
       displayName: (user.firstName as string) || (user.username as string) || 'User',
       telegramId: (user.telegramId as string) || '',
       category: dto.category ?? 'group',
-      title: dto.title,
+      title: dto.title.trim(),
       description: dto.description ?? '',
-      link: dto.link ?? '',
+      link: dto.link.trim(),
       logoUrl: dto.logoUrl ?? '',
       tags: dto.tags ?? [],
       members: dto.members ?? null,
