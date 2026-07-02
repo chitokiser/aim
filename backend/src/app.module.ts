@@ -27,6 +27,7 @@ import { OfferwallModule } from './offerwall/offerwall.module';
 import { PaymentwallModule } from './paymentwall/paymentwall.module';
 import { EarnwallModule } from './earnwall/earnwall.module';
 import { CoupangModule } from './coupang/coupang.module';
+import { CjShopModule } from './cj-shop/cj-shop.module';
 
 @Module({
   imports: [
@@ -56,6 +57,7 @@ import { CoupangModule } from './coupang/coupang.module';
     PaymentwallModule,
     EarnwallModule,
     CoupangModule,
+    CjShopModule,
   ],
   controllers: [AppController],
   providers: [AppService],

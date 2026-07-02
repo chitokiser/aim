@@ -15,6 +15,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
+  Package, RefreshCw,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -196,6 +197,33 @@ export default function AdminPage() {
   const [editCoupangName, setEditCoupangName] = useState("");
   const [editCoupangVideo, setEditCoupangVideo] = useState("");
   const [editCoupangIframe, setEditCoupangIframe] = useState("");
+
+  // CJ Shop state
+  interface CjSearchResult { id: string; nameEn: string; sku?: string; bigImage?: string; sellPrice?: string }
+  interface CjVariant { vid: string; variantNameEn?: string; variantSellPrice?: string; variantImage?: string }
+  interface CjProductAdmin {
+    id: string; cjProductId: string; cjVariantId: string; nameKo: string;
+    images: string[]; cjPriceUsd: number; marginPercent: number; apPrice: number; active: boolean; createdAt: string;
+  }
+  interface CjOrderAdmin {
+    id: string; userId: string; productId: string; quantity: number; apCharged: number;
+    status: string; cjStatus: string | null; trackNumber: string | null; createdAt: string;
+  }
+  const [cjSearchKeyword, setCjSearchKeyword] = useState("");
+  const [cjSearchResults, setCjSearchResults] = useState<CjSearchResult[]>([]);
+  const [cjSearching, setCjSearching] = useState(false);
+  const [cjRegisteringId, setCjRegisteringId] = useState<string | null>(null);
+  const [cjDetailVariants, setCjDetailVariants] = useState<CjVariant[]>([]);
+  const [cjDetailLoading, setCjDetailLoading] = useState(false);
+  const [cjMarginInput, setCjMarginInput] = useState("40");
+  const [cjProducts, setCjProducts] = useState<CjProductAdmin[]>([]);
+  const [cjProductsLoading, setCjProductsLoading] = useState(false);
+  const [editingCjId, setEditingCjId] = useState<string | null>(null);
+  const [editCjMargin, setEditCjMargin] = useState("");
+  const [cjOrders, setCjOrders] = useState<CjOrderAdmin[]>([]);
+  const [cjOrdersLoading, setCjOrdersLoading] = useState(false);
+  const [cjRefreshingId, setCjRefreshingId] = useState<string | null>(null);
+  const [cjBalance, setCjBalance] = useState<number | null>(null);
 
   // Withdrawal management state
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
@@ -764,6 +792,175 @@ export default function AdminPage() {
     }
   };
 
+  // ── CJ Shop ────────────────────────────────────────────────────────────
+
+  const loadCjProducts = useCallback(async () => {
+    setCjProductsLoading(true);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products`, { headers: authHeader() });
+      setCjProducts(await res.json());
+    } catch {
+      toast.error("상품 목록을 불러오지 못했습니다");
+    } finally {
+      setCjProductsLoading(false);
+    }
+  }, [authHeader]);
+
+  const loadCjOrders = useCallback(async () => {
+    setCjOrdersLoading(true);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/orders`, { headers: authHeader() });
+      setCjOrders(await res.json());
+    } catch {
+      toast.error("주문 목록을 불러오지 못했습니다");
+    } finally {
+      setCjOrdersLoading(false);
+    }
+  }, [authHeader]);
+
+  const loadCjBalance = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/balance`, { headers: authHeader() });
+      const data = await res.json() as { balance?: number };
+      setCjBalance(typeof data.balance === "number" ? data.balance : null);
+    } catch { /* ignore */ }
+  }, [authHeader]);
+
+  const loadCjShopData = useCallback(() => {
+    void loadCjProducts();
+    void loadCjOrders();
+    void loadCjBalance();
+  }, [loadCjProducts, loadCjOrders, loadCjBalance]);
+
+  const handleCjSearch = async () => {
+    if (!cjSearchKeyword.trim()) return;
+    setCjSearching(true);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/search?keyword=${encodeURIComponent(cjSearchKeyword.trim())}`, {
+        headers: authHeader(),
+      });
+      const data = await res.json() as Record<string, unknown>;
+      const content = data.content as Record<string, unknown> | undefined;
+      const list = (content?.productList ?? data.list ?? (Array.isArray(data) ? data : [])) as CjSearchResult[];
+      setCjSearchResults(Array.isArray(list) ? list : []);
+    } catch {
+      toast.error("검색에 실패했습니다");
+    } finally {
+      setCjSearching(false);
+    }
+  };
+
+  const openCjRegister = async (item: CjSearchResult) => {
+    setCjRegisteringId(item.id);
+    setCjDetailVariants([]);
+    setCjMarginInput("40");
+    setCjDetailLoading(true);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products/${item.id}/detail`, { headers: authHeader() });
+      const data = await res.json() as { variants?: CjVariant[] };
+      setCjDetailVariants(Array.isArray(data.variants) ? data.variants : []);
+    } catch {
+      toast.error("상품 상세 조회에 실패했습니다");
+    } finally {
+      setCjDetailLoading(false);
+    }
+  };
+
+  const handleCjRegister = async (item: CjSearchResult, variant: CjVariant) => {
+    const marginPercent = parseFloat(cjMarginInput);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({
+          cjProductId: item.id,
+          cjVariantId: variant.vid,
+          nameKo: item.nameEn,
+          images: [variant.variantImage || item.bigImage].filter(Boolean),
+          cjPriceUsd: parseFloat(variant.variantSellPrice || item.sellPrice || "0") || 0,
+          marginPercent: isNaN(marginPercent) ? 40 : marginPercent,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "등록에 실패했습니다");
+        return;
+      }
+      toast.success(t.shop.admin.registerSuccess);
+      setCjRegisteringId(null);
+      setCjDetailVariants([]);
+      void loadCjProducts();
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleCjMarginSave = async (id: string) => {
+    const marginPercent = parseFloat(editCjMargin);
+    if (isNaN(marginPercent)) return;
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products/${id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ marginPercent }),
+      });
+      if (!res.ok) { toast.error("수정에 실패했습니다"); return; }
+      setEditingCjId(null);
+      void loadCjProducts();
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleCjToggle = async (p: CjProductAdmin) => {
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products/${p.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ active: !p.active }),
+      });
+      if (!res.ok) { toast.error("수정에 실패했습니다"); return; }
+      setCjProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, active: !x.active } : x)));
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleCjDelete = async (id: string) => {
+    if (!confirm(t.shop.admin.deleteConfirm)) return;
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) { toast.error("삭제에 실패했습니다"); return; }
+      setCjProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleCjRefreshOrder = async (id: string) => {
+    setCjRefreshingId(id);
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/orders/${id}/refresh-status`, {
+        method: "PATCH",
+        headers: authHeader(),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "갱신에 실패했습니다");
+        return;
+      }
+      toast.success(t.shop.admin.refreshSuccess);
+      void loadCjOrders();
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setCjRefreshingId(null);
+    }
+  };
+
   const suspendUser = async (id: string) => {
     try {
       const res = await fetch(`${API}/api/users/${id}/suspend`, {
@@ -888,6 +1085,10 @@ export default function AdminPage() {
           <TabsTrigger value="coupang" onClick={loadCoupangProducts}>
             <ShoppingBag className="h-3.5 w-3.5 mr-1" />
             쿠팡 상품
+          </TabsTrigger>
+          <TabsTrigger value="cjshop" onClick={loadCjShopData}>
+            <Package className="h-3.5 w-3.5 mr-1" />
+            {t.shop.admin.tabTitle}
           </TabsTrigger>
         </TabsList>
 
@@ -2096,6 +2297,241 @@ export default function AdminPage() {
                             </div>
                           </div>
                         )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* CJ Shop */}
+        <TabsContent value="cjshop">
+          <div className="space-y-6">
+            {/* Balance */}
+            <Card className={cjBalance !== null && cjBalance < 50 ? "border-red-300" : ""}>
+              <CardContent className="p-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium">{t.shop.admin.balanceLabel}</span>
+                  <span className="font-bold">{cjBalance !== null ? `$${cjBalance.toLocaleString()}` : "—"}</span>
+                </div>
+                <Button size="sm" variant="outline" onClick={loadCjBalance}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </Button>
+              </CardContent>
+              {cjBalance !== null && cjBalance < 50 && (
+                <CardContent className="pt-0">
+                  <p className="text-xs text-red-500">{t.shop.admin.balanceLow}</p>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* Search + register */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Search className="h-4 w-4 text-violet-500" />
+                  CJ Dropshipping 상품 검색
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder={t.shop.admin.searchPlaceholder}
+                    value={cjSearchKeyword}
+                    onChange={(e) => setCjSearchKeyword(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && void handleCjSearch()}
+                  />
+                  <Button disabled={cjSearching} onClick={() => void handleCjSearch()}>
+                    {cjSearching ? <Loader2 className="h-4 w-4 animate-spin" /> : t.shop.admin.searchBtn}
+                  </Button>
+                </div>
+
+                {cjSearchResults.length > 0 && (
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {cjSearchResults.map((item) => (
+                      <div key={item.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex gap-3">
+                          {item.bigImage ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={item.bigImage} alt={item.nameEn} className="h-16 w-16 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="h-16 w-16 rounded bg-muted flex items-center justify-center shrink-0">
+                              <Package className="h-6 w-6 text-muted-foreground/40" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium line-clamp-2">{item.nameEn}</p>
+                            <p className="text-xs text-muted-foreground">${item.sellPrice ?? "?"}</p>
+                            <Button size="sm" variant="outline" className="mt-1.5 h-7 text-xs" onClick={() => void openCjRegister(item)}>
+                              {t.shop.admin.registerBtn}
+                            </Button>
+                          </div>
+                        </div>
+
+                        {cjRegisteringId === item.id && (
+                          <div className="p-3 bg-muted/30 rounded-lg border space-y-2">
+                            {cjDetailLoading ? (
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" /> 불러오는 중...
+                              </div>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-2">
+                                  <Label className="text-xs shrink-0">{t.shop.admin.marginLabel}</Label>
+                                  <Input
+                                    type="number"
+                                    className="h-8 text-sm w-24"
+                                    value={cjMarginInput}
+                                    onChange={(e) => setCjMarginInput(e.target.value)}
+                                  />
+                                </div>
+                                {cjDetailVariants.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground">변형 정보를 찾을 수 없습니다.</p>
+                                ) : (
+                                  cjDetailVariants.map((v) => (
+                                    <div key={v.vid} className="flex items-center justify-between gap-2 text-xs">
+                                      <span className="truncate">{v.variantNameEn || v.vid} — ${v.variantSellPrice}</span>
+                                      <Button size="sm" className="h-7 text-xs shrink-0" onClick={() => void handleCjRegister(item, v)}>
+                                        {t.shop.admin.registerBtn}
+                                      </Button>
+                                    </div>
+                                  ))
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Registered products */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {t.shop.admin.registeredTitle} {cjProducts.length > 0 && `(${cjProducts.length})`}
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={loadCjProducts}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {cjProductsLoading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : cjProducts.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">등록된 상품이 없습니다.</div>
+                ) : (
+                  <div className="divide-y">
+                    {cjProducts.map((p) => (
+                      <div key={p.id} className="p-4">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {p.images?.[0] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={p.images[0]} alt={p.nameKo} className="h-12 w-12 rounded object-cover shrink-0" />
+                          ) : (
+                            <div className="h-12 w-12 rounded bg-muted flex items-center justify-center shrink-0">
+                              <Package className="h-5 w-5 text-muted-foreground/40" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate">{p.nameKo}</p>
+                            <p className="text-xs text-muted-foreground">
+                              ${p.cjPriceUsd} · {p.marginPercent}% → {p.apPrice.toLocaleString()} AP
+                            </p>
+                          </div>
+                          <Badge variant={p.active ? "outline" : "secondary"} className="text-xs shrink-0">
+                            {p.active ? t.shop.admin.activeLabel : t.shop.admin.inactiveLabel}
+                          </Badge>
+                          <div className="flex gap-1.5 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (editingCjId === p.id) { setEditingCjId(null); return; }
+                                setEditingCjId(p.id);
+                                setEditCjMargin(String(p.marginPercent));
+                              }}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => void handleCjToggle(p)}>
+                              {p.active ? <ToggleRight className="h-4 w-4 text-green-500" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => void handleCjDelete(p.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+                        {editingCjId === p.id && (
+                          <div className="mt-3 ml-16 flex items-center gap-2">
+                            <Label className="text-xs shrink-0">{t.shop.admin.marginLabel}</Label>
+                            <Input
+                              type="number"
+                              className="h-8 text-sm w-24"
+                              value={editCjMargin}
+                              onChange={(e) => setEditCjMargin(e.target.value)}
+                            />
+                            <Button size="sm" onClick={() => void handleCjMarginSave(p.id)}>저장</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingCjId(null)}>취소</Button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Orders */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    {t.shop.admin.ordersTitle} {cjOrders.length > 0 && `(${cjOrders.length})`}
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={loadCjOrders}>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {cjOrdersLoading ? (
+                  <div className="flex items-center justify-center py-12 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  </div>
+                ) : cjOrders.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">{t.shop.noOrders}</div>
+                ) : (
+                  <div className="divide-y">
+                    {cjOrders.map((o) => (
+                      <div key={o.id} className="p-3 flex items-center gap-3 flex-wrap text-sm">
+                        <Badge variant={o.status === "paid" ? "outline" : "secondary"} className="text-xs shrink-0">
+                          {o.status === "paid" ? t.shop.orderStatusPaid : t.shop.orderStatusFailed}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">{o.cjStatus ?? "—"}</span>
+                        <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
+                          {o.trackNumber ? `${t.shop.trackingLabel}: ${o.trackNumber}` : ""}
+                        </span>
+                        <span className="text-xs font-bold text-violet-600 shrink-0">{o.apCharged.toLocaleString()} AP</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          disabled={cjRefreshingId === o.id}
+                          onClick={() => void handleCjRefreshOrder(o.id)}
+                        >
+                          {cjRefreshingId === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : t.shop.admin.refreshBtn}
+                        </Button>
                       </div>
                     ))}
                   </div>

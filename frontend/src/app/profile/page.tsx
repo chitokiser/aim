@@ -49,6 +49,17 @@ interface MySubmission {
   createdAt: string;
 }
 
+interface CjOrder {
+  id: string;
+  quantity: number;
+  apCharged: number;
+  status: "paid" | "failed";
+  cjStatus: string | null;
+  trackNumber: string | null;
+  trackingProvider: string | null;
+  createdAt: string;
+}
+
 function submissionUrl(description: string): string | null {
   try {
     const parsed = JSON.parse(description) as Record<string, string>;
@@ -73,6 +84,8 @@ function ProfileContent() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [mySubmissions, setMySubmissions] = useState<MySubmission[]>([]);
   const [submissionsLoaded, setSubmissionsLoaded] = useState(false);
+  const [cjOrders, setCjOrders] = useState<CjOrder[]>([]);
+  const [cjOrdersLoaded, setCjOrdersLoaded] = useState(false);
 
   const loadMentees = useCallback(async () => {
     if (!token || menteesLoaded) return;
@@ -128,6 +141,23 @@ function ProfileContent() {
   useEffect(() => {
     void loadMySubmissions();
   }, [loadMySubmissions]);
+
+  const loadCjOrders = useCallback(async () => {
+    if (!token || cjOrdersLoaded) return;
+    try {
+      const res = await fetch(`${API}/api/cj-shop/orders/my`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json() as CjOrder[];
+      setCjOrders(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ } finally {
+      setCjOrdersLoaded(true);
+    }
+  }, [token, cjOrdersLoaded]);
+
+  useEffect(() => {
+    void loadCjOrders();
+  }, [loadCjOrders]);
 
   if (!user) return null;
 
@@ -277,6 +307,7 @@ function ProfileContent() {
         <TabsList className="w-full mb-6">
           <TabsTrigger value="points" className="flex-1">{t.profile.pointHistoryTab}</TabsTrigger>
           <TabsTrigger value="posts" className="flex-1">{t.profile.myPostsTab}</TabsTrigger>
+          <TabsTrigger value="cjOrders" className="flex-1">{t.shop.orderHistoryTab}</TabsTrigger>
           <TabsTrigger value="withdrawal" className="flex-1">{t.profile.withdrawalTab}</TabsTrigger>
           <TabsTrigger value="mentees" className="flex-1">{t.profile.menteesTab}</TabsTrigger>
         </TabsList>
@@ -338,6 +369,42 @@ function ProfileContent() {
                       </div>
                     );
                   })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* CJ Shop Orders */}
+        <TabsContent value="cjOrders">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">{t.shop.orderHistoryTab}</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {cjOrders.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">{t.shop.noOrders}</p>
+              ) : (
+                <div className="divide-y">
+                  {cjOrders.map((order) => (
+                    <div key={order.id} className="flex items-center gap-3 px-4 py-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-muted-foreground">{order.createdAt?.slice(0, 10)}</p>
+                        {order.trackNumber && (
+                          <p className="text-xs text-violet-600 font-mono mt-0.5">
+                            {t.shop.trackingLabel}: {order.trackNumber}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`flex items-center gap-1 text-xs ${order.status === "paid" ? "text-green-500" : "text-red-500"}`}>
+                          {order.status === "paid" ? <CheckCircle className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                          {order.status === "paid" ? t.shop.orderStatusPaid : t.shop.orderStatusFailed}
+                        </span>
+                        <span className="text-xs font-bold text-violet-600">{order.apCharged.toLocaleString()} AP</span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
