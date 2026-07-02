@@ -7,7 +7,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Coins, Copy, Trophy, Target, TrendingUp, Users,
@@ -257,11 +256,24 @@ function ProfileContent() {
           </div>
 
           <div className="mt-4 space-y-1.5">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{levelInfo.level}</span>
-              <span>{t.profile.levelProgress.replace("{n}", (levelInfo.expToNext - levelInfo.exp).toLocaleString())}</span>
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-bold text-violet-600 dark:text-violet-400">{levelInfo.level}</span>
+              <span className="text-muted-foreground tabular-nums">
+                {levelInfo.exp.toLocaleString()} / {levelInfo.expToNext.toLocaleString()} EXP
+              </span>
             </div>
-            <Progress value={levelInfo.progress} className="h-2" />
+            <div className="relative h-3.5 w-full rounded-full bg-muted overflow-hidden shadow-inner ring-1 ring-black/5">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 via-fuchsia-500 to-cyan-400 transition-[width] duration-700 ease-out shadow-[0_0_10px_rgba(168,85,247,0.55)]"
+                style={{ width: `${Math.max(4, levelInfo.progress)}%` }}
+              />
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white drop-shadow">
+                {Math.round(levelInfo.progress)}%
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground text-right">
+              {t.profile.levelProgress.replace("{n}", (levelInfo.expToNext - levelInfo.exp).toLocaleString())}
+            </p>
           </div>
         </CardContent>
       </Card>

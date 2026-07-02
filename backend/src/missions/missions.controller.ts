@@ -50,6 +50,16 @@ export class MissionsController {
     return this.missionsService.adminRejectSubmission(submissionId);
   }
 
+  @Delete('admin/submissions/:submissionId')
+  @UseGuards(JwtAuthGuard)
+  async adminDeleteSubmission(
+    @Param('submissionId') submissionId: string,
+    @Request() req: { user: { sub: string } },
+  ) {
+    if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.missionsService.adminDeleteSubmission(submissionId);
+  }
+
   // ── Advertiser: submission review ──────────────────────────────────────────
   // All fixed-name routes must appear before :id param routes
 

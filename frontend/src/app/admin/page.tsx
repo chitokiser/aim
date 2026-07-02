@@ -556,6 +556,24 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteSubmission = async (id: string) => {
+    if (!confirm("이 제출내역을 완전히 삭제하시겠습니까? 복구할 수 없습니다.")) return;
+    setSubmissionActioningId(id);
+    try {
+      const res = await fetch(`${API}/api/missions/admin/submissions/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("제출내역이 삭제되었습니다");
+      setPendingSubmissions((prev) => prev.filter((s) => s.id !== id));
+    } catch {
+      toast.error("삭제에 실패했습니다");
+    } finally {
+      setSubmissionActioningId(null);
+    }
+  };
+
   const openCharge = (member: Member) => {
     setChargeTarget(member);
     setChargeAmount("");
@@ -1511,6 +1529,14 @@ export default function AdminPage() {
                             onClick={() => handleRejectSubmission(s.id)}
                           >
                             <XCircle className="h-3.5 w-3.5 mr-1" />거절
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={submissionActioningId === s.id}
+                            onClick={() => handleDeleteSubmission(s.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />삭제
                           </Button>
                         </div>
                       </div>

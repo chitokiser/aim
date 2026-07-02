@@ -553,6 +553,17 @@ export class MissionsService {
     return { rejected: true };
   }
 
+  // ── Admin: permanently delete a submission (e.g. test/junk data) ─────────
+
+  async adminDeleteSubmission(submissionId: string) {
+    const subRef = this.firebase.collection('submissions').doc(submissionId);
+    const subDoc = await subRef.get();
+    if (!subDoc.exists) throw new NotFoundException('Submission not found');
+
+    await subRef.delete();
+    return { deleted: true };
+  }
+
   // ── Advertiser: approve a submission → award AP ───────────────────────────
 
   async approveSubmission(submissionId: string, advertiserId: string) {
