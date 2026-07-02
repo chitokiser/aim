@@ -207,7 +207,7 @@ export default function AdminPage() {
     images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
     category?: string;
   }
-  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "other"] as const;
+  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "other"] as const;
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number; expUsed?: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
