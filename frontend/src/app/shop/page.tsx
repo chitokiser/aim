@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Coins, Package } from "lucide-react";
+import { Coins, Package, Sparkles } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -15,6 +15,7 @@ interface CjProduct {
   nameKo: string;
   images: string[];
   apPrice: number;
+  supplyApPrice?: number;
   active: boolean;
   category?: string;
 }
@@ -97,8 +98,8 @@ export default function ShopPage() {
                   )}
                 </div>
                 <CardContent className="p-4">
-                  <p className="font-semibold text-sm leading-snug line-clamp-2 mb-3 min-h-[2.5rem]">{p.nameKo}</p>
-                  <div className="flex items-center justify-between">
+                  <p className="font-semibold text-sm leading-snug line-clamp-2 mb-2 min-h-[2.5rem]">{p.nameKo}</p>
+                  <div className="flex items-center justify-between mb-2">
                     <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1">
                       <Coins className="h-3 w-3" />
                       {p.apPrice.toLocaleString()} AP
@@ -107,6 +108,12 @@ export default function ShopPage() {
                       {sh.buyBtn}
                     </span>
                   </div>
+                  {p.supplyApPrice !== undefined && p.apPrice - p.supplyApPrice > 0 && (
+                    <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                      <Sparkles className="h-3 w-3" />
+                      {sh.maxExpPayable.replace("{n}", (p.apPrice - p.supplyApPrice).toLocaleString())}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </Link>

@@ -204,12 +204,12 @@ export default function AdminPage() {
   interface CjVariant { vid: string; variantNameEn?: string; variantSellPrice?: string; variantImage?: string }
   interface CjProductAdmin {
     id: string; cjProductId: string; cjVariantId: string; nameKo: string;
-    images: string[]; cjPriceUsd: number; marginPercent: number; apPrice: number; active: boolean; createdAt: string;
+    images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
     category?: string;
   }
   const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "other"] as const;
   interface CjOrderAdmin {
-    id: string; userId: string; productId: string; quantity: number; apCharged: number;
+    id: string; userId: string; productId: string; quantity: number; apCharged: number; expUsed?: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
     shipping?: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string };
   }
@@ -2539,6 +2539,11 @@ export default function AdminPage() {
                             <p className="text-xs text-muted-foreground">
                               ${p.cjPriceUsd} · {p.marginPercent}% → {p.apPrice.toLocaleString()} AP
                             </p>
+                            {p.supplyApPrice !== undefined && (
+                              <p className="text-[11px] text-muted-foreground">
+                                공급가 {p.supplyApPrice.toLocaleString()} AP (필수 AP) · EXP 사용가능 {(p.apPrice - p.supplyApPrice).toLocaleString()} AP
+                              </p>
+                            )}
                           </div>
                           <Badge variant="secondary" className="text-xs shrink-0">
                             {t.shop.categories[(p.category as typeof CJ_CATEGORY_VALUES[number]) ?? "other"]}
@@ -2640,7 +2645,9 @@ export default function AdminPage() {
                             <span className="flex-1 min-w-0 text-xs text-muted-foreground truncate">
                               {o.trackNumber ? `${t.shop.trackingLabel}: ${o.trackNumber}` : ""}
                             </span>
-                            <span className="text-xs font-bold text-violet-600 shrink-0">{o.apCharged.toLocaleString()} AP</span>
+                            <span className="text-xs font-bold text-violet-600 shrink-0">
+                              {o.apCharged.toLocaleString()} AP{(o.expUsed ?? 0) > 0 ? ` + ${o.expUsed!.toLocaleString()} EXP` : ""}
+                            </span>
                             {o.cjOrderId && (
                               <Button
                                 size="sm"

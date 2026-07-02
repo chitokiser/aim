@@ -11,6 +11,7 @@ export interface User {
   freePoints?: number;
   level?: number;
   exp?: number;
+  totalExp?: number;
   mentorId?: string;
   mentorUsername?: string;
   referralCode: string;

@@ -4,6 +4,7 @@ import {
 } from '@nestjs/common';
 import { CjShopService } from './cj-shop.service';
 import { UsersService } from '../users/users.service';
+import { LevelService } from '../level/level.service';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 
 @Controller('cj-shop')
@@ -11,6 +12,7 @@ export class CjShopController {
   constructor(
     private readonly cjShopService: CjShopService,
     private readonly usersService: UsersService,
+    private readonly levelService: LevelService,
   ) {}
 
   // ── Public ─────────────────────────────────────────────────────────────
@@ -29,7 +31,7 @@ export class CjShopController {
   @UseGuards(JwtAuthGuard)
   createOrder(
     @Request() req: { user: { sub: string } },
-    @Body() dto: { productId: string; quantity: number; shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string } },
+    @Body() dto: { productId: string; quantity: number; shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string }; expToUse?: number },
   ) {
     return this.cjShopService.createOrder(req.user.sub, dto);
   }
@@ -38,6 +40,13 @@ export class CjShopController {
   @UseGuards(JwtAuthGuard)
   getMyOrders(@Request() req: { user: { sub: string } }) {
     return this.cjShopService.getMyOrders(req.user.sub);
+  }
+
+  @Get('my-exp')
+  @UseGuards(JwtAuthGuard)
+  async getMyExp(@Request() req: { user: { sub: string } }) {
+    const exp = await this.levelService.getSpendableExp(req.user.sub);
+    return { exp };
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────

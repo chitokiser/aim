@@ -4,9 +4,10 @@ import { CjShopService } from './cj-shop.service';
 import { AuthModule } from '../auth/auth.module';
 import { PointsModule } from '../points/points.module';
 import { UsersModule } from '../users/users.module';
+import { LevelModule } from '../level/level.module';
 
 @Module({
-  imports: [AuthModule, PointsModule, UsersModule],
+  imports: [AuthModule, PointsModule, UsersModule, LevelModule],
   controllers: [CjShopController],
   providers: [CjShopService],
 })

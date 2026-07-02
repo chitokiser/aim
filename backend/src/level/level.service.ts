@@ -8,27 +8,66 @@ export function expNeededForLevel(level: number): number {
   return level * EXP_PER_LEVEL_UNIT;
 }
 
+export function levelFromTotalExp(totalExp: number): { level: number; exp: number } {
+  let level = 1;
+  let remaining = Math.max(0, totalExp);
+  while (remaining >= expNeededForLevel(level)) {
+    remaining -= expNeededForLevel(level);
+    level += 1;
+  }
+  return { level, exp: remaining };
+}
+
+function totalExpFromLevelExp(level: number, exp: number): number {
+  let total = exp;
+  for (let l = 1; l < level; l++) total += expNeededForLevel(l);
+  return total;
+}
+
 @Injectable()
 export class LevelService {
   constructor(private readonly firebase: FirebaseService) {}
 
-  async awardExp(userId: string, amount: number): Promise<{ level: number; exp: number; leveledUp: boolean }> {
+  private async adjustExp(
+    userId: string,
+    delta: number,
+  ): Promise<{ level: number; exp: number; totalExp: number; leveledUp: boolean; leveledDown: boolean }> {
     const ref = this.firebase.collection('users').doc(userId);
     const snap = await ref.get();
-    if (!snap.exists) return { level: 1, exp: 0, leveledUp: false };
+    if (!snap.exists) return { level: 1, exp: 0, totalExp: 0, leveledUp: false, leveledDown: false };
 
     const data = snap.data() as Record<string, unknown>;
-    let level = (data.level as number) ?? 1;
-    let exp = (data.exp as number) ?? 0;
-    const startLevel = level;
+    const currentLevel = (data.level as number) ?? 1;
+    const currentExp = (data.exp as number) ?? 0;
+    const currentTotalExp = (data.totalExp as number) ?? totalExpFromLevelExp(currentLevel, currentExp);
 
-    exp += amount;
-    while (exp >= expNeededForLevel(level)) {
-      exp -= expNeededForLevel(level);
-      level += 1;
-    }
+    const newTotalExp = Math.max(0, currentTotalExp + delta);
+    const { level, exp } = levelFromTotalExp(newTotalExp);
 
-    await ref.update({ level, exp });
-    return { level, exp, leveledUp: level > startLevel };
+    await ref.update({ level, exp, totalExp: newTotalExp });
+    return {
+      level,
+      exp,
+      totalExp: newTotalExp,
+      leveledUp: level > currentLevel,
+      leveledDown: level < currentLevel,
+    };
+  }
+
+  awardExp(userId: string, amount: number) {
+    return this.adjustExp(userId, amount);
+  }
+
+  spendExp(userId: string, amount: number) {
+    return this.adjustExp(userId, -amount);
+  }
+
+  async getSpendableExp(userId: string): Promise<number> {
+    const snap = await this.firebase.collection('users').doc(userId).get();
+    if (!snap.exists) return 0;
+    const data = snap.data() as Record<string, unknown>;
+    const level = (data.level as number) ?? 1;
+    const exp = (data.exp as number) ?? 0;
+    return (data.totalExp as number) ?? totalExpFromLevelExp(level, exp);
   }
 }

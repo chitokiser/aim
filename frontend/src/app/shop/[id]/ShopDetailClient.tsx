@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Coins, Loader2, Minus, Package, Plus } from "lucide-react";
+import { ArrowLeft, Coins, Loader2, Minus, Package, Plus, Sparkles } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -24,6 +24,7 @@ interface CjProduct {
   video?: string | null;
   description?: string;
   apPrice: number;
+  supplyApPrice?: number;
   active: boolean;
 }
 
@@ -39,6 +40,8 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const [activeImage, setActiveImage] = useState(0);
   const [shipping, setShipping] = useState({ name: "", phone: "", address: "", detailAddress: "", zip: "", country: "KR" });
   const [submitting, setSubmitting] = useState(false);
+  const [spendableExp, setSpendableExp] = useState(0);
+  const [expToUse, setExpToUse] = useState(0);
 
   useEffect(() => {
     fetch(`${API}/api/cj-shop/products/${id}`)
@@ -48,7 +51,21 @@ export default function ShopDetailClient({ id }: { id: string }) {
       .finally(() => setLoading(false));
   }, [id]);
 
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API}/api/cj-shop/my-exp`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { exp?: number } | null) => setSpendableExp(data?.exp ?? 0))
+      .catch(() => setSpendableExp(0));
+  }, [token]);
+
   const totalAp = product ? product.apPrice * quantity : 0;
+  const maxExpPayable = product?.supplyApPrice !== undefined
+    ? Math.max(0, product.apPrice - product.supplyApPrice) * quantity
+    : 0;
+  const expCap = Math.min(maxExpPayable, spendableExp);
+  const clampedExpToUse = Math.min(expToUse, expCap);
+  const apToCharge = totalAp - clampedExpToUse;
 
   const handlePurchase = async () => {
     if (!user || !token) { router.push("/auth"); return; }
@@ -63,7 +80,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
       const res = await fetch(`${API}/api/cj-shop/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ productId: id, quantity, shipping }),
+        body: JSON.stringify({ productId: id, quantity, shipping, expToUse: clampedExpToUse }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({})) as { message?: string };
@@ -140,10 +157,16 @@ export default function ShopDetailClient({ id }: { id: string }) {
 
         <div>
           <h1 className="text-2xl font-bold mb-3">{product.nameKo}</h1>
-          <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1.5 text-base px-3 py-1.5 mb-6">
+          <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1.5 text-base px-3 py-1.5 mb-2">
             <Coins className="h-4 w-4" />
             {product.apPrice.toLocaleString()} AP
           </Badge>
+          {maxExpPayable > 0 && (
+            <p className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium mb-4">
+              <Sparkles className="h-3.5 w-3.5" />
+              {sh.maxExpPayable.replace("{n}", maxExpPayable.toLocaleString())}
+            </p>
+          )}
 
           <div className="flex items-center gap-3 mb-6">
             <Label className="shrink-0">{sh.qtyLabel}</Label>
@@ -158,6 +181,43 @@ export default function ShopDetailClient({ id }: { id: string }) {
               <span className="text-sm text-muted-foreground">{sh.qtyUnit}</span>
             </div>
           </div>
+
+          {user && expCap > 0 && (
+            <Card className="mb-6">
+              <CardContent className="p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="font-semibold text-sm flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                    {sh.expPaymentTitle}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs text-violet-600 dark:text-violet-400 font-semibold hover:underline"
+                    onClick={() => setExpToUse(expCap)}
+                  >
+                    {sh.useMaxExp}
+                  </button>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={expCap}
+                  step={1}
+                  value={clampedExpToUse}
+                  onChange={(e) => setExpToUse(Number(e.target.value))}
+                  className="w-full accent-violet-500"
+                />
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {sh.myExpLabel}: {spendableExp.toLocaleString()} EXP
+                  </span>
+                  <span className="font-bold text-violet-600 dark:text-violet-400">
+                    {clampedExpToUse.toLocaleString()} EXP {sh.expUsedSuffix}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="mb-6">
             <CardContent className="p-5 space-y-3">
@@ -199,9 +259,12 @@ export default function ShopDetailClient({ id }: { id: string }) {
           </Card>
 
           {user && (
-            <p className="text-xs text-muted-foreground mb-3">
-              {sh.priceLabel}: {totalAp.toLocaleString()} AP · {user.points.toLocaleString()} AP
-            </p>
+            <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
+              {clampedExpToUse > 0 && (
+                <p>{sh.priceLabel}: {apToCharge.toLocaleString()} AP + {clampedExpToUse.toLocaleString()} EXP</p>
+              )}
+              <p>{sh.myApLabel}: {user.points.toLocaleString()} AP</p>
+            </div>
           )}
 
           <Button
@@ -210,7 +273,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
             onClick={() => void handlePurchase()}
           >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Coins className="h-4 w-4 mr-2" />}
-            {sh.buyBtn} — {totalAp.toLocaleString()} AP
+            {sh.buyBtn} — {apToCharge.toLocaleString()} AP{clampedExpToUse > 0 ? ` + ${clampedExpToUse.toLocaleString()} EXP` : ""}
           </Button>
         </div>
       </div>

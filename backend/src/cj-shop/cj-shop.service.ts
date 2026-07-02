@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Telegram } from 'telegraf';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
+import { LevelService } from '../level/level.service';
 
 const CJ_BASE = 'https://developers.cjdropshipping.com';
 const AP_PER_USD = 10000;
@@ -58,6 +59,11 @@ interface CreateOrderDto {
   productId: string;
   quantity: number;
   shipping: ShippingInfo;
+  expToUse?: number;
+}
+
+function computeSupplyApPrice(cjPriceUsd: number): number {
+  return Math.ceil(cjPriceUsd * AP_PER_USD);
 }
 
 function computeApPrice(cjPriceUsd: number, marginPercent: number): number {
@@ -70,6 +76,7 @@ export class CjShopService {
     private readonly config: ConfigService,
     private readonly firebase: FirebaseService,
     private readonly points: PointsService,
+    private readonly levelService: LevelService,
   ) {}
 
   // ── CJ API client ──────────────────────────────────────────────────────────
@@ -166,6 +173,7 @@ export class CjShopService {
       description: dto.description || '',
       cjPriceUsd: dto.cjPriceUsd,
       marginPercent,
+      supplyApPrice: computeSupplyApPrice(dto.cjPriceUsd),
       apPrice: computeApPrice(dto.cjPriceUsd, marginPercent),
       category: dto.category || 'other',
       active: true,
@@ -182,7 +190,13 @@ export class CjShopService {
     const current = snap.data() as Record<string, unknown>;
     const marginPercent = dto.marginPercent ?? (current.marginPercent as number);
     const cjPriceUsd = dto.cjPriceUsd ?? (current.cjPriceUsd as number);
-    const update = { ...dto, marginPercent, cjPriceUsd, apPrice: computeApPrice(cjPriceUsd, marginPercent) };
+    const update = {
+      ...dto,
+      marginPercent,
+      cjPriceUsd,
+      supplyApPrice: computeSupplyApPrice(cjPriceUsd),
+      apPrice: computeApPrice(cjPriceUsd, marginPercent),
+    };
     await ref.update(update);
     return { id, ...current, ...update };
   }
@@ -221,9 +235,21 @@ export class CjShopService {
     if (product.active !== true) throw new BadRequestException('Product is not available');
 
     const apPrice = product.apPrice as number;
-    const totalAp = apPrice * quantity;
+    // Legacy products registered before EXP-payment support have no supplyApPrice —
+    // fall back to apPrice so their maxExpPayable is 0 (no EXP discount) until re-saved.
+    const supplyApPrice = (product.supplyApPrice as number) ?? apPrice;
+    const totalPrice = apPrice * quantity;
+    const maxExpPayable = Math.max(0, apPrice - supplyApPrice) * quantity;
 
-    await this.points.deduct(userId, totalAp, `CJ Shop 주문: ${product.nameKo as string}`);
+    const requestedExp = Math.max(0, Math.floor(dto.expToUse || 0));
+    const userSpendableExp = await this.levelService.getSpendableExp(userId);
+    const expUsed = Math.min(requestedExp, maxExpPayable, userSpendableExp);
+    const apToCharge = totalPrice - expUsed;
+
+    await this.points.deduct(userId, apToCharge, `CJ Shop 주문: ${product.nameKo as string}`);
+    if (expUsed > 0) {
+      await this.levelService.spendExp(userId, expUsed);
+    }
 
     const orderNumber = `AIM-${Date.now()}`;
     const userSnap = await this.firebase.collection('users').doc(userId).get();
@@ -236,7 +262,9 @@ export class CjShopService {
       cjOrderId: null as string | null,
       cjOrderNumber: orderNumber,
       quantity,
-      apCharged: totalAp,
+      totalPrice,
+      expUsed,
+      apCharged: apToCharge,
       shipping: dto.shipping,
       status: 'pending' as const,
       cjStatus: null as string | null,
@@ -248,7 +276,7 @@ export class CjShopService {
     };
     const ref = await this.firebase.collection('cj_orders').add(order);
 
-    this.notifyAdmin(username, product.nameKo as string, quantity, totalAp, (product.cjPriceUsd as number) * quantity, dto.shipping);
+    this.notifyAdmin(username, product.nameKo as string, quantity, apToCharge, expUsed, (product.cjPriceUsd as number) * quantity, dto.shipping);
 
     return { id: ref.id, ...order };
   }
@@ -258,6 +286,7 @@ export class CjShopService {
     productName: string,
     quantity: number,
     apCharged: number,
+    expUsed: number,
     cjCostUsd: number,
     shipping: ShippingInfo,
   ) {
@@ -270,7 +299,7 @@ export class CjShopService {
       `🛒 *CJ 쇼핑몰 주문 접수*\n\n` +
       `👤 회원: ${username}\n` +
       `📦 상품: ${productName} x${quantity}\n` +
-      `💰 차감 AP: ${apCharged.toLocaleString()} AP\n` +
+      `💰 차감 AP: ${apCharged.toLocaleString()} AP` + (expUsed > 0 ? ` (+ EXP 결제 ${expUsed.toLocaleString()})\n` : `\n`) +
       `💵 CJ 발주 필요 금액: $${cjCostUsd.toFixed(2)} (CJ 잔액 충전 후 수동 발주 필요)\n` +
       `🌍 배송국가: ${country}\n` +
       `🏠 배송지: ${shipping.name} / ${shipping.phone} / ${shipping.address} ${shipping.detailAddress ?? ''} (${shipping.zip})\n\n` +
