@@ -4,6 +4,9 @@ import { FirebaseService } from '../firebase/firebase.service';
 // EXP needed to advance from `level` to `level + 1` = level * 2 * 2 * 10000
 const EXP_PER_LEVEL_UNIT = 2 * 2 * 10000;
 
+// Level bonus: every time EXP is awarded, add an extra (current level * 1000) EXP on top
+const LEVEL_BONUS_PER_LEVEL = 1000;
+
 export function expNeededForLevel(level: number): number {
   return level * EXP_PER_LEVEL_UNIT;
 }
@@ -54,12 +57,20 @@ export class LevelService {
     };
   }
 
-  awardExp(userId: string, amount: number) {
-    return this.adjustExp(userId, amount);
+  async awardExp(userId: string, amount: number) {
+    const currentLevel = await this.getCurrentLevel(userId);
+    const levelBonus = currentLevel * LEVEL_BONUS_PER_LEVEL;
+    return this.adjustExp(userId, amount + levelBonus);
   }
 
   spendExp(userId: string, amount: number) {
     return this.adjustExp(userId, -amount);
+  }
+
+  private async getCurrentLevel(userId: string): Promise<number> {
+    const snap = await this.firebase.collection('users').doc(userId).get();
+    if (!snap.exists) return 1;
+    return ((snap.data() as Record<string, unknown>).level as number) ?? 1;
   }
 
   async getSpendableExp(userId: string): Promise<number> {
