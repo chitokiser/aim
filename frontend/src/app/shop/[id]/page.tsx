@@ -3,12 +3,15 @@ import ShopDetailClient from "./ShopDetailClient";
 const API = `${process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app"}/api`;
 
 export async function generateStaticParams() {
+  // Always include the "_" fallback shell so Netlify's _redirects rule
+  // (/shop/* -> /shop/_.html) has a real file to serve for product IDs
+  // registered after this build (static export can't know about them yet).
   try {
     const res = await fetch(`${API}/cj-shop/products`, { cache: "no-store" });
     if (!res.ok) return [{ id: "_" }];
     const products: { id: string }[] = await res.json();
     const ids = products.map((p) => ({ id: String(p.id) }));
-    return ids.length > 0 ? ids : [{ id: "_" }];
+    return [...ids, { id: "_" }];
   } catch {
     return [{ id: "_" }];
   }
