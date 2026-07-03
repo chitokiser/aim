@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MissionCard } from "@/components/mission-card";
@@ -30,11 +30,19 @@ import {
   Gift,
   TrendingUp,
   UserPlus,
+  Package,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 type RawMission = Record<string, unknown>;
+
+interface CjProduct {
+  id: string;
+  nameKo: string;
+  images: string[];
+  apPrice: number;
+}
 
 type CardMissionType = "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao" | "survey";
 
@@ -58,6 +66,7 @@ function toCardMission(m: RawMission) {
 export default function HomePage() {
   const { t } = useLanguage();
   const h = t.home;
+  const sh = t.shop;
   const { user } = useAuthStore();
   const ctaHref = user ? "/missions" : "/auth";
 
@@ -85,6 +94,21 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => { void loadActiveMissions(); }, [loadActiveMissions]);
+
+  const [featuredProducts, setFeaturedProducts] = useState<CjProduct[]>([]);
+
+  const loadFeaturedProducts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/cj-shop/featured`);
+      if (!res.ok) throw new Error("fetch failed");
+      const data = (await res.json()) as CjProduct[];
+      setFeaturedProducts(Array.isArray(data) ? data : []);
+    } catch {
+      setFeaturedProducts([]);
+    }
+  }, []);
+
+  useEffect(() => { void loadFeaturedProducts(); }, [loadFeaturedProducts]);
 
   const STATS = [
     { label: h.statsAuctions, value: "128+", icon: Gavel },
@@ -154,12 +178,8 @@ export default function HomePage() {
               <Star className="h-3 w-3 mr-1.5" />
               {h.badge}
             </Badge>
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black mb-5 leading-tight">
-              <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">{h.heroKw1}</span>
-              <span className="text-slate-500 mx-2 md:mx-3">·</span>
-              <span className="bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">{h.heroKw2}</span>
-              <span className="text-slate-500 mx-2 md:mx-3">·</span>
-              <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">{h.heroKw3}</span>
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black mb-5 leading-tight bg-gradient-to-r from-violet-400 via-cyan-400 to-amber-400 bg-clip-text text-transparent">
+              {h.heroHeadline}
             </h1>
             <p className="text-lg md:text-xl text-slate-300 mb-3 leading-relaxed font-medium">
               {h.platformDesc}
@@ -316,6 +336,53 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Featured Products */}
+      {featuredProducts.length > 0 && (
+        <section className="py-20 container mx-auto px-4">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-violet-500/10 text-violet-600 border-violet-200 dark:bg-violet-500/20 dark:text-violet-300 dark:border-violet-500/30 px-4 py-1.5">
+              <Package className="h-3.5 w-3.5 mr-1.5" />
+              {sh.title}
+            </Badge>
+            <h2 className="text-3xl md:text-4xl font-black mb-3">{sh.featuredTitle}</h2>
+            <p className="text-muted-foreground text-lg">{sh.featuredSubtitle}</p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 mb-10">
+            {featuredProducts.map((p) => (
+              <Link key={p.id} href={`/shop/${p.id}`} className="group">
+                <Card className="h-full overflow-hidden hover:shadow-lg transition-all duration-200 group-hover:-translate-y-0.5">
+                  <div className="aspect-square bg-muted overflow-hidden">
+                    {p.images?.[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.images[0]} alt={p.nameKo} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <Package className="h-10 w-10 text-muted-foreground/30" />
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-4">
+                    <p className="font-semibold text-sm leading-snug line-clamp-2 mb-2 min-h-[2.5rem]">{p.nameKo}</p>
+                    <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1">
+                      <Coins className="h-3 w-3" />
+                      {p.apPrice.toLocaleString()} AP
+                    </Badge>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <Link href="/shop" className={buttonVariants({ size: "lg", className: "bg-gradient-to-r from-violet-600 to-cyan-500 hover:opacity-90 text-white font-bold px-8 h-14 text-lg rounded-full shadow-lg shadow-violet-500/25" })}>
+              <Store className="mr-2 h-5 w-5" />
+              {sh.featuredCta}
+            </Link>
+          </div>
+        </section>
+      )}
 
       {/* How It Works */}
       <section className="py-20 bg-muted/20">

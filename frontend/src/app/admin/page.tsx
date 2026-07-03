@@ -16,7 +16,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw,
+  Package, RefreshCw, Star,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -206,9 +206,9 @@ export default function AdminPage() {
   interface CjProductAdmin {
     id: string; cjProductId: string; cjVariantId: string; nameKo: string;
     images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
-    category?: string; variants?: CjProductVariant[];
+    category?: string; variants?: CjProductVariant[]; featured?: boolean;
   }
-  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "other"] as const;
+  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "optical", "watches", "bagsShoes", "sportsOutdoor", "toysHobby", "homeDecor", "other"] as const;
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number; expUsed?: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;
@@ -993,6 +993,24 @@ export default function AdminPage() {
       });
       if (!res.ok) { toast.error("수정에 실패했습니다"); return; }
       setCjProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, active: !x.active } : x)));
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleCjFeaturedToggle = async (p: CjProductAdmin) => {
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products/${p.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ featured: !p.featured }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast.error((body?.message as string) || "수정에 실패했습니다");
+        return;
+      }
+      setCjProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, featured: !x.featured } : x)));
     } catch {
       toast.error("Network error");
     }
@@ -2583,7 +2601,7 @@ export default function AdminPage() {
                             </p>
                             {p.supplyApPrice !== undefined && (
                               <p className="text-[11px] text-muted-foreground">
-                                공급가 {p.supplyApPrice.toLocaleString()} AP (필수 AP) · EXP 사용가능 {(p.apPrice - p.supplyApPrice).toLocaleString()} AP
+                                공급가 {p.supplyApPrice.toLocaleString()} AP (필수 AP) · EXP 사용가능 {Math.floor((p.apPrice - p.supplyApPrice) * 0.9).toLocaleString()} AP (마진 10%는 멘토 재원으로 AP 필수 결제)
                               </p>
                             )}
                           </div>
@@ -2593,6 +2611,12 @@ export default function AdminPage() {
                           <Badge variant={p.active ? "outline" : "secondary"} className="text-xs shrink-0">
                             {p.active ? t.shop.admin.activeLabel : t.shop.admin.inactiveLabel}
                           </Badge>
+                          {p.featured && (
+                            <Badge className="text-xs shrink-0 bg-amber-500 text-white border-0 gap-1">
+                              <Star className="h-3 w-3" />
+                              {t.shop.featuredTitle}
+                            </Badge>
+                          )}
                           <div className="flex gap-1.5 shrink-0">
                             <Button
                               size="sm"
@@ -2608,6 +2632,9 @@ export default function AdminPage() {
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => void handleCjToggle(p)}>
                               {p.active ? <ToggleRight className="h-4 w-4 text-green-500" /> : <ToggleLeft className="h-4 w-4 text-muted-foreground" />}
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => void handleCjFeaturedToggle(p)} title={t.shop.featuredTitle}>
+                              <Star className={p.featured ? "h-3.5 w-3.5 fill-amber-500 text-amber-500" : "h-3.5 w-3.5 text-muted-foreground"} />
                             </Button>
                             <Button size="sm" variant="destructive" onClick={() => void handleCjDelete(p.id)}>
                               <Trash2 className="h-3.5 w-3.5" />

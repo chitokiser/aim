@@ -27,6 +27,11 @@ export class CjShopController {
     return this.cjShopService.getProduct(id);
   }
 
+  @Get('featured')
+  listFeatured() {
+    return this.cjShopService.listFeaturedProducts();
+  }
+
   @Post('orders')
   @UseGuards(JwtAuthGuard)
   createOrder(

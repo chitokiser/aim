@@ -8,6 +8,11 @@ import { LevelService } from '../level/level.service';
 const CJ_BASE = 'https://developers.cjdropshipping.com';
 const AP_PER_USD = 10000;
 const DEFAULT_MARGIN_PERCENT = 100;
+// Reserve this fraction of the margin as mandatory AP so the mentor's 10% bonus
+// (see mentorBonus below) always has a real AP funding source, even when the
+// buyer pays the rest of the margin with EXP.
+const MENTOR_FUND_RATIO = 0.1;
+const MAX_FEATURED_PRODUCTS = 12;
 
 interface CjEnvelope<T> {
   code?: number;
@@ -59,6 +64,7 @@ interface UpdateProductDto {
   marginPercent?: number;
   active?: boolean;
   category?: string;
+  featured?: boolean;
 }
 
 export interface ShippingInfo {
@@ -222,6 +228,13 @@ export class CjShopService {
     const current = snap.data() as Record<string, unknown>;
     const marginPercent = dto.marginPercent ?? (current.marginPercent as number);
 
+    if (dto.featured === true && current.featured !== true) {
+      const featuredSnap = await this.firebase.collection('cj_products').where('featured', '==', true).get();
+      if (featuredSnap.size >= MAX_FEATURED_PRODUCTS) {
+        throw new BadRequestException(`Featured products are capped at ${MAX_FEATURED_PRODUCTS}`);
+      }
+    }
+
     // Legacy products (registered before variant support) have no `variants`
     // array — synthesize a single implicit variant from their top-level fields.
     const currentVariants: ProductVariant[] = (current.variants as ProductVariant[] | undefined) ?? [
@@ -259,6 +272,16 @@ export class CjShopService {
 
   async listAllProducts() {
     const snap = await this.firebase.collection('cj_products').orderBy('createdAt', 'desc').get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async listFeaturedProducts() {
+    const snap = await this.firebase
+      .collection('cj_products')
+      .where('active', '==', true)
+      .where('featured', '==', true)
+      .limit(MAX_FEATURED_PRODUCTS)
+      .get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }
 
@@ -312,7 +335,8 @@ export class CjShopService {
     // fall back to apPrice so their maxExpPayable is 0 (no EXP discount) until re-saved.
     const supplyApPrice = selectedVariant?.supplyApPrice ?? (product.supplyApPrice as number) ?? apPrice;
     const totalPrice = apPrice * quantity;
-    const maxExpPayable = Math.max(0, apPrice - supplyApPrice) * quantity;
+    const marginTotal = Math.max(0, apPrice - supplyApPrice) * quantity;
+    const maxExpPayable = Math.floor(marginTotal * (1 - MENTOR_FUND_RATIO));
 
     const requestedExp = Math.max(0, Math.floor(dto.expToUse || 0));
     const userSpendableExp = await this.levelService.getSpendableExp(userId);

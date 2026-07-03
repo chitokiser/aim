@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Coins, Package, Sparkles } from "lucide-react";
+import { Coins, Package, Sparkles, TriangleAlert } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -52,6 +52,11 @@ export default function ShopPage() {
           {sh.title}
         </h1>
         <p className="text-muted-foreground">{sh.subtitle}</p>
+      </div>
+
+      <div className="mb-6 flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/60 p-4">
+        <TriangleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+        <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed">{sh.noReturnsNotice}</p>
       </div>
 
       {availableCategories.length > 1 && (
@@ -108,10 +113,15 @@ export default function ShopPage() {
                       {sh.buyBtn}
                     </span>
                   </div>
-                  {p.supplyApPrice !== undefined && p.apPrice - p.supplyApPrice > 0 && (
+                  {p.supplyApPrice !== undefined && p.apPrice - p.supplyApPrice > 0 && p.apPrice > 0 && (
                     <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                       <Sparkles className="h-3 w-3" />
-                      {sh.maxExpPayable.replace("{n}", (p.apPrice - p.supplyApPrice).toLocaleString())}
+                      {sh.expPercentBadge.replace(
+                        "{n}",
+                        // 10% of the margin is reserved as mandatory AP to fund the mentor
+                        // bonus — must match MENTOR_FUND_RATIO in backend cj-shop.service.ts.
+                        Math.floor(((p.apPrice - p.supplyApPrice) / p.apPrice) * 100 * 0.9).toString()
+                      )}
                     </p>
                   )}
                 </CardContent>

@@ -85,8 +85,10 @@ export default function ShopDetailClient({ id }: { id: string }) {
   }, [token]);
 
   const totalAp = product ? displayApPrice * quantity : 0;
+  // 10% of the margin is reserved as mandatory AP to fund the mentor bonus —
+  // must match MENTOR_FUND_RATIO in backend/src/cj-shop/cj-shop.service.ts.
   const maxExpPayable = displaySupplyApPrice !== undefined
-    ? Math.max(0, displayApPrice - displaySupplyApPrice) * quantity
+    ? Math.floor(Math.max(0, displayApPrice - displaySupplyApPrice) * quantity * 0.9)
     : 0;
   const expCap = Math.min(maxExpPayable, spendableExp);
   const clampedExpToUse = Math.min(expToUse, expCap);
@@ -255,6 +257,11 @@ export default function ShopDetailClient({ id }: { id: string }) {
                     {sh.useMaxExp}
                   </button>
                 </div>
+                {totalAp > 0 && (
+                  <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium -mt-2">
+                    {sh.expPercentBadge.replace("{n}", Math.floor((maxExpPayable / totalAp) * 100).toString())}
+                  </p>
+                )}
                 <input
                   type="range"
                   min={0}
@@ -323,6 +330,8 @@ export default function ShopDetailClient({ id }: { id: string }) {
               <p>{sh.myApLabel}: {user.points.toLocaleString()} AP</p>
             </div>
           )}
+
+          <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mb-3">{sh.noReturnsNotice}</p>
 
           <Button
             className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 font-semibold h-12"
