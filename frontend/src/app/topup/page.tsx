@@ -19,12 +19,14 @@ const API           = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"
 
 const AP_PER_USD = 10_000;
 
+// Rate: 1 Star = 130 AP (~$0.013/Star, Fragment rate) — must match AP_PER_STAR
+// in backend/src/bots/main-bot/main-bot.service.ts and reward-bot.service.ts.
 const STARS_PRESETS = [
-  { stars:   50, ap:   5_000, usd: 0.5 },
-  { stars:  100, ap:  10_000, usd: 1 },
-  { stars:  200, ap:  20_000, usd: 2 },
-  { stars:  500, ap:  50_000, usd: 5 },
-  { stars: 1000, ap: 100_000, usd: 10 },
+  { stars:  39, ap:   5_070, usd: 0.51 },
+  { stars:  77, ap:  10_010, usd: 1 },
+  { stars: 154, ap:  20_020, usd: 2 },
+  { stars: 385, ap:  50_050, usd: 5.01 },
+  { stars: 770, ap: 100_100, usd: 10.01 },
 ];
 
 type Tab = "stars" | "ton" | "usdt" | "card";

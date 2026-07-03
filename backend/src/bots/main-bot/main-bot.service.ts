@@ -11,8 +11,8 @@ const COMMUNITY = 'https://t.me/ai119link';
 
 @Injectable()
 export class MainBotService extends BaseTelegrafBotService {
-  private readonly AP_PER_STAR = 100; // 100 Stars = 10,000 AP = $1 USD
-  private readonly STAR_PRESETS = [50, 100, 200, 500, 1000];
+  private readonly AP_PER_STAR = 130; // ~$0.013/Star (Fragment rate) · 77 Stars = 10,000 AP = $1
+  private readonly STAR_PRESETS = [39, 77, 154, 385, 770];
 
   constructor(
     private config: ConfigService,
