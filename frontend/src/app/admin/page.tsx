@@ -237,10 +237,12 @@ export default function AdminPage() {
   const [selectedCjIds, setSelectedCjIds] = useState<Set<string>>(new Set());
   const [bulkCategory, setBulkCategory] = useState("other");
   const [bulkApplying, setBulkApplying] = useState(false);
+  const [cjListFeaturedOnly, setCjListFeaturedOnly] = useState(false);
   const cjListSearchLower = cjListSearch.trim().toLowerCase();
   const visibleCjProducts = cjProducts
     .filter((p) => cjListCategory === "all" || (p.category ?? "other") === cjListCategory)
-    .filter((p) => !cjListSearchLower || p.nameKo.toLowerCase().includes(cjListSearchLower));
+    .filter((p) => !cjListSearchLower || p.nameKo.toLowerCase().includes(cjListSearchLower))
+    .filter((p) => !cjListFeaturedOnly || p.featured === true);
   const [cjOrders, setCjOrders] = useState<CjOrderAdmin[]>([]);
   const [cjOrdersLoading, setCjOrdersLoading] = useState(false);
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
@@ -2657,6 +2659,15 @@ export default function AdminPage() {
                       onChange={(e) => setCjListSearch(e.target.value)}
                     />
                   </div>
+                  <Button
+                    size="sm"
+                    variant={cjListFeaturedOnly ? "default" : "outline"}
+                    className={cjListFeaturedOnly ? "h-8 text-xs bg-amber-500 hover:bg-amber-600 text-white border-0" : "h-8 text-xs"}
+                    onClick={() => setCjListFeaturedOnly((v) => !v)}
+                  >
+                    <Star className={cjListFeaturedOnly ? "h-3.5 w-3.5 mr-1 fill-white" : "h-3.5 w-3.5 mr-1"} />
+                    추천만 보기
+                  </Button>
                 </div>
                 {selectedCjIds.size > 0 && (
                   <div className="flex flex-wrap items-center gap-2 mt-3 p-2.5 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
