@@ -11,7 +11,8 @@ import { join } from 'path';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { UsersService } from '../users/users.service';
 
-const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1';
+const CARTESIA_BASE = 'https://api.cartesia.ai';
+const CARTESIA_VERSION = '2026-03-01';
 const COST_PER_10S_AP = 50;
 const COST_PER_10S_P = 500;
 
@@ -19,10 +20,14 @@ interface GenerateDto {
   text: string;
   voiceId: string;
   modelId?: string;
-  stability?: number;
-  similarityBoost?: number;
   speed?: number;
   currency?: 'ap' | 'p';
+}
+
+interface CartesiaVoice {
+  id: string;
+  name: string;
+  language?: string;
 }
 
 @Controller('tts')
@@ -54,22 +59,32 @@ export class TtsController {
   }
 
   private get apiKey(): string {
-    const key = process.env.ELEVENLABS_API_KEY;
-    if (!key) throw new HttpException('ElevenLabs API key not configured', HttpStatus.SERVICE_UNAVAILABLE);
+    const key = process.env.CARTESIA_API_KEY;
+    if (!key) throw new HttpException('Cartesia API key not configured', HttpStatus.SERVICE_UNAVAILABLE);
     return key;
+  }
+
+  private get cartesiaHeaders() {
+    return {
+      Authorization: `Bearer ${this.apiKey}`,
+      'Cartesia-Version': CARTESIA_VERSION,
+    };
   }
 
   @Get('voices')
   async getVoices() {
     try {
-      const res = await axios.get<{ voices: unknown[] }>(`${ELEVENLABS_BASE}/voices`, {
-        headers: { 'xi-api-key': this.apiKey },
+      const res = await axios.get<{ data: CartesiaVoice[] }>(`${CARTESIA_BASE}/voices`, {
+        headers: this.cartesiaHeaders,
+        params: { limit: 100 },
       });
-      return res.data;
+      // Normalize to the shape the frontend already consumes (voice_id/name/category).
+      const voices = res.data.data.map((v) => ({ voice_id: v.id, name: v.name, category: v.language }));
+      return { voices };
     } catch (e: unknown) {
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       throw new HttpException(
-        err.response?.data ?? err.message ?? 'ElevenLabs error',
+        err.response?.data ?? err.message ?? 'Cartesia error',
         err.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
@@ -85,9 +100,7 @@ export class TtsController {
     const {
       text,
       voiceId,
-      modelId = 'eleven_multilingual_v2',
-      stability = 0.5,
-      similarityBoost = 0.75,
+      modelId = 'sonic-3.5',
       speed = 1.0,
       currency = 'p',
     } = body;
@@ -114,26 +127,26 @@ export class TtsController {
 
     try {
       const requestBody: Record<string, unknown> = {
-        text,
         model_id: modelId,
-        voice_settings: { stability, similarity_boost: similarityBoost },
+        transcript: text,
+        voice: { mode: 'id', id: voiceId },
+        output_format: { container: 'mp3', sample_rate: 44100, bit_rate: 128000 },
       };
-      if (speed !== 1.0) requestBody.speed = speed;
+      if (speed !== 1.0) requestBody.generation_config = { speed };
 
-      const elevenRes = await axios.post<ArrayBuffer>(
-        `${ELEVENLABS_BASE}/text-to-speech/${voiceId}`,
+      const cartesiaRes = await axios.post<ArrayBuffer>(
+        `${CARTESIA_BASE}/tts/bytes`,
         requestBody,
         {
           headers: {
-            'xi-api-key': this.apiKey,
+            ...this.cartesiaHeaders,
             'Content-Type': 'application/json',
-            Accept: 'audio/mpeg',
           },
           responseType: 'arraybuffer',
         },
       );
 
-      const audioBuffer = Buffer.from(elevenRes.data);
+      const audioBuffer = Buffer.from(cartesiaRes.data);
       const durationSec = await this.getAudioDuration(audioBuffer);
       const blocks = Math.ceil(durationSec / 10);
       const costAp = blocks * COST_PER_10S_AP;
@@ -165,7 +178,7 @@ export class TtsController {
       if (e instanceof HttpException) throw e;
       const err = e as { response?: { status?: number; data?: unknown }; message?: string };
       throw new HttpException(
-        err.message ?? 'ElevenLabs error',
+        err.message ?? 'Cartesia error',
         err.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }

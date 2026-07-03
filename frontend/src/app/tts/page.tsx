@@ -25,17 +25,15 @@ const MIN_AP = 50;   // minimum 1 block = 10 seconds
 const MIN_P = 500;
 
 const MODELS = [
-  { value: "eleven_multilingual_v2", label: "Multilingual v2" },
-  { value: "eleven_flash_v2_5", label: "Flash v2.5" },
-  { value: "eleven_turbo_v2_5", label: "Turbo v2.5" },
-  { value: "eleven_monolingual_v1", label: "Monolingual v1 (EN)" },
+  { value: "sonic-3.5", label: "Sonic 3.5" },
+  { value: "sonic-3", label: "Sonic 3" },
+  { value: "sonic-latest", label: "Sonic (Latest)" },
 ];
 
-interface ElevenVoice {
+interface CartesiaVoiceOption {
   voice_id: string;
   name: string;
   category?: string;
-  labels?: Record<string, string>;
 }
 
 export default function TtsPage() {
@@ -45,12 +43,10 @@ export default function TtsPage() {
 
   const [text, setText] = useState("");
   const [voiceId, setVoiceId] = useState("");
-  const [modelId, setModelId] = useState("eleven_multilingual_v2");
-  const [stability, setStability] = useState(0.5);
-  const [similarityBoost, setSimilarityBoost] = useState(0.75);
+  const [modelId, setModelId] = useState("sonic-3.5");
   const [speed, setSpeed] = useState(1.0);
   const [currency, setCurrency] = useState<"ap" | "p">("p");
-  const [voices, setVoices] = useState<ElevenVoice[]>([]);
+  const [voices, setVoices] = useState<CartesiaVoiceOption[]>([]);
   const [loadingVoices, setLoadingVoices] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -60,7 +56,7 @@ export default function TtsPage() {
   useEffect(() => {
     fetch(`${API}/api/tts/voices`)
       .then((r) => r.ok ? r.json() : Promise.reject(new Error("Failed")))
-      .then((data: { voices: ElevenVoice[] }) => {
+      .then((data: { voices: CartesiaVoiceOption[] }) => {
         setVoices(data.voices ?? []);
         if (data.voices?.length) setVoiceId(data.voices[0].voice_id);
       })
@@ -107,7 +103,7 @@ export default function TtsPage() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ text, voiceId, modelId, stability, similarityBoost, speed, currency }),
+        body: JSON.stringify({ text, voiceId, modelId, speed, currency }),
       });
 
       if (!res.ok) {
@@ -255,7 +251,7 @@ export default function TtsPage() {
                 <SelectContent className="max-h-64">
                   {voices.map((v) => (
                     <SelectItem key={v.voice_id} value={v.voice_id}>
-                      {v.name}{v.labels?.accent ? ` · ${v.labels.accent}` : ""}
+                      {v.name}{v.category ? ` · ${v.category}` : ""}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -285,40 +281,6 @@ export default function TtsPage() {
           </p>
 
           <div className="grid sm:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">{tt.stabilityLabel}</Label>
-                <span className="text-xs font-mono text-muted-foreground">{stability.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={stability}
-                onChange={(e) => setStability(Number(e.target.value))}
-                className="w-full accent-violet-600"
-              />
-              <p className="text-xs text-muted-foreground">{tt.stabilityHint}</p>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">{tt.similarityLabel}</Label>
-                <span className="text-xs font-mono text-muted-foreground">{similarityBoost.toFixed(2)}</span>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={similarityBoost}
-                onChange={(e) => setSimilarityBoost(Number(e.target.value))}
-                className="w-full accent-cyan-600"
-              />
-              <p className="text-xs text-muted-foreground">{tt.similarityHint}</p>
-            </div>
-
             <div className="space-y-3 sm:col-span-2">
               <div className="flex items-center justify-between">
                 <Label className="text-sm">{tt.speedLabel}</Label>
