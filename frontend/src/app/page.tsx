@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,6 +32,7 @@ import {
   TrendingUp,
   UserPlus,
   Package,
+  Search,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -67,7 +69,15 @@ export default function HomePage() {
   const { t } = useLanguage();
   const h = t.home;
   const sh = t.shop;
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuthStore();
+
+  const handleProductSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    router.push(q ? `/shop?q=${encodeURIComponent(q)}` : "/shop");
+  };
   const ctaHref = user ? "/missions" : "/auth";
 
   const [joinMission, setJoinMission] = useState<MissionFlowData | null>(null);
@@ -335,6 +345,28 @@ export default function HomePage() {
             </Link>
           </div>
         </div>
+      </section>
+
+      {/* Product Search */}
+      <section className="container mx-auto px-4 pt-12">
+        <form onSubmit={handleProductSearch} className="max-w-xl mx-auto flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={sh.searchPlaceholder}
+              className="w-full rounded-full border bg-card pl-10 pr-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+            />
+          </div>
+          <button
+            type="submit"
+            className="rounded-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white font-semibold px-6 py-3 text-sm hover:opacity-90 transition-opacity shrink-0"
+          >
+            {sh.searchBtn}
+          </button>
+        </form>
       </section>
 
       {/* Featured Products */}

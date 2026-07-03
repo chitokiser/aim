@@ -70,6 +70,21 @@ export class AuctionService {
     return docs;
   }
 
+  async findEnded(category?: string) {
+    let query = this.firebase
+      .collection(COLLECTION)
+      .where('status', 'in', ['ended', 'transfer_pending', 'completed', 'disputed', 'cancelled']) as FirebaseFirestore.Query;
+
+    if (category) {
+      query = query.where('category', '==', category);
+    }
+
+    const snap = await query.get();
+    const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Record<string, unknown>[];
+    docs.sort((a, b) => String(b.endsAt ?? '') > String(a.endsAt ?? '') ? 1 : -1);
+    return docs;
+  }
+
   async findOne(id: string) {
     const doc = await this.firebase.collection(COLLECTION).doc(id).get();
     if (!doc.exists) throw new NotFoundException('Auction not found');

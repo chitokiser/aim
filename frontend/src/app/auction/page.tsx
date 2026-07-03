@@ -100,6 +100,8 @@ export default function AuctionPage() {
   const [sort, setSort] = useState("ending_soon");
   const [category, setCategory] = useState("");
   const [showAll, setShowAll] = useState(false);
+  const [pastAuctions, setPastAuctions] = useState<Auction[]>([]);
+  const [pastLoading, setPastLoading] = useState(true);
 
   const [editAuction, setEditAuction] = useState<Auction | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
@@ -131,6 +133,19 @@ export default function AuctionPage() {
   };
 
   useEffect(() => { load(); }, [sort, category, showAll, isAdmin]);
+
+  const loadPast = () => {
+    setPastLoading(true);
+    const params = new URLSearchParams();
+    if (category) params.set("category", category);
+    fetch(`${API}/auction/ended?${params}`)
+      .then((r) => r.json())
+      .then((data) => setPastAuctions(Array.isArray(data) ? data : []))
+      .catch(() => setPastAuctions([]))
+      .finally(() => setPastLoading(false));
+  };
+
+  useEffect(() => { loadPast(); }, [category]);
 
   const openEdit = (item: Auction) => {
     setEditAuction(item);
@@ -351,6 +366,66 @@ export default function AuctionPage() {
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Past Auctions */}
+      {!showAll && (
+        <div className="mt-12">
+          <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+            <Clock className="h-5 w-5 text-muted-foreground" />
+            {a.pastAuctionsTitle}
+          </h2>
+          {pastLoading ? (
+            <div className="text-center py-10 text-muted-foreground">Loading...</div>
+          ) : pastAuctions.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground">{a.noPastAuctions}</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pastAuctions.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/auction/${item.id}`}
+                  className="group block rounded-xl border bg-card overflow-hidden opacity-80 hover:opacity-100 hover:shadow-lg transition-all"
+                >
+                  <div className="aspect-video bg-muted relative overflow-hidden">
+                    {item.thumbnailUrl ? (
+                      <img src={item.thumbnailUrl} alt={item.title} className="w-full h-full object-cover grayscale-[30%]" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Gavel className="h-10 w-10 text-muted-foreground/40" />
+                      </div>
+                    )}
+                    <span className="absolute top-2 left-2 text-xs bg-black/60 text-white px-2 py-0.5 rounded-full capitalize">
+                      {CAT_LABEL[item.category] ?? item.category?.replace(/_/g, " ")}
+                    </span>
+                    <span className="absolute top-2 right-2 text-xs bg-gray-600 text-white px-2 py-0.5 rounded-full capitalize">
+                      {item.status.replace(/_/g, " ")}
+                    </span>
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-semibold line-clamp-1 mb-2">{item.title}</h3>
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground">{a.currentBid}</p>
+                        <p className="text-lg font-bold text-muted-foreground">{(item.currentBid || item.startPrice).toLocaleString()} AP</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" />
+                        {item.bidCount} {a.bids}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Eye className="h-3 w-3" />
+                        {item.viewCount}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

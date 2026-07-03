@@ -232,6 +232,15 @@ export default function AdminPage() {
   const [editingCjId, setEditingCjId] = useState<string | null>(null);
   const [editCjMargin, setEditCjMargin] = useState("");
   const [editCjCategory, setEditCjCategory] = useState("other");
+  const [cjListCategory, setCjListCategory] = useState("all");
+  const [cjListSearch, setCjListSearch] = useState("");
+  const [selectedCjIds, setSelectedCjIds] = useState<Set<string>>(new Set());
+  const [bulkCategory, setBulkCategory] = useState("other");
+  const [bulkApplying, setBulkApplying] = useState(false);
+  const cjListSearchLower = cjListSearch.trim().toLowerCase();
+  const visibleCjProducts = cjProducts
+    .filter((p) => cjListCategory === "all" || (p.category ?? "other") === cjListCategory)
+    .filter((p) => !cjListSearchLower || p.nameKo.toLowerCase().includes(cjListSearchLower));
   const [cjOrders, setCjOrders] = useState<CjOrderAdmin[]>([]);
   const [cjOrdersLoading, setCjOrdersLoading] = useState(false);
   const [completingOrderId, setCompletingOrderId] = useState<string | null>(null);
@@ -1027,6 +1036,67 @@ export default function AdminPage() {
       setCjProducts((prev) => prev.filter((p) => p.id !== id));
     } catch {
       toast.error("Network error");
+    }
+  };
+
+  const toggleCjSelected = (id: string) => {
+    setSelectedCjIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkCategoryApply = async () => {
+    if (selectedCjIds.size === 0) return;
+    setBulkApplying(true);
+    try {
+      const ids = Array.from(selectedCjIds);
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`${API}/api/cj-shop/admin/products/${id}`, {
+            method: "PATCH",
+            headers: authHeader(),
+            body: JSON.stringify({ category: bulkCategory }),
+          }).then((r) => r.ok),
+        ),
+      );
+      const failCount = results.filter((ok) => !ok).length;
+      if (failCount > 0) toast.error(`${failCount}개 상품 카테고리 변경 실패`);
+      else toast.success(`${ids.length}개 상품 카테고리를 변경했습니다`);
+      setCjProducts((prev) => prev.map((p) => (selectedCjIds.has(p.id) ? { ...p, category: bulkCategory } : p)));
+      setSelectedCjIds(new Set());
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCjIds.size === 0) return;
+    if (!confirm(`선택한 ${selectedCjIds.size}개 상품을 삭제하시겠습니까?`)) return;
+    setBulkApplying(true);
+    try {
+      const ids = Array.from(selectedCjIds);
+      const results = await Promise.all(
+        ids.map((id) =>
+          fetch(`${API}/api/cj-shop/admin/products/${id}`, {
+            method: "DELETE",
+            headers: authHeader(),
+          }).then((r) => r.ok),
+        ),
+      );
+      const failCount = results.filter((ok) => !ok).length;
+      if (failCount > 0) toast.error(`${failCount}개 상품 삭제 실패`);
+      else toast.success(`${ids.length}개 상품을 삭제했습니다`);
+      const deletedIds = new Set(ids.filter((_, i) => results[i]));
+      setCjProducts((prev) => prev.filter((p) => !deletedIds.has(p.id)));
+      setSelectedCjIds(new Set());
+    } catch {
+      toast.error("Network error");
+    } finally {
+      setBulkApplying(false);
     }
   };
 
@@ -2560,25 +2630,81 @@ export default function AdminPage() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">
-                    {t.shop.admin.registeredTitle} {cjProducts.length > 0 && `(${cjProducts.length})`}
+                    {t.shop.admin.registeredTitle} {cjProducts.length > 0 && `(${visibleCjProducts.length}/${cjProducts.length})`}
                   </CardTitle>
                   <Button size="sm" variant="outline" onClick={loadCjProducts}>
                     <RefreshCw className="h-3.5 w-3.5" />
                   </Button>
                 </div>
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <Select value={cjListCategory} onValueChange={setCjListCategory}>
+                    <SelectTrigger className="h-8 text-xs w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.shop.categories.all}</SelectItem>
+                      {CJ_CATEGORY_VALUES.map((c) => (
+                        <SelectItem key={c} value={c}>{t.shop.categories[c]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="relative flex-1 min-w-[160px]">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      className="h-8 text-xs pl-8"
+                      placeholder="상품명 검색..."
+                      value={cjListSearch}
+                      onChange={(e) => setCjListSearch(e.target.value)}
+                    />
+                  </div>
+                </div>
+                {selectedCjIds.size > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 mt-3 p-2.5 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800">
+                    <span className="text-xs font-semibold text-violet-700 dark:text-violet-300 shrink-0">
+                      {selectedCjIds.size}개 선택됨
+                    </span>
+                    <Select value={bulkCategory} onValueChange={setBulkCategory}>
+                      <SelectTrigger className="h-8 text-xs w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CJ_CATEGORY_VALUES.map((c) => (
+                          <SelectItem key={c} value={c}>{t.shop.categories[c]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button size="sm" className="h-8 text-xs" disabled={bulkApplying} onClick={() => void handleBulkCategoryApply()}>
+                      카테고리 변경
+                    </Button>
+                    <Button size="sm" variant="destructive" className="h-8 text-xs" disabled={bulkApplying} onClick={() => void handleBulkDelete()}>
+                      선택 삭제
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => setSelectedCjIds(new Set())}>
+                      선택 해제
+                    </Button>
+                  </div>
+                )}
               </CardHeader>
               <CardContent className="p-0">
                 {cjProductsLoading ? (
                   <div className="flex items-center justify-center py-12 text-muted-foreground">
                     <Loader2 className="h-5 w-5 animate-spin" />
                   </div>
-                ) : cjProducts.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-muted-foreground">등록된 상품이 없습니다.</div>
+                ) : visibleCjProducts.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    {cjProducts.length === 0 ? "등록된 상품이 없습니다." : "조건에 맞는 상품이 없습니다."}
+                  </div>
                 ) : (
                   <div className="divide-y">
-                    {cjProducts.map((p) => (
+                    {visibleCjProducts.map((p) => (
                       <div key={p.id} className="p-4">
                         <div className="flex items-center gap-3 flex-wrap">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 shrink-0 accent-violet-600"
+                            checked={selectedCjIds.has(p.id)}
+                            onChange={() => toggleCjSelected(p.id)}
+                          />
                           {p.images?.[0] ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={p.images[0]} alt={p.nameKo} className="h-12 w-12 rounded object-cover shrink-0" />

@@ -23,6 +23,11 @@ export class AuctionController {
     return this.auctionService.findAll(sort, category);
   }
 
+  @Get('ended')
+  findEnded(@Query('category') category?: string) {
+    return this.auctionService.findEnded(category);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.auctionService.findOne(id);
