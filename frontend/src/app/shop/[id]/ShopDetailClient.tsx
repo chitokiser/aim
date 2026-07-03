@@ -36,6 +36,7 @@ interface CjProduct {
   supplyApPrice?: number;
   active: boolean;
   variants?: ProductVariant[];
+  hashtags?: string[];
 }
 
 export default function ShopDetailClient({ id }: { id: string }) {
@@ -184,6 +185,15 @@ export default function ShopDetailClient({ id }: { id: string }) {
 
         <div>
           <h1 className="text-2xl font-bold mb-3">{product.nameKo}</h1>
+          {product.hashtags && product.hashtags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mb-3">
+              {product.hashtags.map((tag) => (
+                <span key={tag} className="text-xs font-medium text-violet-600 dark:text-violet-400">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
           <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1.5 text-base px-3 py-1.5 mb-2">
             <Coins className="h-4 w-4" />
             {displayApPrice.toLocaleString()} AP

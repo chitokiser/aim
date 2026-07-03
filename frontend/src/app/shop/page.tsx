@@ -72,6 +72,14 @@ function ShopPageContent() {
         <p className="text-muted-foreground">{sh.subtitle}</p>
       </div>
 
+      <div className="mb-8 flex items-start gap-3 rounded-xl border border-violet-300/60 bg-gradient-to-r from-violet-50 to-cyan-50 dark:from-violet-950/30 dark:to-cyan-950/30 dark:border-violet-800/60 p-4">
+        <Sparkles className="h-5 w-5 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-bold text-violet-700 dark:text-violet-300">{sh.expBannerTitle}</p>
+          <p className="text-xs text-violet-600/90 dark:text-violet-400/90 leading-relaxed mt-0.5">{sh.expBannerDesc}</p>
+        </div>
+      </div>
+
       <div className="relative mb-8 max-w-md">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
@@ -180,7 +188,7 @@ function ProductCard({ p, sh }: { p: CjProduct; sh: ReturnType<typeof useLanguag
             </span>
           </div>
           {p.supplyApPrice !== undefined && p.apPrice - p.supplyApPrice > 0 && p.apPrice > 0 && (
-            <p className="flex items-center gap-1 text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+            <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700 dark:text-amber-400 dark:border-amber-700 font-semibold text-[11px]">
               <Sparkles className="h-3 w-3" />
               {sh.expPercentBadge.replace(
                 "{n}",
@@ -188,7 +196,7 @@ function ProductCard({ p, sh }: { p: CjProduct; sh: ReturnType<typeof useLanguag
                 // bonus — must match MENTOR_FUND_RATIO in backend cj-shop.service.ts.
                 Math.floor(((p.apPrice - p.supplyApPrice) / p.apPrice) * 100 * 0.9).toString()
               )}
-            </p>
+            </Badge>
           )}
         </CardContent>
       </Card>

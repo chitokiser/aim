@@ -25,6 +25,12 @@ export class UsersController {
     return this.usersService.findMentees(req.user.sub);
   }
 
+  @Post('daily-visit')
+  @UseGuards(JwtAuthGuard)
+  checkDailyVisit(@Request() req: { user: { sub: string } }) {
+    return this.usersService.checkDailyVisit(req.user.sub);
+  }
+
   @Get('admin/list')
   @UseGuards(JwtAuthGuard)
   async listAll(

@@ -4,6 +4,7 @@ import { Telegram } from 'telegraf';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 import { LevelService } from '../level/level.service';
+import { generateHashtags } from './hashtag.util';
 
 const CJ_BASE = 'https://developers.cjdropshipping.com';
 const AP_PER_USD = 10000;
@@ -198,6 +199,7 @@ export class CjShopService {
       apPrice: computeApPrice(v.cjPriceUsd, marginPercent),
     }));
     const primary = variants[0];
+    const category = dto.category || 'other';
     const product = {
       cjProductId: dto.cjProductId,
       nameKo: dto.nameKo,
@@ -213,7 +215,8 @@ export class CjShopService {
       cjPriceUsd: primary.cjPriceUsd,
       supplyApPrice: primary.supplyApPrice,
       apPrice: primary.apPrice,
-      category: dto.category || 'other',
+      category,
+      hashtags: generateHashtags(dto.nameKo, category),
       active: true,
       createdAt: new Date().toISOString(),
     };
@@ -252,6 +255,8 @@ export class CjShopService {
       apPrice: computeApPrice(v.cjPriceUsd, marginPercent),
     }));
     const primary = variants[0];
+    const nameKo = dto.nameKo ?? (current.nameKo as string);
+    const category = dto.category ?? (current.category as string);
 
     const update = {
       ...dto,
@@ -260,6 +265,7 @@ export class CjShopService {
       cjPriceUsd: primary.cjPriceUsd,
       supplyApPrice: primary.supplyApPrice,
       apPrice: primary.apPrice,
+      ...(dto.nameKo || dto.category ? { hashtags: generateHashtags(nameKo, category) } : {}),
     };
     await ref.update(update);
     return { id, ...current, ...update };

@@ -6,7 +6,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { LevelService } from '../level/level.service';
 import type { DocumentData } from 'firebase-admin/firestore';
 
-const REFERRAL_EXP = 40000;
+const REFERRAL_EXP = 10000;
 
 @Injectable()
 export class AuthService {

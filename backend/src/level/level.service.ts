@@ -4,8 +4,10 @@ import { FirebaseService } from '../firebase/firebase.service';
 // EXP needed to advance from `level` to `level + 1` = level * 2 * 2 * 10000
 const EXP_PER_LEVEL_UNIT = 2 * 2 * 10000;
 
-// Level bonus: every time EXP is awarded, add an extra (current level * 1000) EXP on top
-const LEVEL_BONUS_PER_LEVEL = 1000;
+// One-time level-up bonus: reaching level N grants an extra N * 1,000 EXP
+// (Lv.10 = 10,000 EXP, Lv.50 = 50,000 EXP, Lv.100 = 100,000 EXP), paid once
+// per level gained — not on every EXP award.
+const LEVEL_UP_BONUS_PER_LEVEL = 1000;
 
 export function expNeededForLevel(level: number): number {
   return level * EXP_PER_LEVEL_UNIT;
@@ -58,19 +60,26 @@ export class LevelService {
   }
 
   async awardExp(userId: string, amount: number) {
-    const currentLevel = await this.getCurrentLevel(userId);
-    const levelBonus = currentLevel * LEVEL_BONUS_PER_LEVEL;
-    return this.adjustExp(userId, amount + levelBonus);
+    const ref = this.firebase.collection('users').doc(userId);
+    const snap = await ref.get();
+    if (!snap.exists) return this.adjustExp(userId, amount);
+
+    const data = snap.data() as Record<string, unknown>;
+    const currentLevel = (data.level as number) ?? 1;
+    const currentExp = (data.exp as number) ?? 0;
+    const currentTotalExp = (data.totalExp as number) ?? totalExpFromLevelExp(currentLevel, currentExp);
+
+    // Figure out how many levels the raw EXP alone would cross, so the
+    // one-time per-level bonus can be added on top in the same update.
+    const { level: rawNewLevel } = levelFromTotalExp(currentTotalExp + Math.max(0, amount));
+    let levelUpBonus = 0;
+    for (let l = currentLevel + 1; l <= rawNewLevel; l++) levelUpBonus += l * LEVEL_UP_BONUS_PER_LEVEL;
+
+    return this.adjustExp(userId, amount + levelUpBonus);
   }
 
   spendExp(userId: string, amount: number) {
     return this.adjustExp(userId, -amount);
-  }
-
-  private async getCurrentLevel(userId: string): Promise<number> {
-    const snap = await this.firebase.collection('users').doc(userId).get();
-    if (!snap.exists) return 1;
-    return ((snap.data() as Record<string, unknown>).level as number) ?? 1;
   }
 
   async getSpendableExp(userId: string): Promise<number> {

@@ -4,10 +4,12 @@ import { UsersService } from '../../users/users.service';
 import { MissionsService } from '../../missions/missions.service';
 import { AuthService } from '../../auth/auth.service';
 import { PointsService } from '../../points/points.service';
+import { LevelService } from '../../level/level.service';
 import { BaseTelegrafBotService } from '../base/base-telegraf-bot.service';
 
 const SITE = 'https://ai119.netlify.app';
 const COMMUNITY = 'https://t.me/ai119link';
+const STARS_TOPUP_EXP_RATE = 0.1; // 10% of credited AP is also granted as EXP
 
 @Injectable()
 export class MainBotService extends BaseTelegrafBotService {
@@ -20,6 +22,7 @@ export class MainBotService extends BaseTelegrafBotService {
     private missionsService: MissionsService,
     private authService: AuthService,
     private pointsService: PointsService,
+    private levelService: LevelService,
   ) {
     super();
   }
@@ -580,9 +583,12 @@ export class MainBotService extends BaseTelegrafBotService {
             'stars_topup',
             `Telegram Stars top-up: ${payment.total_amount} Stars`,
           );
+          const expBonus = Math.floor(ap * STARS_TOPUP_EXP_RATE);
+          await this.levelService.awardExp(payload.userId, expBonus);
           await ctx.reply(
             `✅ *Top-Up Complete!*\n\n` +
               `⭐ ${payment.total_amount} Stars → *${ap.toLocaleString()} AP* added to your wallet!\n` +
+              `✨ Bonus: *+${expBonus.toLocaleString()} EXP*\n` +
               `💰 Total value: $${(ap / 10000).toFixed(2)} USD`,
             { parse_mode: 'Markdown', reply_markup: this.mainKeyboard() },
           );

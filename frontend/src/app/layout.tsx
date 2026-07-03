@@ -6,6 +6,7 @@ import { Navbar } from "@/components/navbar";
 import { Toaster } from "@/components/ui/sonner";
 import { Providers } from "@/components/providers";
 import { TelegramAutoLogin } from "@/components/telegram-auto-login";
+import { DailyVisitTracker } from "@/components/daily-visit-tracker";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,6 +64,7 @@ export default function RootLayout({
           <Suspense>
             <TelegramAutoLogin />
           </Suspense>
+          <DailyVisitTracker />
           <Navbar />
           <main>{children}</main>
           <Toaster />

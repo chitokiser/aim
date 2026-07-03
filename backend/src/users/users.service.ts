@@ -1,14 +1,20 @@
 ﻿import { Injectable, NotFoundException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
+import { LevelService } from '../level/level.service';
 
 function generateReferralCode(telegramId: string): string {
   const base = parseInt(telegramId, 10) % 1000000;
   return `AI119${base.toString().padStart(6, '0')}`;
 }
 
+const DAILY_VISIT_EXP = 100;
+
 @Injectable()
 export class UsersService {
-  constructor(private firebase: FirebaseService) {}
+  constructor(
+    private firebase: FirebaseService,
+    private readonly levelService: LevelService,
+  ) {}
 
   async findById(id: string) {
     const doc = await this.firebase.collection('users').doc(id).get();
@@ -121,12 +127,27 @@ export class UsersService {
 
     const ref = await this.firebase.collection('users').add(newUser);
 
-    // AP bonus to mentor for the referral
+    // EXP bonus to mentor for the referral — EXP is a free virtual currency
+    // (unlike AP, which is real-money-backed and must never be given away for free)
     if (mentor?.id) {
-      await this.addPoints(mentor.id as string, 1000);
+      await this.levelService.awardExp(mentor.id as string, 10000);
     }
 
     return { user: { id: ref.id, ...newUser }, isNew: true };
+  }
+
+  async checkDailyVisit(userId: string): Promise<{ awarded: boolean; exp: number }> {
+    const ref = this.firebase.collection('users').doc(userId);
+    const snap = await ref.get();
+    if (!snap.exists) return { awarded: false, exp: 0 };
+
+    const today = new Date().toISOString().slice(0, 10);
+    const lastVisitDate = (snap.data() as Record<string, unknown>).lastVisitDate as string | undefined;
+    if (lastVisitDate === today) return { awarded: false, exp: 0 };
+
+    await ref.update({ lastVisitDate: today });
+    await this.levelService.awardExp(userId, DAILY_VISIT_EXP);
+    return { awarded: true, exp: DAILY_VISIT_EXP };
   }
 
   async addPoints(userId: string, amount: number): Promise<void> {

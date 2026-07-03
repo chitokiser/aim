@@ -168,12 +168,10 @@ export default function HomePage() {
   ];
 
   const POINT_ITEMS = [
-    { action: h.pointPost, points: "+1,000 AP", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-950/20" },
-    { action: h.pointLike, points: "+500 AP", color: "text-pink-600", bg: "bg-pink-50 dark:bg-pink-950/20" },
-    { action: h.pointComment, points: "+500 AP", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/20" },
-    { action: h.pointMission, points: h.pointMissionValue, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20" },
-    { action: h.pointReferral, points: "+2,000 AP", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/20" },
-    { action: h.pointExchange, points: "10,000 AP = 1 USD", color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-950/20" },
+    { action: h.pointReferral, points: "+10,000 EXP", color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/20" },
+    { action: h.pointMission, points: "+2,000 EXP", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20" },
+    { action: h.pointDailyVisit, points: "+100 EXP", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-950/20" },
+    { action: h.pointStarsTopup, points: "+10% EXP", color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-950/20" },
   ];
 
   return (

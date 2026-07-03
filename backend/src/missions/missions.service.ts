@@ -8,7 +8,7 @@ import { LevelService } from '../level/level.service';
 import type { Query } from 'firebase-admin/firestore';
 
 const POST_SUBMIT_EXP = 1000;
-const MISSION_COMPLETE_EXP = 10000;
+const MISSION_COMPLETE_EXP = 2000;
 
 @Injectable()
 export class MissionsService {
