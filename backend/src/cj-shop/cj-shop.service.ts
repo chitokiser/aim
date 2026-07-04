@@ -199,18 +199,31 @@ export class CjShopService {
 
   // Products registered before productNumber existed have none — assign one
   // lazily (oldest first, so numbering roughly matches registration order).
+  // One transaction for the whole batch — a prior per-doc-transaction version
+  // did N sequential round trips to Firestore and made the products list
+  // endpoint time out once the catalog grew past a handful of items.
   private async backfillMissingProductNumbers(
     docs: FirebaseFirestore.QueryDocumentSnapshot[],
   ): Promise<Map<string, number>> {
-    const assigned = new Map<string, number>();
     const missing = docs
       .filter((d) => (d.data() as Record<string, unknown>).productNumber === undefined)
-      .sort((a, b) => ((a.data().createdAt as string) ?? '').localeCompare((b.data().createdAt as string) ?? ''));
-    for (const doc of missing) {
-      const productNumber = await this.getNextProductNumber();
-      await doc.ref.update({ productNumber });
-      assigned.set(doc.id, productNumber);
-    }
+      .sort((a, b) => ((a.data().createdAt as string) ?? '').localeCompare((b.data().createdAt as string) ?? ''))
+      // Firestore caps writes per transaction at 500; leave room for the counter write.
+      .slice(0, 490);
+    const assigned = new Map<string, number>();
+    if (missing.length === 0) return assigned;
+
+    const counterRef = this.firebase.collection('config').doc('cj_product_number_counter');
+    await this.firebase.getFirestore().runTransaction(async (tx) => {
+      const counterSnap = await tx.get(counterRef);
+      let next = (counterSnap.data()?.value as number | undefined) ?? 0;
+      for (const doc of missing) {
+        next += 1;
+        assigned.set(doc.id, next);
+        tx.update(doc.ref, { productNumber: next });
+      }
+      tx.set(counterRef, { value: next }, { merge: true });
+    });
     return assigned;
   }
 
