@@ -1,0 +1,27 @@
+name: Deploy Backend to Railway
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - "backend/**"
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+
+      - name: Deploy ai119-bot service to Railway
+        working-directory: backend
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          railway up --ci --detach \
+            --service e8b90957-f2b0-4e48-ac07-c322e87f006c \
+            --environment 7e40bae8-57ce-47c6-9197-46f509bf41e0 \
+            --project b848e338-3996-499f-a00c-20552a80bddc
