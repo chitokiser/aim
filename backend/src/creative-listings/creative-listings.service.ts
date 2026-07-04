@@ -1,16 +1,31 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
+import { LevelService } from '../level/level.service';
 
 const COLLECTION = 'creative_listings';
 const LIKES_COLLECTION = 'creative_listing_likes';
+const LIKE_EXP_COLLECTION = 'creative_listing_like_exp';
+const COMMENT_EXP_COLLECTION = 'creative_listing_comment_exp';
 const CONTENT_TYPES = ['video', 'image', 'audio', 'other'];
+
+// EXP reward rules for Creative Market activity (see project docs):
+// - Registering a listing: 1000 EXP, capped at once per day per user
+// - Being liked/commented on: reward to the listing owner, once per unique member per listing
+// - Liking/commenting: reward to the actor, once per listing (repeat actions don't re-earn)
+// Self-interaction (owner liking/commenting on their own listing) is excluded to prevent farming.
+const REGISTER_EXP = 1000;
+const LIKE_OWNER_EXP = 10;
+const LIKE_ACTOR_EXP = 10;
+const COMMENT_OWNER_EXP = 10;
+const COMMENT_ACTOR_EXP = 100;
 
 @Injectable()
 export class CreativeListingsService {
   constructor(
     private readonly firebase: FirebaseService,
     private readonly points: PointsService,
+    private readonly level: LevelService,
   ) {}
 
   async findAll(contentType?: string): Promise<unknown[]> {
@@ -29,7 +44,8 @@ export class CreativeListingsService {
   }
 
   async create(userId: string, dto: Record<string, unknown>): Promise<{ id: string }> {
-    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    const userRef = this.firebase.collection('users').doc(userId);
+    const userSnap = await userRef.get();
     if (!userSnap.exists) throw new NotFoundException('User not found');
     const user = userSnap.data()!;
 
@@ -59,6 +75,13 @@ export class CreativeListingsService {
     };
 
     const ref = await this.firebase.collection(COLLECTION).add(listing);
+
+    const today = new Date().toISOString().slice(0, 10);
+    if ((user.lastCreativeRegisterExpDate as string | undefined) !== today) {
+      await userRef.update({ lastCreativeRegisterExpDate: today });
+      await this.level.awardExp(userId, REGISTER_EXP);
+    }
+
     return { id: ref.id };
   }
 
@@ -185,8 +208,21 @@ export class CreativeListingsService {
       await likeRef.set({ userId, listingId, createdAt: new Date().toISOString() });
       const newCount = currentCount + 1;
       await ref.update({ likeCount: newCount });
+      await this.awardLikeExpOnce(listingId, userId, snap.data()?.sellerId as string);
       return { liked: true, likeCount: newCount };
     }
+  }
+
+  // Awards EXP once per (member, listing) pair, the first time that member likes
+  // that listing — re-liking after an unlike does not re-earn it. Self-likes are excluded.
+  private async awardLikeExpOnce(listingId: string, userId: string, sellerId: string): Promise<void> {
+    if (userId === sellerId) return;
+    const rewardRef = this.firebase.collection(LIKE_EXP_COLLECTION).doc(`${userId}_${listingId}`);
+    const rewardSnap = await rewardRef.get();
+    if (rewardSnap.exists) return;
+    await rewardRef.set({ userId, listingId, createdAt: new Date().toISOString() });
+    await this.level.awardExp(userId, LIKE_ACTOR_EXP);
+    await this.level.awardExp(sellerId, LIKE_OWNER_EXP);
   }
 
   async getMyLikedIds(userId: string): Promise<string[]> {
@@ -227,7 +263,22 @@ export class CreativeListingsService {
     const currentCount = (snap.data()?.commentCount as number) ?? 0;
     await ref.update({ commentCount: currentCount + 1 });
 
+    await this.awardCommentExpOnce(listingId, userId, snap.data()?.sellerId as string);
+
     return { id: commentRef.id };
+  }
+
+  // Awards EXP once per (member, listing) pair, the first time that member comments
+  // on that listing — further comments by the same member on the same listing don't
+  // re-earn it. Self-comments are excluded.
+  private async awardCommentExpOnce(listingId: string, userId: string, sellerId: string): Promise<void> {
+    if (userId === sellerId) return;
+    const rewardRef = this.firebase.collection(COMMENT_EXP_COLLECTION).doc(`${userId}_${listingId}`);
+    const rewardSnap = await rewardRef.get();
+    if (rewardSnap.exists) return;
+    await rewardRef.set({ userId, listingId, createdAt: new Date().toISOString() });
+    await this.level.awardExp(userId, COMMENT_ACTOR_EXP);
+    await this.level.awardExp(sellerId, COMMENT_OWNER_EXP);
   }
 
   async deleteComment(listingId: string, commentId: string, userId: string): Promise<{ ok: boolean }> {

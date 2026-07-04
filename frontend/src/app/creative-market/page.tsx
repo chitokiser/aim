@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -16,7 +17,7 @@ import {
 import { toast } from "sonner";
 import {
   Video, Image as ImageIcon, Music, FileQuestion, ExternalLink, Loader2,
-  Plus, Trash2, Coins, ShoppingBag, Heart, MessageCircle, Pencil,
+  Plus, Trash2, Coins, ShoppingBag, Heart, MessageCircle, Pencil, Sparkles,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -107,6 +108,7 @@ function ListingCard({
     tags: (initialListing.tags ?? []).join(", "),
   });
   const [saving, setSaving] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const commentInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -329,36 +331,42 @@ function ListingCard({
     <Card className={sold ? "opacity-70" : ""}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 w-14 h-14 rounded-lg bg-muted shrink-0 overflow-hidden flex items-center justify-center">
-            {listing.thumbnailUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={listing.thumbnailUrl} alt={listing.title} className="w-full h-full object-cover" />
-            ) : (
-              <ContentTypeIcon type={listing.contentType} />
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h3 className="font-bold leading-tight">{listing.title}</h3>
-              {sold && (
-                <Badge className="bg-muted-foreground text-white text-xs">{t.soldLabel}</Badge>
-              )}
-              <Badge variant="secondary" className="text-xs capitalize">{listing.contentType}</Badge>
-            </div>
-            {listing.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{listing.description}</p>
-            )}
-            <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/70">{listing.sellerName}</span>
-              <span className="flex items-center gap-1 font-semibold text-violet-600">
-                <Coins className="h-3.5 w-3.5" />
-                {listing.price.toLocaleString()} AP
-              </span>
-              {listing.tags?.length > 0 && (
-                <span className="font-mono text-violet-500">{listing.tags.map((x) => `#${x}`).join(" ")}</span>
+          <button
+            type="button"
+            onClick={() => setDetailOpen(true)}
+            className="flex items-start gap-3 flex-1 min-w-0 text-left cursor-pointer"
+          >
+            <div className="mt-0.5 w-14 h-14 rounded-lg bg-muted shrink-0 overflow-hidden flex items-center justify-center">
+              {listing.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={listing.thumbnailUrl} alt={listing.title} className="w-full h-full object-cover" />
+              ) : (
+                <ContentTypeIcon type={listing.contentType} />
               )}
             </div>
-          </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <h3 className="font-bold leading-tight">{listing.title}</h3>
+                {sold && (
+                  <Badge className="bg-muted-foreground text-white text-xs">{t.soldLabel}</Badge>
+                )}
+                <Badge variant="secondary" className="text-xs capitalize">{listing.contentType}</Badge>
+              </div>
+              {listing.description && (
+                <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{listing.description}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                <span className="font-medium text-foreground/70">{listing.sellerName}</span>
+                <span className="flex items-center gap-1 font-semibold text-violet-600">
+                  <Coins className="h-3.5 w-3.5" />
+                  {listing.price.toLocaleString()} AP
+                </span>
+                {listing.tags?.length > 0 && (
+                  <span className="font-mono text-violet-500">{listing.tags.map((x) => `#${x}`).join(" ")}</span>
+                )}
+              </div>
+            </div>
+          </button>
           <div className="flex flex-col gap-1 shrink-0">
             {listing.link && (
               <a
@@ -471,6 +479,54 @@ function ListingCard({
           </div>
         )}
       </CardContent>
+
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
+              {listing.title}
+              {sold && (
+                <Badge className="bg-muted-foreground text-white text-xs">{t.soldLabel}</Badge>
+              )}
+              <Badge variant="secondary" className="text-xs capitalize">{listing.contentType}</Badge>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="w-full aspect-video rounded-lg bg-muted overflow-hidden flex items-center justify-center">
+              {listing.thumbnailUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={listing.thumbnailUrl} alt={listing.title} className="w-full h-full object-cover" />
+              ) : (
+                <ContentTypeIcon type={listing.contentType} className="h-10 w-10 text-muted-foreground" />
+              )}
+            </div>
+            {listing.description && (
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{listing.description}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="font-medium text-foreground/80">{t.seller}: {listing.sellerName}</span>
+              <span className="flex items-center gap-1 font-semibold text-violet-600">
+                <Coins className="h-4 w-4" />
+                {listing.price.toLocaleString()} AP
+              </span>
+            </div>
+            {listing.tags?.length > 0 && (
+              <div className="font-mono text-sm text-violet-500">{listing.tags.map((x) => `#${x}`).join(" ")}</div>
+            )}
+            {listing.link && (
+              <a
+                href={listing.link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={buttonVariants({ size: "sm", variant: "outline", className: "gap-1" })}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                {t.viewBtn}
+              </a>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -618,10 +674,26 @@ export default function CreativeMarketPage() {
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-3xl font-black mb-1">{cm.title}</h1>
         <p className="text-muted-foreground">{cm.subtitle}</p>
       </div>
+
+      <Card className="mb-8 border-violet-200 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-2 mb-2 font-bold text-sm text-violet-700 dark:text-violet-300">
+            <Sparkles className="h-4 w-4" />
+            {cm.rewardsTitle}
+          </div>
+          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+            <li>{cm.rewardsRegister}</li>
+            <li>{cm.rewardsCommentReceived}</li>
+            <li>{cm.rewardsCommentGiven}</li>
+            <li>{cm.rewardsLikeReceived}</li>
+            <li>{cm.rewardsLikeGiven}</li>
+          </ul>
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="browse">
         <TabsList className="mb-6">
