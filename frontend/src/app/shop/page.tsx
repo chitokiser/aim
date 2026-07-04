@@ -13,6 +13,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 interface CjProduct {
   id: string;
+  productNumber?: number;
   nameKo: string;
   images: string[];
   apPrice: number;
@@ -60,7 +61,11 @@ function ShopPageContent() {
   const searchTerm = search.trim().toLowerCase();
   const filteredProducts = products
     .filter((p) => category === "all" || (p.category || "other") === category)
-    .filter((p) => !searchTerm || p.nameKo.toLowerCase().includes(searchTerm));
+    .filter((p) =>
+      !searchTerm ||
+      p.nameKo.toLowerCase().includes(searchTerm) ||
+      String(p.productNumber ?? "").includes(searchTerm)
+    );
 
   return (
     <div className="container mx-auto px-4 py-10">
@@ -177,6 +182,9 @@ function ProductCard({ p, sh }: { p: CjProduct; sh: ReturnType<typeof useLanguag
           )}
         </div>
         <CardContent className="p-4">
+          {p.productNumber !== undefined && (
+            <p className="text-[11px] font-mono text-muted-foreground mb-1">No. {p.productNumber}</p>
+          )}
           <p className="font-semibold text-sm leading-snug line-clamp-2 mb-2 min-h-[2.5rem]">{p.nameKo}</p>
           <div className="flex items-center justify-between mb-2">
             <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1">

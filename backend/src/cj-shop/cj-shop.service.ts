@@ -185,6 +185,35 @@ export class CjShopService {
 
   // ── Admin: curated product catalog (cj_products) ─────────────────────────
 
+  // Sequential, human-readable product number so users/admins can reference or
+  // search a product without its long Firestore doc id / CJ product id.
+  private async getNextProductNumber(): Promise<number> {
+    const counterRef = this.firebase.collection('config').doc('cj_product_number_counter');
+    return this.firebase.getFirestore().runTransaction(async (tx) => {
+      const snap = await tx.get(counterRef);
+      const next = ((snap.data()?.value as number | undefined) ?? 0) + 1;
+      tx.set(counterRef, { value: next }, { merge: true });
+      return next;
+    });
+  }
+
+  // Products registered before productNumber existed have none — assign one
+  // lazily (oldest first, so numbering roughly matches registration order).
+  private async backfillMissingProductNumbers(
+    docs: FirebaseFirestore.QueryDocumentSnapshot[],
+  ): Promise<Map<string, number>> {
+    const assigned = new Map<string, number>();
+    const missing = docs
+      .filter((d) => (d.data() as Record<string, unknown>).productNumber === undefined)
+      .sort((a, b) => ((a.data().createdAt as string) ?? '').localeCompare((b.data().createdAt as string) ?? ''));
+    for (const doc of missing) {
+      const productNumber = await this.getNextProductNumber();
+      await doc.ref.update({ productNumber });
+      assigned.set(doc.id, productNumber);
+    }
+    return assigned;
+  }
+
   async registerProduct(dto: RegisterProductDto) {
     if (!dto.variants || dto.variants.length === 0) {
       throw new BadRequestException('At least one variant is required');
@@ -200,7 +229,9 @@ export class CjShopService {
     }));
     const primary = variants[0];
     const category = dto.category || 'other';
+    const productNumber = await this.getNextProductNumber();
     const product = {
+      productNumber,
       cjProductId: dto.cjProductId,
       nameKo: dto.nameKo,
       images: dto.images ?? [],
@@ -278,7 +309,8 @@ export class CjShopService {
 
   async listAllProducts() {
     const snap = await this.firebase.collection('cj_products').orderBy('createdAt', 'desc').get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const assigned = await this.backfillMissingProductNumbers(snap.docs);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data(), ...(assigned.has(d.id) ? { productNumber: assigned.get(d.id) } : {}) }));
   }
 
   async listFeaturedProducts() {
@@ -293,7 +325,8 @@ export class CjShopService {
 
   async listActiveProducts() {
     const snap = await this.firebase.collection('cj_products').where('active', '==', true).get();
-    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const assigned = await this.backfillMissingProductNumbers(snap.docs);
+    return snap.docs.map((d) => ({ id: d.id, ...d.data(), ...(assigned.has(d.id) ? { productNumber: assigned.get(d.id) } : {}) }));
   }
 
   async getProduct(id: string) {

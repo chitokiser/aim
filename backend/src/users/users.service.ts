@@ -95,14 +95,18 @@ export class UsersService {
     lastName?: string;
     username?: string;
     refCode?: string;
-  }): Promise<{ user: Record<string, unknown>; isNew: boolean }> {
+  }): Promise<{ user: Record<string, unknown>; isNew: boolean; referredByCode: boolean }> {
     const existing = await this.findByTelegramId(params.telegramId);
-    if (existing) return { user: existing, isNew: false };
+    if (existing) return { user: existing, isNew: false, referredByCode: false };
 
-    // Resolve mentor — referral code takes priority, else admin fallback
+    // Resolve mentor — referral code takes priority, else admin fallback.
+    // referredByCode only tracks the explicit-code case, not the admin fallback,
+    // since the signup EXP bonus below exists to reward entering a real code.
     let mentor: ({ id: string } & Record<string, unknown>) | null = null;
+    let referredByCode = false;
     if (params.refCode) {
       mentor = (await this.findByReferralCode(params.refCode)) as typeof mentor;
+      if (mentor) referredByCode = true;
     }
     if (!mentor) {
       mentor = await this.findAdminUser();
@@ -132,8 +136,13 @@ export class UsersService {
     if (mentor?.id) {
       await this.levelService.awardExp(mentor.id as string, 10000);
     }
+    // Matching EXP bonus to the new member themselves, to encourage entering a
+    // referral code instead of skipping it at signup.
+    if (referredByCode) {
+      await this.levelService.awardExp(ref.id, 10000);
+    }
 
-    return { user: { id: ref.id, ...newUser }, isNew: true };
+    return { user: { id: ref.id, ...newUser }, isNew: true, referredByCode };
   }
 
   async checkDailyVisit(userId: string): Promise<{ awarded: boolean; exp: number }> {

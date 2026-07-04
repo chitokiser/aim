@@ -139,6 +139,7 @@ export class AuthService {
 
     let userId: string;
     let user: import('firebase-admin/firestore').DocumentData;
+    let referredByCode = false;
 
     if (!existing.empty) {
       const doc = existing.docs[0];
@@ -156,6 +157,9 @@ export class AuthService {
           });
           await usersRef.doc(mentorDoc.id).update({ points: ((mentorData.points as number) ?? 0) + 1000 });
           await this.levelService.awardExp(mentorDoc.id, REFERRAL_EXP);
+          // Matching EXP bonus to the member themselves for entering a referral code.
+          await this.levelService.awardExp(userId, REFERRAL_EXP);
+          referredByCode = true;
           user = { ...user, mentorId: mentorDoc.id, mentorUsername: mentorData.username ?? null };
         }
       }
@@ -182,6 +186,9 @@ export class AuthService {
             });
             await usersRef.doc(mentorDoc.id).update({ points: ((mentorData.points as number) ?? 0) + 1000 });
             await this.levelService.awardExp(mentorDoc.id, REFERRAL_EXP);
+            // Matching EXP bonus to the member themselves for entering a referral code.
+            await this.levelService.awardExp(userId, REFERRAL_EXP);
+            referredByCode = true;
             user = { ...user, mentorId: mentorDoc.id, mentorUsername: mentorData.username ?? null };
           }
         }
@@ -200,6 +207,7 @@ export class AuthService {
             mentorId = mentorDoc.id;
             mentorUsername = (mentorDoc.data().username as string | null) ?? null;
             mentorCurrentPoints = (mentorDoc.data().points as number) ?? 0;
+            referredByCode = true;
           }
         }
 
@@ -237,11 +245,15 @@ export class AuthService {
           await usersRef.doc(mentorId).update({ points: mentorCurrentPoints + 1000 });
           await this.levelService.awardExp(mentorId, REFERRAL_EXP);
         }
+        // Matching EXP bonus to the new member for entering a referral code at signup.
+        if (referredByCode) {
+          await this.levelService.awardExp(userId, REFERRAL_EXP);
+        }
       }
     }
 
     const token = this.jwt.sign({ sub: userId, googleId: decoded.uid });
-    return { token, user: { id: userId, ...user } };
+    return { token, user: { id: userId, ...user }, referredByCode };
   }
 
   async loginOrRegister(telegramData: Record<string, string>) {
@@ -253,6 +265,7 @@ export class AuthService {
 
     let user: DocumentData;
     let userId: string;
+    let referredByCode = false;
 
     if (!existing.empty) {
       const doc = existing.docs[0];
@@ -273,6 +286,7 @@ export class AuthService {
           mentorId = mentorDoc.id;
           mentorUsername = (mentorDoc.data().username as string | null) ?? null;
           mentorCurrentPoints = (mentorDoc.data().points as number) ?? 0;
+          referredByCode = true;
         }
       }
 
@@ -311,10 +325,14 @@ export class AuthService {
         await usersRef.doc(mentorId).update({ points: mentorCurrentPoints + 1000 });
         await this.levelService.awardExp(mentorId, REFERRAL_EXP);
       }
+      // Matching EXP bonus to the new member for entering a referral code at signup.
+      if (referredByCode) {
+        await this.levelService.awardExp(userId, REFERRAL_EXP);
+      }
     }
 
     const token = this.jwt.sign({ sub: userId, telegramId });
-    return { token, user: { id: userId, ...user } };
+    return { token, user: { id: userId, ...user }, referredByCode };
   }
 
   async bootstrapAdmin(params: {

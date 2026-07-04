@@ -196,7 +196,7 @@ export class MainBotService extends BaseTelegrafBotService {
 
       const refCode = (payload.startsWith('AIM') || payload.startsWith('AI119')) ? payload : undefined;
 
-      const { user, isNew } = await this.usersService.registerFromTelegram({
+      const { user, isNew, referredByCode } = await this.usersService.registerFromTelegram({
         telegramId: String(tg.id),
         firstName: tg.first_name,
         lastName: tg.last_name,
@@ -208,7 +208,10 @@ export class MainBotService extends BaseTelegrafBotService {
       const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
 
       const greeting = isNew
-        ? `🎉 *Welcome, ${tg.first_name}!*\n\n✅ Registration complete!\n🔗 Your referral code: \`${userData.referralCode}\`\n👨‍🏫 Mentor: ${userData.mentorId ? 'Assigned ✅' : 'None'}\n\n`
+        ? `🎉 *Welcome, ${tg.first_name}!*\n\n✅ Registration complete!\n🔗 Your referral code: \`${userData.referralCode}\`\n👨‍🏫 Mentor: ${userData.mentorId ? 'Assigned ✅' : 'None'}\n\n` +
+          (referredByCode
+            ? `✨ *+10,000 EXP* bonus for signing up with a referral code!\n\n`
+            : `💡 Tip: sign up with a friend's referral link next time to get an extra *+10,000 EXP*!\n\n`)
         : `👋 *Welcome back, ${tg.first_name}!*\n\n`;
 
       await ctx.reply(
@@ -444,7 +447,7 @@ export class MainBotService extends BaseTelegrafBotService {
 
       const refCode = (linkName?.startsWith('AIM') || linkName?.startsWith('AI119')) ? linkName : undefined;
 
-      const { user, isNew } = await this.usersService.registerFromTelegram({
+      const { user, isNew, referredByCode } = await this.usersService.registerFromTelegram({
         telegramId: String(applicant.id),
         firstName: applicant.first_name,
         lastName: applicant.last_name,
@@ -479,10 +482,16 @@ export class MainBotService extends BaseTelegrafBotService {
       // Always send a DM so the user gets a direct login button — critical for iOS users
       const loginToken = this.authService.createBotLoginToken(String(applicant.id), applicant);
       const bonusLine = rewardAP > 0 ? `\n🎁 가입 보상: *${rewardAP.toLocaleString()} AP* 지급완료!\n` : '\n';
+      const expLine = isNew
+        ? referredByCode
+          ? `✨ 추천인 코드로 가입하여 *+10,000 EXP* 보너스를 받았습니다!\n`
+          : `💡 다음엔 친구의 추천 링크로 가입하면 *+10,000 EXP* 보너스를 추가로 받을 수 있어요!\n`
+        : '';
       await ctx.telegram.sendMessage(
         applicant.id,
         `🎉 *${applicant.first_name}님, AI119에 오신 것을 환영합니다!*\n` +
-          `${bonusLine}\n` +
+          `${bonusLine}` +
+          `${expLine}\n` +
           `아래 버튼을 눌러 AI119 플랫폼에 바로 로그인하세요 👇`,
         {
           parse_mode: 'Markdown',
@@ -507,7 +516,7 @@ export class MainBotService extends BaseTelegrafBotService {
               mentor.telegramId as string,
               `🎉 *New mentee joined!*\n\n` +
                 `👤 ${applicant.first_name}${applicant.username ? ` (@${applicant.username})` : ''}\n` +
-                `💰 Referral bonus *1,000 AP* credited!`,
+                `✨ Referral bonus *+10,000 EXP* credited!`,
               { parse_mode: 'Markdown' },
             )
             .catch(() => {});

@@ -71,10 +71,11 @@ export default function AuthPage() {
         clearTimeout(tid);
 
         if (res.ok) {
-          const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0] };
+          const data = await res.json() as { token: string; user: Parameters<typeof setUser>[0]; referredByCode?: boolean };
           sessionStorage.removeItem("pendingRefCode");
           setToken(data.token);
           setUser(data.user);
+          if (data.referredByCode) toast.success(t.auth.refCodeRewardToast);
           router.push("/");
           return;
         }
@@ -166,6 +167,7 @@ export default function AuthPage() {
                 placeholder={t.auth.refCodePlaceholder}
                 className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-500"
               />
+              <p className="text-xs text-emerald-400">{t.auth.refCodeIncentive}</p>
             </div>
 
             {/* Primary: Telegram Bot login (works without BotFather domain setup) */}

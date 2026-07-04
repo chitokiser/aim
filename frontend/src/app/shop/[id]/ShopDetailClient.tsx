@@ -28,6 +28,7 @@ interface ProductVariant {
 
 interface CjProduct {
   id: string;
+  productNumber?: number;
   nameKo: string;
   images: string[];
   video?: string | null;
@@ -184,6 +185,9 @@ export default function ShopDetailClient({ id }: { id: string }) {
         </div>
 
         <div>
+          {product.productNumber !== undefined && (
+            <p className="text-xs font-mono text-muted-foreground mb-1">No. {product.productNumber}</p>
+          )}
           <h1 className="text-2xl font-bold mb-3">{product.nameKo}</h1>
           {product.hashtags && product.hashtags.length > 0 && (
             <div className="flex flex-wrap gap-1.5 mb-3">

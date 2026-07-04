@@ -204,7 +204,7 @@ export default function AdminPage() {
   interface CjVariant { vid: string; variantNameEn?: string; variantSellPrice?: string; variantImage?: string }
   interface CjProductVariant { vid: string; label: string; image?: string; cjPriceUsd: number; supplyApPrice: number; apPrice: number }
   interface CjProductAdmin {
-    id: string; cjProductId: string; cjVariantId: string; nameKo: string;
+    id: string; productNumber?: number; cjProductId: string; cjVariantId: string; nameKo: string;
     images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
     category?: string; variants?: CjProductVariant[]; featured?: boolean;
   }
@@ -241,7 +241,11 @@ export default function AdminPage() {
   const cjListSearchLower = cjListSearch.trim().toLowerCase();
   const visibleCjProducts = cjProducts
     .filter((p) => cjListCategory === "all" || (p.category ?? "other") === cjListCategory)
-    .filter((p) => !cjListSearchLower || p.nameKo.toLowerCase().includes(cjListSearchLower))
+    .filter((p) =>
+      !cjListSearchLower ||
+      p.nameKo.toLowerCase().includes(cjListSearchLower) ||
+      String(p.productNumber ?? "").includes(cjListSearchLower)
+    )
     .filter((p) => !cjListFeaturedOnly || p.featured === true);
   const [cjOrders, setCjOrders] = useState<CjOrderAdmin[]>([]);
   const [cjOrdersLoading, setCjOrdersLoading] = useState(false);
@@ -2654,7 +2658,7 @@ export default function AdminPage() {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                     <Input
                       className="h-8 text-xs pl-8"
-                      placeholder="상품명 검색..."
+                      placeholder="상품명 또는 번호 검색..."
                       value={cjListSearch}
                       onChange={(e) => setCjListSearch(e.target.value)}
                     />
@@ -2726,6 +2730,9 @@ export default function AdminPage() {
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">
+                              {p.productNumber !== undefined && (
+                                <span className="mr-1.5 font-mono text-[11px] text-muted-foreground">No.{p.productNumber}</span>
+                              )}
                               {p.nameKo}
                               {p.variants && p.variants.length > 1 && (
                                 <span className="ml-1.5 text-[11px] font-normal text-violet-600 dark:text-violet-400">

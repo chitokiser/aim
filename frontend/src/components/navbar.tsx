@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
   Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film, Music,
-  ArrowLeftRight, ShoppingBag, Package,
+  ArrowLeftRight, ShoppingBag, Package, Star,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -225,6 +225,12 @@ export function Navbar() {
                     {user.points.toLocaleString()} AP
                   </span>
                 </div>
+                <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 dark:border-amber-800 px-3 py-1">
+                  <Star className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                    Lv.{user.level ?? 1} · {(user.exp ?? 0).toLocaleString()} EXP
+                  </span>
+                </div>
               </div>
 
               {/* User Menu */}
@@ -386,11 +392,19 @@ export function Navbar() {
           </div>
           {(mounted && user) && (
             <div className="pt-2 border-t mt-2 space-y-1">
-              <div className="flex items-center gap-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 px-3 py-1.5 w-fit mb-2">
-                <Coins className="h-4 w-4 text-violet-600" />
-                <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">
-                  {user.points.toLocaleString()} AP
-                </span>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <div className="flex items-center gap-1.5 rounded-full bg-violet-50 dark:bg-violet-950/20 px-3 py-1.5 w-fit">
+                  <Coins className="h-4 w-4 text-violet-600" />
+                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">
+                    {user.points.toLocaleString()} AP
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-950/20 px-3 py-1.5 w-fit">
+                  <Star className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                    Lv.{user.level ?? 1} · {(user.exp ?? 0).toLocaleString()} EXP
+                  </span>
+                </div>
               </div>
               <Link
                 href="/profile"
