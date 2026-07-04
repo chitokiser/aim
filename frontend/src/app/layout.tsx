@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
@@ -24,7 +24,12 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://ai119.netlify.app"),
   icons: {
     icon: "/images/favicon.png",
-    apple: "/images/favicon.png",
+    apple: "/images/apple-touch-icon.png",
+  },
+  manifest: "/manifest.json",
+  appleWebApp: {
+    title: "AI119",
+    statusBarStyle: "black-translucent",
   },
   verification: {
     google: "iSwGv7PBrGFOxh8LIKrKNegCUYW32fXo8EdbQby2Cg8",
@@ -50,6 +55,10 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#7c3aed",
 };
 
 export default function RootLayout({
