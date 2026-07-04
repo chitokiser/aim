@@ -329,8 +329,13 @@ function ListingCard({
     <Card className={sold ? "opacity-70" : ""}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className="mt-0.5 p-2 rounded-lg bg-muted shrink-0">
-            <ContentTypeIcon type={listing.contentType} />
+          <div className="mt-0.5 w-14 h-14 rounded-lg bg-muted shrink-0 overflow-hidden flex items-center justify-center">
+            {listing.thumbnailUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={listing.thumbnailUrl} alt={listing.title} className="w-full h-full object-cover" />
+            ) : (
+              <ContentTypeIcon type={listing.contentType} />
+            )}
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -815,8 +820,13 @@ export default function CreativeMarketPage() {
                   <Card key={l.id}>
                     <CardContent className="p-4">
                       <div className="flex items-start gap-3">
-                        <div className="mt-0.5 p-2 rounded-lg bg-muted shrink-0">
-                          <ContentTypeIcon type={l.contentType} />
+                        <div className="mt-0.5 w-14 h-14 rounded-lg bg-muted shrink-0 overflow-hidden flex items-center justify-center">
+                          {l.thumbnailUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={l.thumbnailUrl} alt={l.title} className="w-full h-full object-cover" />
+                          ) : (
+                            <ContentTypeIcon type={l.contentType} />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <h3 className="font-bold leading-tight mb-1">{l.title}</h3>
