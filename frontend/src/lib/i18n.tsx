@@ -794,6 +794,7 @@ const T = {
       rewardsCommentGiven: "You comment on a work: +100 EXP (once per work)",
       rewardsLikeReceived: "Your work gets a like: +10 EXP (once per member per work)",
       rewardsLikeGiven: "You like a work: +10 EXP (once per work)",
+      backBtn: "Back",
     },
     auction: {
       title: "Digital Asset Auction",
@@ -1867,6 +1868,7 @@ const T = {
       rewardsCommentGiven: "창작품에 댓글을 달면: 100EXP (창작품 1개당 1회)",
       rewardsLikeReceived: "내 창작품에 좋아요가 달리면: 10EXP (회원 1명당 1회, 등록자 지급)",
       rewardsLikeGiven: "창작품에 좋아요를 누르면: 10EXP (창작품 1개당 1회)",
+      backBtn: "돌아가기",
     },
     auction: {
       title: "디지털자산 경매",
@@ -2940,6 +2942,7 @@ const T = {
       rewardsCommentGiven: "Bạn bình luận vào một tác phẩm: +100 EXP (1 lần/tác phẩm)",
       rewardsLikeReceived: "Tác phẩm của bạn nhận lượt thích: +10 EXP (1 lần/thành viên/tác phẩm, trả cho người đăng)",
       rewardsLikeGiven: "Bạn thích một tác phẩm: +10 EXP (1 lần/tác phẩm)",
+      backBtn: "Quay lại",
     },
     auction: {
       title: "Đấu giá Tài sản Số",

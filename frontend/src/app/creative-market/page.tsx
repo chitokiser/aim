@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import {
   Video, Image as ImageIcon, Music, FileQuestion, ExternalLink, Loader2,
-  Plus, Trash2, Coins, ShoppingBag, Heart, MessageCircle, Pencil, Sparkles,
+  Plus, Trash2, Coins, ShoppingBag, Heart, MessageCircle, Pencil, Sparkles, ArrowLeft,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -369,15 +369,15 @@ function ListingCard({
           </button>
           <div className="flex flex-col gap-1 shrink-0">
             {listing.link && (
-              <a
-                href={listing.link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={buttonVariants({ size: "sm", variant: "outline", className: "gap-1" })}
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1"
+                onClick={() => setDetailOpen(true)}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 {t.viewBtn}
-              </a>
+              </Button>
             )}
             {!isOwner && !sold && onBuy && (
               <Button size="sm" onClick={onBuy}
@@ -513,18 +513,24 @@ function ListingCard({
             {listing.tags?.length > 0 && (
               <div className="font-mono text-sm text-violet-500">{listing.tags.map((x) => `#${x}`).join(" ")}</div>
             )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailOpen(false)} className="gap-1">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              {t.backBtn}
+            </Button>
             {listing.link && (
               <a
                 href={listing.link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={buttonVariants({ size: "sm", variant: "outline", className: "gap-1" })}
+                className={buttonVariants({ size: "sm", className: "gap-1 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90" })}
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 {t.viewBtn}
               </a>
             )}
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </Card>
