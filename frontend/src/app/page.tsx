@@ -44,6 +44,7 @@ interface CjProduct {
   nameKo: string;
   images: string[];
   apPrice: number;
+  supplyApPrice?: number;
 }
 
 type CardMissionType = "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao" | "survey";
@@ -395,10 +396,23 @@ export default function HomePage() {
                   </div>
                   <CardContent className="p-4">
                     <p className="font-semibold text-sm leading-snug line-clamp-2 mb-2 min-h-[2.5rem]">{p.nameKo}</p>
-                    <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1">
-                      <Coins className="h-3 w-3" />
-                      {p.apPrice.toLocaleString()} AP
-                    </Badge>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Badge className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white border-0 gap-1">
+                        <Coins className="h-3 w-3" />
+                        {p.apPrice.toLocaleString()} AP
+                      </Badge>
+                      {p.supplyApPrice !== undefined && p.apPrice - p.supplyApPrice > 0 && p.apPrice > 0 && (
+                        <Badge variant="outline" className="gap-1 border-amber-400 text-amber-700 dark:text-amber-400 dark:border-amber-700 font-semibold text-[11px]">
+                          <Sparkles className="h-3 w-3" />
+                          {sh.expPercentBadge.replace(
+                            "{n}",
+                            // 10% of the margin is reserved as mandatory AP to fund the mentor
+                            // bonus — must match MENTOR_FUND_RATIO in backend cj-shop.service.ts.
+                            Math.floor(((p.apPrice - p.supplyApPrice) / p.apPrice) * 100 * 0.9).toString()
+                          )}
+                        </Badge>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </Link>
@@ -473,7 +487,7 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* AP Reward System */}
+      {/* EXP Reward System */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="text-center mb-14">
