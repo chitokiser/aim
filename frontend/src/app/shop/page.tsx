@@ -85,17 +85,6 @@ function ShopPageContent() {
         </div>
       </div>
 
-      <div className="relative mb-8 max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder={sh.searchPlaceholder}
-          className="w-full rounded-full border bg-card pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
-        />
-      </div>
-
       {featuredProducts.length > 0 && (
         <div className="mb-10">
           <div className="flex items-center gap-2 mb-4">
@@ -112,6 +101,17 @@ function ShopPageContent() {
           </div>
         </div>
       )}
+
+      <div className="relative mb-8 max-w-md">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={sh.searchPlaceholder}
+          className="w-full rounded-full border bg-card pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400"
+        />
+      </div>
 
       <div className="mb-6 flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800/60 p-4">
         <TriangleAlert className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
