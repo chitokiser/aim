@@ -57,11 +57,11 @@ export class CreativeListingsController {
 
   @Post(':id/like')
   @UseGuards(JwtAuthGuard)
-  toggleLike(
+  like(
     @Param('id') id: string,
     @Request() req: { user: { sub: string } },
   ) {
-    return this.creativeListingsService.toggleLike(id, req.user.sub);
+    return this.creativeListingsService.like(id, req.user.sub);
   }
 
   @Post(':id/comments')
@@ -82,6 +82,17 @@ export class CreativeListingsController {
     @Body() dto: Record<string, unknown>,
   ) {
     return this.creativeListingsService.update(id, req.user.sub, dto);
+  }
+
+  @Patch(':id/comments/:commentId')
+  @UseGuards(JwtAuthGuard)
+  editComment(
+    @Param('id') id: string,
+    @Param('commentId') commentId: string,
+    @Request() req: { user: { sub: string } },
+    @Body('text') text: string,
+  ) {
+    return this.creativeListingsService.editComment(id, commentId, req.user.sub, text);
   }
 
   @Delete(':id/comments/:commentId')

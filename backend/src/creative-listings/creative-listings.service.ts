@@ -189,7 +189,8 @@ export class CreativeListingsService {
     return { ok: true };
   }
 
-  async toggleLike(listingId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
+  // Likes are one-directional: once a member likes a listing, it cannot be unliked.
+  async like(listingId: string, userId: string): Promise<{ liked: boolean; likeCount: number }> {
     const ref = this.firebase.collection(COLLECTION).doc(listingId);
     const snap = await ref.get();
     if (!snap.exists) throw new NotFoundException('Listing not found');
@@ -200,17 +201,14 @@ export class CreativeListingsService {
     const currentCount = (snap.data()?.likeCount as number) ?? 0;
 
     if (likeSnap.exists) {
-      await likeRef.delete();
-      const newCount = Math.max(0, currentCount - 1);
-      await ref.update({ likeCount: newCount });
-      return { liked: false, likeCount: newCount };
-    } else {
-      await likeRef.set({ userId, listingId, createdAt: new Date().toISOString() });
-      const newCount = currentCount + 1;
-      await ref.update({ likeCount: newCount });
-      await this.awardLikeExpOnce(listingId, userId, snap.data()?.sellerId as string);
-      return { liked: true, likeCount: newCount };
+      return { liked: true, likeCount: currentCount };
     }
+
+    await likeRef.set({ userId, listingId, createdAt: new Date().toISOString() });
+    const newCount = currentCount + 1;
+    await ref.update({ likeCount: newCount });
+    await this.awardLikeExpOnce(listingId, userId, snap.data()?.sellerId as string);
+    return { liked: true, likeCount: newCount };
   }
 
   // Awards EXP once per (member, listing) pair, the first time that member likes
@@ -281,6 +279,8 @@ export class CreativeListingsService {
     await this.level.awardExp(sellerId, COMMENT_OWNER_EXP);
   }
 
+  // A commenter cannot delete their own comment (only edit it via editComment) —
+  // deletion is a moderation action reserved for the listing owner or an admin.
   async deleteComment(listingId: string, commentId: string, userId: string): Promise<{ ok: boolean }> {
     const ref = this.firebase.collection(COLLECTION).doc(listingId);
     const snap = await ref.get();
@@ -290,23 +290,42 @@ export class CreativeListingsService {
     const commentRef = ref.collection('comments').doc(commentId);
     const commentSnap = await commentRef.get();
     if (!commentSnap.exists) throw new NotFoundException('Comment not found');
-    const comment = commentSnap.data()!;
 
-    const isCommentOwner = comment.userId === userId;
     const isListingOwner = listing.sellerId === userId;
     let isAdmin = false;
-    if (!isCommentOwner && !isListingOwner) {
+    if (!isListingOwner) {
       const userSnap = await this.firebase.collection('users').doc(userId).get();
       isAdmin = !!(userSnap.exists && userSnap.data()?.isAdmin);
     }
 
-    if (!isCommentOwner && !isListingOwner && !isAdmin) {
+    if (!isListingOwner && !isAdmin) {
       throw new ForbiddenException('Not authorized to delete this comment');
     }
 
     await commentRef.delete();
     const currentCount = (snap.data()?.commentCount as number) ?? 0;
     await ref.update({ commentCount: Math.max(0, currentCount - 1) });
+
+    return { ok: true };
+  }
+
+  async editComment(listingId: string, commentId: string, userId: string, text: string): Promise<{ ok: boolean }> {
+    const ref = this.firebase.collection(COLLECTION).doc(listingId);
+    const snap = await ref.get();
+    if (!snap.exists) throw new NotFoundException('Listing not found');
+
+    const commentRef = ref.collection('comments').doc(commentId);
+    const commentSnap = await commentRef.get();
+    if (!commentSnap.exists) throw new NotFoundException('Comment not found');
+    const comment = commentSnap.data()!;
+
+    if (comment.userId !== userId) throw new ForbiddenException('Not authorized to edit this comment');
+    if (!text?.trim()) throw new BadRequestException('Comment text is required');
+
+    await commentRef.update({
+      text: text.trim().slice(0, 500),
+      editedAt: new Date().toISOString(),
+    });
 
     return { ok: true };
   }

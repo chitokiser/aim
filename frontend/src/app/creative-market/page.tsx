@@ -109,7 +109,10 @@ function ListingCard({
   });
   const [saving, setSaving] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
   const commentInputRef = useRef<HTMLInputElement>(null);
+  const setUser = useAuthStore((s) => s.setUser);
 
   useEffect(() => {
     setLiked(initialLikedByMe);
@@ -120,12 +123,26 @@ function ListingCard({
     setLikeCount(initialListing.likeCount ?? 0);
   }, [initialListing]);
 
+  // Re-fetches the current user so any EXP just awarded (like/comment) shows up immediately.
+  const refreshMe = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data) setUser(data);
+      }
+    } catch { /* ignore */ }
+  };
+
+  // Likes are one-directional: once liked, clicking again is a no-op.
   const handleLike = async () => {
     if (!token) { toast.error(t.loginRequired); return; }
-    const newLiked = !liked;
-    const newCount = newLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
-    setLiked(newLiked);
-    setLikeCount(newCount);
+    if (liked) return;
+    setLiked(true);
+    setLikeCount((c) => c + 1);
     try {
       const res = await fetch(`${API}/api/creative-listings/${listing.id}/like`, {
         method: "POST",
@@ -135,13 +152,14 @@ function ListingCard({
         const data = await res.json() as { liked: boolean; likeCount: number };
         setLiked(data.liked);
         setLikeCount(data.likeCount);
+        void refreshMe();
       } else {
-        setLiked(!newLiked);
-        setLikeCount(likeCount);
+        setLiked(false);
+        setLikeCount((c) => Math.max(0, c - 1));
       }
     } catch {
-      setLiked(!newLiked);
-      setLikeCount(likeCount);
+      setLiked(false);
+      setLikeCount((c) => Math.max(0, c - 1));
     }
   };
 
@@ -175,6 +193,7 @@ function ListingCard({
         setListing((l) => ({ ...l, commentCount: (l.commentCount ?? 0) + 1 }));
         toast.success(t.commentAdded);
         await loadComments();
+        void refreshMe();
       } else {
         const err = await res.json().catch(() => ({})) as { message?: string };
         toast.error(err.message ?? "Error");
@@ -184,6 +203,35 @@ function ListingCard({
     }
   };
 
+  const startEditComment = (comment: Comment) => {
+    setEditingCommentId(comment.id);
+    setEditingCommentText(comment.text);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditingCommentText("");
+  };
+
+  const handleSaveEditComment = async (commentId: string) => {
+    if (!token || !editingCommentText.trim()) return;
+    try {
+      const res = await fetch(`${API}/api/creative-listings/${listing.id}/comments/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ text: editingCommentText.trim() }),
+      });
+      if (res.ok) {
+        setComments((c) => c.map((x) => x.id === commentId ? { ...x, text: editingCommentText.trim() } : x));
+        cancelEditComment();
+      } else {
+        const err = await res.json().catch(() => ({})) as { message?: string };
+        toast.error(err.message ?? "Error");
+      }
+    } catch { /* silent */ }
+  };
+
+  // Moderation-only removal (listing owner / admin) — regular commenters can only edit their own comment.
   const handleDeleteComment = async (commentId: string) => {
     if (!token) return;
     try {
@@ -400,7 +448,8 @@ function ListingCard({
         <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-sm text-muted-foreground">
           <button
             onClick={handleLike}
-            className={`flex items-center gap-1 transition-colors ${liked ? "text-red-500" : "hover:text-red-400"}`}
+            disabled={liked}
+            className={`flex items-center gap-1 transition-colors ${liked ? "text-red-500 cursor-default" : "hover:text-red-400"}`}
           >
             <Heart className={`h-4 w-4 ${liked ? "fill-current" : ""}`} />
             <span>{likeCount}</span>
@@ -434,21 +483,50 @@ function ListingCard({
               <p className="text-xs text-muted-foreground py-2">{t.noComments}</p>
             ) : (
               comments.map((c) => (
-                <div key={c.id} className="flex items-start gap-2 text-sm">
-                  <span className="font-semibold shrink-0 text-foreground/80">{c.userName}</span>
-                  <span className="flex-1 text-foreground/70 break-all">{c.text}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">
-                    {new Date(c.createdAt).toLocaleDateString()}
-                  </span>
-                  {(userId === c.userId || isOwner || isAdmin) && (
-                    <button
-                      onClick={() => void handleDeleteComment(c.id)}
-                      className="text-red-400 hover:text-red-600 shrink-0 mt-0.5"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
-                </div>
+                editingCommentId === c.id ? (
+                  <div key={c.id} className="flex items-center gap-2 text-sm">
+                    <Input
+                      className="h-8 text-sm flex-1"
+                      value={editingCommentText}
+                      onChange={(e) => setEditingCommentText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); void handleSaveEditComment(c.id); }
+                        if (e.key === "Escape") cancelEditComment();
+                      }}
+                      autoFocus
+                    />
+                    <Button size="sm" className="shrink-0" onClick={() => void handleSaveEditComment(c.id)}>
+                      {t.saveBtn}
+                    </Button>
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={cancelEditComment}>
+                      {t.cancelBtn}
+                    </Button>
+                  </div>
+                ) : (
+                  <div key={c.id} className="flex items-start gap-2 text-sm">
+                    <span className="font-semibold shrink-0 text-foreground/80">{c.userName}</span>
+                    <span className="flex-1 text-foreground/70 break-all">{c.text}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </span>
+                    {userId === c.userId && (
+                      <button
+                        onClick={() => startEditComment(c)}
+                        className="text-muted-foreground hover:text-foreground shrink-0 mt-0.5"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                    )}
+                    {userId !== c.userId && (isOwner || isAdmin) && (
+                      <button
+                        onClick={() => void handleDeleteComment(c.id)}
+                        className="text-red-400 hover:text-red-600 shrink-0 mt-0.5"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
+                )
               ))
             )}
             {token && (
