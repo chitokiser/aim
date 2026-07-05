@@ -1,24 +1,25 @@
 import {
   Controller, Post, Get, Param, Body,
-  HttpException, HttpStatus, UseGuards, Request,
+  HttpException, HttpStatus, UseGuards, Request, Logger,
 } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { UsersService } from '../users/users.service';
+import { FirebaseService } from '../firebase/firebase.service';
 import { MusicGenService, MurekaResult } from './music-gen.service';
 import { randomUUID } from 'crypto';
 
 const GEN_COST_AP = 50;
 const GEN_COST_P = 50;
-const JOB_TTL_MS = 30 * 60 * 1000;
+const JOBS_COLLECTION = 'music_gen_jobs';
 
 type JobStatus = 'processing' | 'done' | 'error';
 
 interface Job {
   status: JobStatus;
   step: 1 | 2;
-  result?: MurekaResult;
-  error?: string;
-  createdAt: number;
+  result?: MurekaResult | null;
+  error?: string | null;
+  createdAt: string;
 }
 
 interface GenerateDto {
@@ -27,16 +28,18 @@ interface GenerateDto {
   currency?: 'ap' | 'p';
 }
 
+// Jobs are persisted in Firestore (not held in memory) so an in-progress
+// generation survives a backend restart/redeploy — the frontend polls this
+// same job document from whichever instance picks up the request next.
 @Controller('music-gen')
 export class MusicGenController {
-  private readonly jobs = new Map<string, Job>();
+  private readonly logger = new Logger(MusicGenController.name);
 
   constructor(
     private readonly musicGenService: MusicGenService,
     private readonly usersService: UsersService,
-  ) {
-    setInterval(() => this.cleanupJobs(), 10 * 60 * 1000);
-  }
+    private readonly firebase: FirebaseService,
+  ) {}
 
   @Post('generate')
   @UseGuards(JwtAuthGuard)
@@ -67,8 +70,8 @@ export class MusicGenController {
     }
 
     const jobId = randomUUID();
-    const job: Job = { status: 'processing', step: 1, createdAt: Date.now() };
-    this.jobs.set(jobId, job);
+    const job: Job = { status: 'processing', step: 1, createdAt: new Date().toISOString() };
+    await this.firebase.collection(JOBS_COLLECTION).doc(jobId).set(job);
 
     // Run async in background
     this.runGeneration(jobId, body.lyrics ?? '', body.prompt ?? '');
@@ -78,9 +81,10 @@ export class MusicGenController {
 
   @Get('status/:jobId')
   @UseGuards(JwtAuthGuard)
-  getStatus(@Param('jobId') jobId: string) {
-    const job = this.jobs.get(jobId);
-    if (!job) throw new HttpException('Job not found', HttpStatus.NOT_FOUND);
+  async getStatus(@Param('jobId') jobId: string) {
+    const snap = await this.firebase.collection(JOBS_COLLECTION).doc(jobId).get();
+    if (!snap.exists) throw new HttpException('Job not found', HttpStatus.NOT_FOUND);
+    const job = snap.data() as Job;
     return {
       status: job.status,
       step: job.step,
@@ -90,30 +94,20 @@ export class MusicGenController {
   }
 
   private async runGeneration(jobId: string, lyrics: string, prompt: string) {
-    const job = this.jobs.get(jobId);
-    if (!job) return;
+    const ref = this.firebase.collection(JOBS_COLLECTION).doc(jobId);
 
     try {
-      job.step = 1;
+      await ref.update({ step: 1 });
       const taskId = await this.musicGenService.startGeneration(lyrics, prompt);
 
-      job.step = 2;
+      await ref.update({ step: 2 });
       const result = await this.musicGenService.pollUntilDone(taskId);
 
-      job.status = 'done';
-      job.result = result;
+      await ref.update({ status: 'done', result });
     } catch (err: unknown) {
-      job.status = 'error';
-      job.error = err instanceof Error ? err.message : String(err);
-    }
-  }
-
-  private cleanupJobs() {
-    const now = Date.now();
-    for (const [id, job] of this.jobs.entries()) {
-      if (now - job.createdAt > JOB_TTL_MS) {
-        this.jobs.delete(id);
-      }
+      const message = err instanceof Error ? err.message : String(err);
+      this.logger.error(`Music generation failed (job ${jobId}): ${message}`);
+      await ref.update({ status: 'error', error: message }).catch(() => {});
     }
   }
 }

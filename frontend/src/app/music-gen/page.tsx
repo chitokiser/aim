@@ -68,6 +68,14 @@ export default function MusicGenPage() {
         const res = await fetch(`${API}/api/music-gen/status/${jobId}`, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
+        if (res.status === 404) {
+          // Job no longer exists (e.g. lost across a backend restart) — stop
+          // polling instead of hanging on step1/step2 forever with no feedback.
+          stopPolling();
+          setStep("idle");
+          toast.error(mg.toastError);
+          return;
+        }
         if (!res.ok) return;
 
         const data = await res.json() as {
