@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -66,6 +67,21 @@ function ContentTypeIcon({ type, className }: { type: string; className?: string
   return <Icon className={className ?? `h-5 w-5 ${found?.color ?? "text-muted-foreground"}`} />;
 }
 
+function FacebookIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 320 512" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M279.14 288l14.22-92.66h-88.91v-60.13c0-25.35 12.42-50.06 52.24-50.06h40.42V6.26S260.43 0 225.36 0c-73.22 0-121.08 44.38-121.08 124.72v70.62H22.89V288h81.39v224h100.17V288z" />
+    </svg>
+  );
+}
+
+function shareListingToFacebook(listing: Listing) {
+  const shareUrl = `https://ai119.netlify.app/creative-market?listing=${listing.id}`;
+  const quote = `${listing.title} — ${listing.price.toLocaleString()} AP | AI119 Creative Market`;
+  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}&quote=${encodeURIComponent(quote)}`;
+  window.open(fbUrl, "facebook-share-dialog", "width=626,height=436,noopener,noreferrer");
+}
+
 interface ListingCardProps {
   listing: Listing;
   onBuy?: () => void;
@@ -76,6 +92,7 @@ interface ListingCardProps {
   likedByMe?: boolean;
   token?: string | null;
   userId?: string;
+  initialOpen?: boolean;
   t: Record<string, string>;
 }
 
@@ -89,6 +106,7 @@ function ListingCard({
   likedByMe: initialLikedByMe = false,
   token,
   userId,
+  initialOpen = false,
   t,
 }: ListingCardProps) {
   const [listing, setListing] = useState(initialListing);
@@ -110,7 +128,7 @@ function ListingCard({
     tags: (initialListing.tags ?? []).join(", "),
   });
   const [saving, setSaving] = useState(false);
-  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(initialOpen);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState("");
   const commentInputRef = useRef<HTMLInputElement>(null);
@@ -469,6 +487,13 @@ function ListingCard({
             <MessageCircle className="h-4 w-4" />
             <span>{listing.commentCount ?? 0}</span>
           </button>
+          <button
+            onClick={() => shareListingToFacebook(listing)}
+            title={t.shareFacebook}
+            className="flex items-center gap-1 transition-colors hover:text-[#1877F2]"
+          >
+            <FacebookIcon className="h-4 w-4" />
+          </button>
           {canEdit && (
             <button
               onClick={openEdit}
@@ -622,6 +647,14 @@ function ListingCard({
               <ArrowLeft className="h-3.5 w-3.5" />
               {t.backBtn}
             </Button>
+            <Button
+              variant="outline"
+              onClick={() => shareListingToFacebook(listing)}
+              className="gap-1.5 text-[#1877F2] border-[#1877F2]/30 hover:bg-[#1877F2]/10"
+            >
+              <FacebookIcon className="h-3.5 w-3.5" />
+              {t.shareFacebook}
+            </Button>
             {listing.link && (
               <a
                 href={listing.link}
@@ -640,10 +673,12 @@ function ListingCard({
   );
 }
 
-export default function CreativeMarketPage() {
+function CreativeMarketPageContent() {
   const { user, token } = useAuthStore();
   const { t } = useLanguage();
   const cm = t.creativeMarket;
+  const searchParams = useSearchParams();
+  const deepLinkId = searchParams.get("listing");
 
   const [activeType, setActiveType] = useState<string>("all");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -856,6 +891,7 @@ export default function CreativeMarketPage() {
                   likedByMe={likedIds.has(l.id)}
                   token={token}
                   userId={user?.id}
+                  initialOpen={l.id === deepLinkId}
                   onBuy={() => void handleBuy(l.id)}
                   onDelete={() => void handleDelete(l.id)}
                   onUpdated={handleUpdatedInBrowse}
@@ -1041,5 +1077,13 @@ export default function CreativeMarketPage() {
         )}
       </Tabs>
     </div>
+  );
+}
+
+export default function CreativeMarketPage() {
+  return (
+    <Suspense>
+      <CreativeMarketPageContent />
+    </Suspense>
   );
 }

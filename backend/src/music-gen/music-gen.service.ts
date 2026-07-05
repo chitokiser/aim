@@ -4,6 +4,7 @@ import axios from 'axios';
 const MUREKA_BASE = 'https://api.mureka.ai';
 const POLL_INTERVAL_MS = 5000;
 const POLL_TIMEOUT_MS = 5 * 60 * 1000; // 5 minutes max
+const MAX_RETRIES = 5;
 
 export interface MurekaResult {
   audioUrls: string[];
@@ -18,19 +19,44 @@ export class MusicGenService {
     return key;
   }
 
+  // Mureka rate-limits aggressively under bursts (observed 429s in production).
+  // Retry with linear backoff on 429/502/503 instead of failing the whole
+  // generation job on a single transient hit — mirrors the retry pattern
+  // already used in music-video.service.ts's image generation calls.
+  private async withRetry<T>(fn: () => Promise<T>, attempt = 0): Promise<T> {
+    try {
+      return await fn();
+    } catch (e: unknown) {
+      const status = axios.isAxiosError(e) ? e.response?.status : undefined;
+      if (attempt < MAX_RETRIES && (status === 429 || status === 502 || status === 503)) {
+        await this.sleep((attempt + 1) * 5000);
+        return this.withRetry(fn, attempt + 1);
+      }
+      if (status === 429) {
+        throw new HttpException(
+          'Mureka API rate limit exceeded — please try again in a few minutes',
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+      throw e;
+    }
+  }
+
   async startGeneration(lyrics: string, prompt: string): Promise<string> {
-    const res = await axios.post<{ id: string | number; status: string }>(
-      `${MUREKA_BASE}/v1/song/generate`,
-      { lyrics, model: 'auto', prompt },
-      {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
+    return this.withRetry(async () => {
+      const res = await axios.post<{ id: string | number; status: string }>(
+        `${MUREKA_BASE}/v1/song/generate`,
+        { lyrics, model: 'auto', prompt },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000,
         },
-        timeout: 30000,
-      },
-    );
-    return String(res.data.id);
+      );
+      return String(res.data.id);
+    });
   }
 
   async pollUntilDone(taskId: string): Promise<MurekaResult> {
@@ -39,15 +65,17 @@ export class MusicGenService {
     while (Date.now() < deadline) {
       await this.sleep(POLL_INTERVAL_MS);
 
-      const res = await axios.get<Record<string, unknown>>(
-        `${MUREKA_BASE}/v1/song/query/${taskId}`,
-        {
-          headers: { Authorization: `Bearer ${this.apiKey}` },
-          timeout: 15000,
-        },
-      );
+      const data = await this.withRetry(async () => {
+        const res = await axios.get<Record<string, unknown>>(
+          `${MUREKA_BASE}/v1/song/query/${taskId}`,
+          {
+            headers: { Authorization: `Bearer ${this.apiKey}` },
+            timeout: 15000,
+          },
+        );
+        return res.data;
+      });
 
-      const data = res.data;
       const status = data['status'] as string;
 
       if (status === 'failed') {

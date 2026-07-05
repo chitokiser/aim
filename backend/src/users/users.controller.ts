@@ -79,6 +79,11 @@ export class UsersController {
     return this.usersService.getLeaderboard(period);
   }
 
+  @Get('leaderboard/referrals')
+  getReferralLeaderboard() {
+    return this.usersService.getReferralLeaderboard();
+  }
+
   // Public: returns only non-sensitive fields (no bot token)
   @Get('public/telegram-info')
   async getPublicTelegramInfo() {

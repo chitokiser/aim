@@ -1,4 +1,5 @@
 ﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { FieldValue } from 'firebase-admin/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
 import { LevelService } from '../level/level.service';
 
@@ -8,6 +9,14 @@ function generateReferralCode(telegramId: string): string {
 }
 
 const DAILY_VISIT_EXP = 100;
+
+// One-time bonus EXP awarded to a mentor when their referralCount first reaches
+// these milestones — on top of the standard 10,000 EXP per-referral bonus.
+const REFERRAL_MILESTONE_BONUSES: Record<number, number> = {
+  5: 5000,
+  20: 20000,
+  50: 50000,
+};
 
 @Injectable()
 export class UsersService {
@@ -142,6 +151,21 @@ export class UsersService {
       await this.levelService.awardExp(ref.id, 10000);
     }
 
+    // Only count real referrals (explicit code), not admin-fallback assignments,
+    // toward the referrer's referralCount — otherwise the admin account would
+    // accumulate a false "referral" count from every code-less signup.
+    if (referredByCode && mentor?.id) {
+      const mentorRef = this.firebase.collection('users').doc(mentor.id as string);
+      await mentorRef.update({ referralCount: FieldValue.increment(1) });
+
+      const updatedMentor = await mentorRef.get();
+      const newReferralCount = (updatedMentor.data()?.referralCount as number) ?? 0;
+      const milestoneBonus = REFERRAL_MILESTONE_BONUSES[newReferralCount];
+      if (milestoneBonus) {
+        await this.levelService.awardExp(mentor.id as string, milestoneBonus);
+      }
+    }
+
     return { user: { id: ref.id, ...newUser }, isNew: true, referredByCode };
   }
 
@@ -239,5 +263,25 @@ export class UsersService {
         missionsCompleted: doc.data().missionsCompleted ?? 0,
       }))
       .filter((u) => u.missionsCompleted > 0);
+  }
+
+  async getReferralLeaderboard() {
+    const snap = await this.firebase
+      .collection('users')
+      .orderBy('referralCount', 'desc')
+      .limit(100)
+      .get();
+
+    return snap.docs
+      .map((doc, i) => ({
+        rank: i + 1,
+        userId: doc.id,
+        username: doc.data().username,
+        firstName: doc.data().firstName,
+        photoUrl: doc.data().photoUrl ?? null,
+        points: doc.data().points ?? 0,
+        referralCount: doc.data().referralCount ?? 0,
+      }))
+      .filter((u) => u.referralCount > 0);
   }
 }

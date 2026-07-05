@@ -97,7 +97,8 @@ export default function MusicGenPage() {
         } else if (data.status === "error") {
           stopPolling();
           setStep("idle");
-          toast.error(data.error ?? mg.toastError);
+          toast.error(mg.toastRefunded);
+          await refreshBalance();
         }
       } catch {
         // network blip — keep polling

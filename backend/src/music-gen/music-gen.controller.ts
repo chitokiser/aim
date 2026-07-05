@@ -74,7 +74,7 @@ export class MusicGenController {
     await this.firebase.collection(JOBS_COLLECTION).doc(jobId).set(job);
 
     // Run async in background
-    this.runGeneration(jobId, body.lyrics ?? '', body.prompt ?? '');
+    this.runGeneration(jobId, body.lyrics ?? '', body.prompt ?? '', req.user.sub, currency);
 
     return { jobId };
   }
@@ -93,7 +93,13 @@ export class MusicGenController {
     };
   }
 
-  private async runGeneration(jobId: string, lyrics: string, prompt: string) {
+  private async runGeneration(
+    jobId: string,
+    lyrics: string,
+    prompt: string,
+    userId: string,
+    currency: 'ap' | 'p',
+  ) {
     const ref = this.firebase.collection(JOBS_COLLECTION).doc(jobId);
 
     try {
@@ -108,6 +114,14 @@ export class MusicGenController {
       const message = err instanceof Error ? err.message : String(err);
       this.logger.error(`Music generation failed (job ${jobId}): ${message}`);
       await ref.update({ status: 'error', error: message }).catch(() => {});
+
+      // Refund the deducted cost — the user paid upfront but got no output.
+      const cost = currency === 'ap' ? GEN_COST_AP : GEN_COST_P;
+      if (currency === 'ap') {
+        await this.usersService.addPoints(userId, cost).catch(() => {});
+      } else {
+        await this.usersService.addFreePoints(userId, cost).catch(() => {});
+      }
     }
   }
 }

@@ -3,12 +3,23 @@
 import { useEffect, useState } from "react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle, Trophy, Medal, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircle, Trophy, Medal, Loader2, Users } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
-interface LeaderboardEntry {
+interface RankEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  firstName: string;
+  photoUrl: string | null;
+  points: number;
+  value: number;
+}
+
+interface MissionApiEntry {
   rank: number;
   userId: string;
   username: string;
@@ -18,30 +29,32 @@ interface LeaderboardEntry {
   missionsCompleted: number;
 }
 
+interface ReferralApiEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  firstName: string;
+  photoUrl: string | null;
+  points: number;
+  referralCount: number;
+}
+
 const RANK_CONFIG: Record<number, { color: string; icon?: React.ReactNode }> = {
   1: { color: "text-amber-500", icon: <Trophy className="h-5 w-5 text-amber-500" /> },
   2: { color: "text-slate-400", icon: <Medal  className="h-5 w-5 text-slate-400" /> },
   3: { color: "text-amber-700", icon: <Medal  className="h-5 w-5 text-amber-700" /> },
 };
 
-export default function LeaderboardPage() {
-  const { t } = useLanguage();
-  const [data, setData] = useState<LeaderboardEntry[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`${API}/api/users/leaderboard/list`)
-      .then((r) => r.json())
-      .then((rows: LeaderboardEntry[]) => setData(rows))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
-
-  const top3 = data.slice(0, 3);
-
+function RankingBoard({ data, unitLabel, loading, noDataLabel, allRankingsLabel }: {
+  data: RankEntry[];
+  unitLabel: string;
+  loading: boolean;
+  noDataLabel: string;
+  allRankingsLabel: string;
+}) {
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-20 flex justify-center">
+      <div className="py-20 flex justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -49,21 +62,17 @@ export default function LeaderboardPage() {
 
   if (data.length === 0) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center text-muted-foreground">
+      <div className="py-20 text-center text-muted-foreground">
         <Trophy className="h-12 w-12 mx-auto mb-4 opacity-30" />
-        <p>아직 미션 완료 데이터가 없습니다.</p>
+        <p>{noDataLabel}</p>
       </div>
     );
   }
 
-  return (
-    <div className="container mx-auto px-4 py-10 max-w-3xl">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl md:text-4xl font-black mb-3">{t.leaderboard.title}</h1>
-        <p className="text-muted-foreground">{t.leaderboard.subtitle}</p>
-      </div>
+  const top3 = data.slice(0, 3);
 
-      {/* Top 3 Podium */}
+  return (
+    <>
       {top3.length >= 3 && (
         <div className="grid grid-cols-3 gap-4 mb-8">
           {/* 2nd */}
@@ -80,7 +89,7 @@ export default function LeaderboardPage() {
               {top3[1].username && <p className="text-xs text-muted-foreground">@{top3[1].username}</p>}
               <div className="flex items-center gap-1 justify-center mt-1">
                 <CheckCircle className="h-3 w-3 text-slate-400" />
-                <span className="text-xs font-semibold text-slate-500">{top3[1].missionsCompleted} {t.leaderboard.posts}</span>
+                <span className="text-xs font-semibold text-slate-500">{top3[1].value} {unitLabel}</span>
               </div>
             </div>
             <div className="mt-3 w-full bg-slate-100 dark:bg-slate-800 rounded-t-lg flex items-center justify-center py-3 font-black text-2xl text-slate-400">
@@ -103,7 +112,7 @@ export default function LeaderboardPage() {
               {top3[0].username && <p className="text-xs text-muted-foreground">@{top3[0].username}</p>}
               <div className="flex items-center gap-1 justify-center mt-1">
                 <CheckCircle className="h-3 w-3 text-amber-500" />
-                <span className="text-xs font-semibold text-amber-600">{top3[0].missionsCompleted} {t.leaderboard.posts}</span>
+                <span className="text-xs font-semibold text-amber-600">{top3[0].value} {unitLabel}</span>
               </div>
             </div>
             <div className="mt-3 w-full bg-amber-400 rounded-t-lg flex items-center justify-center py-4 font-black text-2xl text-white">
@@ -125,7 +134,7 @@ export default function LeaderboardPage() {
               {top3[2].username && <p className="text-xs text-muted-foreground">@{top3[2].username}</p>}
               <div className="flex items-center gap-1 justify-center mt-1">
                 <CheckCircle className="h-3 w-3 text-amber-700" />
-                <span className="text-xs font-semibold text-amber-800 dark:text-amber-600">{top3[2].missionsCompleted} {t.leaderboard.posts}</span>
+                <span className="text-xs font-semibold text-amber-800 dark:text-amber-600">{top3[2].value} {unitLabel}</span>
               </div>
             </div>
             <div className="mt-3 w-full bg-amber-700/80 rounded-t-lg flex items-center justify-center py-2 font-black text-2xl text-white">
@@ -135,10 +144,9 @@ export default function LeaderboardPage() {
         </div>
       )}
 
-      {/* Full rankings list */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{t.leaderboard.allRankings}</CardTitle>
+          <CardTitle className="text-base">{allRankingsLabel}</CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           <div className="divide-y">
@@ -169,10 +177,10 @@ export default function LeaderboardPage() {
                     <div className="flex items-center gap-1 justify-end">
                       <CheckCircle className="h-3.5 w-3.5 text-violet-500" />
                       <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
-                        {entry.missionsCompleted}
+                        {entry.value}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground">{t.leaderboard.posts}</p>
+                    <p className="text-xs text-muted-foreground">{unitLabel}</p>
                   </div>
                 </div>
               );
@@ -180,6 +188,80 @@ export default function LeaderboardPage() {
           </div>
         </CardContent>
       </Card>
+    </>
+  );
+}
+
+export default function LeaderboardPage() {
+  const { t } = useLanguage();
+  const [missions, setMissions] = useState<RankEntry[]>([]);
+  const [referrals, setReferrals] = useState<RankEntry[]>([]);
+  const [loadingMissions, setLoadingMissions] = useState(true);
+  const [loadingReferrals, setLoadingReferrals] = useState(true);
+  const [tab, setTab] = useState<"missions" | "referrals">("missions");
+
+  useEffect(() => {
+    fetch(`${API}/api/users/leaderboard/list`)
+      .then((r) => r.json())
+      .then((rows: MissionApiEntry[]) =>
+        setMissions(rows.map((r) => ({ ...r, value: r.missionsCompleted }))),
+      )
+      .catch(() => {})
+      .finally(() => setLoadingMissions(false));
+
+    fetch(`${API}/api/users/leaderboard/referrals`)
+      .then((r) => r.json())
+      .then((rows: ReferralApiEntry[]) =>
+        setReferrals(rows.map((r) => ({ ...r, value: r.referralCount }))),
+      )
+      .catch(() => {})
+      .finally(() => setLoadingReferrals(false));
+  }, []);
+
+  return (
+    <div className="container mx-auto px-4 py-10 max-w-3xl">
+      <div className="text-center mb-10">
+        <h1 className="text-3xl md:text-4xl font-black mb-3">{t.leaderboard.title}</h1>
+        <p className="text-muted-foreground">
+          {tab === "missions" ? t.leaderboard.subtitle : t.leaderboard.referralsSubtitle}
+        </p>
+      </div>
+
+      <Tabs
+        defaultValue="missions"
+        onValueChange={(v) => setTab(v as "missions" | "referrals")}
+      >
+        <TabsList className="mx-auto mb-8">
+          <TabsTrigger value="missions" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            {t.leaderboard.missionsTab}
+          </TabsTrigger>
+          <TabsTrigger value="referrals" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            {t.leaderboard.referralsTab}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="missions">
+          <RankingBoard
+            data={missions}
+            loading={loadingMissions}
+            unitLabel={t.leaderboard.posts}
+            noDataLabel={t.leaderboard.noData}
+            allRankingsLabel={t.leaderboard.allRankings}
+          />
+        </TabsContent>
+
+        <TabsContent value="referrals">
+          <RankingBoard
+            data={referrals}
+            loading={loadingReferrals}
+            unitLabel={t.leaderboard.referralsUnit}
+            noDataLabel={t.leaderboard.noData}
+            allRankingsLabel={t.leaderboard.allRankings}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
