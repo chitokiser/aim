@@ -173,7 +173,9 @@ export default function HomePage() {
     { action: h.pointMission, points: "+2,000 EXP", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20" },
     { action: h.pointDailyVisit, points: "+100 EXP", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-950/20" },
     { action: h.pointStarsTopup, points: "+10% EXP", color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-950/20" },
-    { action: h.pointCreativeMarket, points: "+10~1,000 EXP", color: "text-pink-600", bg: "bg-pink-50 dark:bg-pink-950/20" },
+    { action: h.pointCreativePost, points: "+1,000 EXP", color: "text-pink-600", bg: "bg-pink-50 dark:bg-pink-950/20" },
+    { action: h.pointCreativeComment, points: "+100 EXP", color: "text-fuchsia-600", bg: "bg-fuchsia-50 dark:bg-fuchsia-950/20" },
+    { action: h.pointCreativeLike, points: "+10 EXP", color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-950/20" },
   ];
 
   return (
