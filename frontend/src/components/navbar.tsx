@@ -73,6 +73,9 @@ export function Navbar() {
   const shopCategories: { value: string; label: string }[] = [
     { value: "all", label: t.shop.categories.all },
     { value: "fashion", label: t.shop.categories.fashion },
+    { value: "beachClothing", label: t.shop.categories.beachClothing },
+    { value: "womenClothing", label: t.shop.categories.womenClothing },
+    { value: "menClothing", label: t.shop.categories.menClothing },
     { value: "beauty", label: t.shop.categories.beauty },
     { value: "electronics", label: t.shop.categories.electronics },
     { value: "smartphone", label: t.shop.categories.smartphone },

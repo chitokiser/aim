@@ -208,7 +208,7 @@ export default function AdminPage() {
     images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
     category?: string; variants?: CjProductVariant[]; featured?: boolean; summer2026?: boolean;
   }
-  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "optical", "watches", "bagsShoes", "sportsOutdoor", "toysHobby", "homeDecor", "other"] as const;
+  const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "beachClothing", "womenClothing", "menClothing", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "optical", "watches", "bagsShoes", "sportsOutdoor", "toysHobby", "homeDecor", "other"] as const;
   interface CjOrderAdmin {
     id: string; userId: string; productId: string; quantity: number; apCharged: number; expUsed?: number;
     status: string; cjOrderId: string | null; cjStatus: string | null; trackNumber: string | null; createdAt: string;

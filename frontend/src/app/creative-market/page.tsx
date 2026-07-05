@@ -673,6 +673,72 @@ function ListingCard({
   );
 }
 
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/|youtube\.com\/embed\/|youtu\.be\/)([\w-]{11})/,
+  ];
+  for (const re of patterns) {
+    const match = url.match(re);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+// Loads a direct video URL off-screen and grabs its first frame as a JPEG data URL.
+// Only works for directly-playable video files with CORS enabled — silently
+// resolves to null for page URLs (Instagram/TikTok/Facebook) or CORS-blocked sources.
+function captureVideoFirstFrame(url: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.src = url;
+
+    const cleanup = () => {
+      video.removeAttribute("src");
+      video.load();
+    };
+
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 8000);
+
+    video.addEventListener("loadeddata", () => {
+      video.currentTime = 0.1;
+    });
+
+    video.addEventListener("seeked", () => {
+      clearTimeout(timeout);
+      try {
+        const canvas = document.createElement("canvas");
+        const maxWidth = 480;
+        const scale = Math.min(1, maxWidth / (video.videoWidth || maxWidth));
+        canvas.width = Math.round((video.videoWidth || maxWidth) * scale);
+        canvas.height = Math.round((video.videoHeight || 270) * scale);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { cleanup(); resolve(null); return; }
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        cleanup();
+        resolve(dataUrl);
+      } catch {
+        // Tainted canvas (CORS) or decode failure — no thumbnail, user can add one manually.
+        cleanup();
+        resolve(null);
+      }
+    });
+
+    video.addEventListener("error", () => {
+      clearTimeout(timeout);
+      cleanup();
+      resolve(null);
+    });
+  });
+}
+
 function CreativeMarketPageContent() {
   const { user, token } = useAuthStore();
   const { t } = useLanguage();
@@ -691,6 +757,30 @@ function CreativeMarketPageContent() {
     contentType: "video", title: "", description: "", link: "", thumbnailUrl: "", price: "", tags: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [thumbGenerating, setThumbGenerating] = useState(false);
+
+  // Auto-fills the thumbnail from the video's first frame — YouTube links get the
+  // official thumbnail image instantly; direct video file URLs are captured via canvas.
+  // Never overwrites a thumbnail the user already provided.
+  const maybeAutoThumbnail = useCallback(async (link: string, contentType: string, currentThumb: string) => {
+    if (contentType !== "video" || !link.trim() || currentThumb.trim()) return;
+
+    const ytId = extractYouTubeId(link.trim());
+    if (ytId) {
+      setForm((p) => (p.thumbnailUrl.trim() ? p : { ...p, thumbnailUrl: `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` }));
+      return;
+    }
+
+    setThumbGenerating(true);
+    try {
+      const dataUrl = await captureVideoFirstFrame(link.trim());
+      if (dataUrl) {
+        setForm((p) => (p.thumbnailUrl.trim() ? p : { ...p, thumbnailUrl: dataUrl }));
+      }
+    } finally {
+      setThumbGenerating(false);
+    }
+  }, []);
 
   const loadListings = useCallback(async (type?: string) => {
     setLoading(true);
@@ -914,7 +1004,13 @@ function CreativeMarketPageContent() {
 
                   <div className="space-y-1.5">
                     <Label>{cm.fieldContentType}</Label>
-                    <Select value={form.contentType} onValueChange={(v) => setForm((p) => ({ ...p, contentType: v }))}>
+                    <Select
+                      value={form.contentType}
+                      onValueChange={(v) => {
+                        setForm((p) => ({ ...p, contentType: v }));
+                        void maybeAutoThumbnail(form.link, v, form.thumbnailUrl);
+                      }}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -951,8 +1047,12 @@ function CreativeMarketPageContent() {
                       placeholder="https://..."
                       value={form.link}
                       onChange={(e) => setForm((p) => ({ ...p, link: e.target.value }))}
+                      onBlur={(e) => void maybeAutoThumbnail(e.target.value, form.contentType, form.thumbnailUrl)}
                       required
                     />
+                    {form.contentType === "video" && (
+                      <p className="text-xs text-muted-foreground">{cm.thumbAutoNote}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -962,6 +1062,20 @@ function CreativeMarketPageContent() {
                       value={form.thumbnailUrl}
                       onChange={(e) => setForm((p) => ({ ...p, thumbnailUrl: e.target.value }))}
                     />
+                    {thumbGenerating && (
+                      <p className="text-xs text-violet-600 dark:text-violet-400 flex items-center gap-1.5">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        {cm.thumbAutoGenerating}
+                      </p>
+                    )}
+                    {form.thumbnailUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={form.thumbnailUrl}
+                        alt={cm.fieldThumbnail}
+                        className="h-20 w-32 object-cover rounded-lg border mt-1"
+                      />
+                    )}
                   </div>
 
                   <div className="grid sm:grid-cols-2 gap-4">
