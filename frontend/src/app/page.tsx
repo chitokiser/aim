@@ -173,6 +173,7 @@ export default function HomePage() {
     { action: h.pointMission, points: "+2,000 EXP", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/20" },
     { action: h.pointDailyVisit, points: "+100 EXP", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-950/20" },
     { action: h.pointStarsTopup, points: "+10% EXP", color: "text-cyan-600", bg: "bg-cyan-50 dark:bg-cyan-950/20" },
+    { action: h.pointCreativeMarket, points: "+10~1,000 EXP", color: "text-pink-600", bg: "bg-pink-50 dark:bg-pink-950/20" },
   ];
 
   return (
@@ -487,20 +488,46 @@ export default function HomePage() {
         )}
       </section>
 
-      {/* EXP Reward System */}
+      {/* EXP Reward System — how to earn it, and where to spend it */}
       <section className="py-20 bg-muted/30">
         <div className="container mx-auto px-4">
-          <div className="text-center mb-14">
+          <div className="text-center mb-10">
             <h2 className="text-3xl md:text-4xl font-black mb-4">{h.pointsTitle}</h2>
             <p className="text-muted-foreground text-lg">{h.pointsSubtitle}</p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
-            {POINT_ITEMS.map(({ action, points, color, bg }) => (
-              <div key={action} className={`flex items-center justify-between p-4 rounded-xl ${bg}`}>
-                <span className="font-medium">{action}</span>
-                <span className={`font-bold ${color}`}>{points}</span>
+
+          <div className="max-w-4xl mx-auto mb-10">
+            <p className="text-center text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">{h.pointsEarnLabel}</p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {POINT_ITEMS.map(({ action, points, color, bg }) => (
+                <div key={action} className={`flex items-center justify-between p-4 rounded-xl ${bg}`}>
+                  <span className="font-medium">{action}</span>
+                  <span className={`font-bold ${color}`}>{points}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="max-w-4xl mx-auto">
+            <p className="text-center text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-4">{h.pointsUseLabel}</p>
+            <div className="rounded-2xl border border-amber-300/60 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 dark:border-amber-800/60 p-6 md:p-8">
+              <div className="flex flex-col md:flex-row items-center gap-6">
+                <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg">
+                  <Sparkles className="h-8 w-8 text-white" />
+                </div>
+                <div className="flex-1 text-center md:text-left">
+                  <h3 className="font-bold text-xl mb-1">{h.pointsUseTitle}</h3>
+                  <p className="text-muted-foreground text-sm leading-relaxed">{h.pointsUseDesc}</p>
+                </div>
+                <Link
+                  href="/shop"
+                  className="shrink-0 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-3 text-sm font-bold text-white shadow hover:opacity-90 transition-opacity"
+                >
+                  {h.pointsUseCta}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
