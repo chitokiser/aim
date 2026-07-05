@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import {
   Video, Image as ImageIcon, Music, FileQuestion, ExternalLink, Loader2,
   Plus, Trash2, Coins, ShoppingBag, Heart, MessageCircle, Pencil, Sparkles, ArrowLeft,
+  Crown, Maximize2,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -44,6 +45,7 @@ interface Listing {
   tags: string[];
   status: "active" | "sold" | "deleted";
   buyerId: string | null;
+  buyerName?: string | null;
   soldAt: string | null;
   createdAt: string;
   likeCount: number;
@@ -302,6 +304,9 @@ function ListingCard({
 
   const sold = listing.status === "sold";
   const canEdit = (isOwner || isAdmin) && !sold;
+  // NFT-style ownership: the original registrant is the owner until the listing sells,
+  // at which point the buyer becomes the displayed owner.
+  const ownerName = sold ? (listing.buyerName || listing.sellerName) : listing.sellerName;
 
   if (editMode) {
     return (
@@ -404,7 +409,10 @@ function ListingCard({
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{listing.description}</p>
               )}
               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground/70">{listing.sellerName}</span>
+                <span className="flex items-center gap-1 font-medium text-amber-600 dark:text-amber-400">
+                  <Crown className="h-3.5 w-3.5" />
+                  {t.ownerLabel}: {ownerName}
+                </span>
                 <span className="flex items-center gap-1 font-semibold text-violet-600">
                   <Coins className="h-3.5 w-3.5" />
                   {listing.price.toLocaleString()} AP
@@ -570,19 +578,36 @@ function ListingCard({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <div className="w-full aspect-video rounded-lg bg-muted overflow-hidden flex items-center justify-center">
+            <div className="w-full aspect-video rounded-lg bg-muted overflow-hidden flex items-center justify-center relative">
               {listing.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={listing.thumbnailUrl} alt={listing.title} className="w-full h-full object-cover" />
               ) : (
                 <ContentTypeIcon type={listing.contentType} className="h-10 w-10 text-muted-foreground" />
               )}
+              {listing.thumbnailUrl && (
+                <a
+                  href={listing.thumbnailUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={buttonVariants({ size: "sm", variant: "secondary", className: "absolute bottom-2 right-2 gap-1 shadow" })}
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                  {t.viewOriginalBtn}
+                </a>
+              )}
             </div>
             {listing.description && (
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">{listing.description}</p>
             )}
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="font-medium text-foreground/80">{t.seller}: {listing.sellerName}</span>
+              <span className="flex items-center gap-1 font-semibold text-amber-600 dark:text-amber-400">
+                <Crown className="h-4 w-4" />
+                {t.ownerLabel}: {ownerName}
+              </span>
+              {sold && listing.buyerName && (
+                <span className="text-xs text-muted-foreground">({t.seller}: {listing.sellerName})</span>
+              )}
               <span className="flex items-center gap-1 font-semibold text-violet-600">
                 <Coins className="h-4 w-4" />
                 {listing.price.toLocaleString()} AP

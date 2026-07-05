@@ -14,6 +14,7 @@ const DEFAULT_MARGIN_PERCENT = 100;
 // buyer pays the rest of the margin with EXP.
 const MENTOR_FUND_RATIO = 0.1;
 const MAX_FEATURED_PRODUCTS = 12;
+const MAX_SUMMER_2026_PRODUCTS = 40;
 
 interface CjEnvelope<T> {
   code?: number;
@@ -66,6 +67,7 @@ interface UpdateProductDto {
   active?: boolean;
   category?: string;
   featured?: boolean;
+  summer2026?: boolean;
 }
 
 export interface ShippingInfo {
@@ -282,6 +284,13 @@ export class CjShopService {
       }
     }
 
+    if (dto.summer2026 === true && current.summer2026 !== true) {
+      const summerSnap = await this.firebase.collection('cj_products').where('summer2026', '==', true).get();
+      if (summerSnap.size >= MAX_SUMMER_2026_PRODUCTS) {
+        throw new BadRequestException(`Summer 2026 products are capped at ${MAX_SUMMER_2026_PRODUCTS}`);
+      }
+    }
+
     // Legacy products (registered before variant support) have no `variants`
     // array — synthesize a single implicit variant from their top-level fields.
     const currentVariants: ProductVariant[] = (current.variants as ProductVariant[] | undefined) ?? [
@@ -332,6 +341,16 @@ export class CjShopService {
       .where('active', '==', true)
       .where('featured', '==', true)
       .limit(MAX_FEATURED_PRODUCTS)
+      .get();
+    return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  }
+
+  async listSummer2026Products() {
+    const snap = await this.firebase
+      .collection('cj_products')
+      .where('active', '==', true)
+      .where('summer2026', '==', true)
+      .limit(MAX_SUMMER_2026_PRODUCTS)
       .get();
     return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
   }

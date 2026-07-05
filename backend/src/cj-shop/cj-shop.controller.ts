@@ -32,6 +32,11 @@ export class CjShopController {
     return this.cjShopService.listFeaturedProducts();
   }
 
+  @Get('summer2026')
+  listSummer2026() {
+    return this.cjShopService.listSummer2026Products();
+  }
+
   @Post('orders')
   @UseGuards(JwtAuthGuard)
   createOrder(

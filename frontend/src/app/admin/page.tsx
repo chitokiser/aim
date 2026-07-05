@@ -16,7 +16,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw, Star,
+  Package, RefreshCw, Star, Sun,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -206,7 +206,7 @@ export default function AdminPage() {
   interface CjProductAdmin {
     id: string; productNumber?: number; cjProductId: string; cjVariantId: string; nameKo: string;
     images: string[]; cjPriceUsd: number; marginPercent: number; supplyApPrice?: number; apPrice: number; active: boolean; createdAt: string;
-    category?: string; variants?: CjProductVariant[]; featured?: boolean;
+    category?: string; variants?: CjProductVariant[]; featured?: boolean; summer2026?: boolean;
   }
   const CJ_CATEGORY_VALUES = ["household", "electronics", "beauty", "fashion", "kitchen", "kids", "pet", "jewelry", "carAccessories", "lighting", "art", "exp", "smartphone", "exp90", "optical", "watches", "bagsShoes", "sportsOutdoor", "toysHobby", "homeDecor", "other"] as const;
   interface CjOrderAdmin {
@@ -1026,6 +1026,24 @@ export default function AdminPage() {
         return;
       }
       setCjProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, featured: !x.featured } : x)));
+    } catch {
+      toast.error("Network error");
+    }
+  };
+
+  const handleCjSummer2026Toggle = async (p: CjProductAdmin) => {
+    try {
+      const res = await fetch(`${API}/api/cj-shop/admin/products/${p.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ summer2026: !p.summer2026 }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        toast.error((body?.message as string) || "수정에 실패했습니다");
+        return;
+      }
+      setCjProducts((prev) => prev.map((x) => (x.id === p.id ? { ...x, summer2026: !x.summer2026 } : x)));
     } catch {
       toast.error("Network error");
     }
@@ -2761,6 +2779,12 @@ export default function AdminPage() {
                               {t.shop.featuredTitle}
                             </Badge>
                           )}
+                          {p.summer2026 && (
+                            <Badge className="text-xs shrink-0 bg-cyan-500 text-white border-0 gap-1">
+                              <Sun className="h-3 w-3" />
+                              {t.shop.summer2026Title}
+                            </Badge>
+                          )}
                           <div className="flex gap-1.5 shrink-0">
                             <Button
                               size="sm"
@@ -2779,6 +2803,9 @@ export default function AdminPage() {
                             </Button>
                             <Button size="sm" variant="outline" onClick={() => void handleCjFeaturedToggle(p)} title={t.shop.featuredTitle}>
                               <Star className={p.featured ? "h-3.5 w-3.5 fill-amber-500 text-amber-500" : "h-3.5 w-3.5 text-muted-foreground"} />
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => void handleCjSummer2026Toggle(p)} title={t.shop.summer2026Title}>
+                              <Sun className={p.summer2026 ? "h-3.5 w-3.5 fill-cyan-500 text-cyan-500" : "h-3.5 w-3.5 text-muted-foreground"} />
                             </Button>
                             <Button size="sm" variant="destructive" onClick={() => void handleCjDelete(p.id)}>
                               <Trash2 className="h-3.5 w-3.5" />

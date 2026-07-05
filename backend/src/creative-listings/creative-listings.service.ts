@@ -123,6 +123,8 @@ export class CreativeListingsService {
     const sellerId = listing.sellerId as string;
     const sellerSnap = await this.firebase.collection('users').doc(sellerId).get();
     const mentorId = (sellerSnap.data()?.mentorId as string | null) ?? null;
+    const buyer = buyerSnap.data()!;
+    const buyerName = (buyer.firstName as string) || (buyer.username as string) || 'User';
 
     await this.points.deduct(buyerId, price, `Copyright purchase: ${listing.title as string}`);
 
@@ -138,6 +140,7 @@ export class CreativeListingsService {
     await ref.update({
       status: 'sold',
       buyerId,
+      buyerName,
       soldAt: new Date().toISOString(),
     });
 

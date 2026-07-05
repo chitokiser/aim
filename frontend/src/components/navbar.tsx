@@ -12,6 +12,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -64,8 +67,29 @@ export function Navbar() {
     { href: "/marketplace", label: t.nav.marketplace, icon: Store },
     { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
     { href: "/auction", label: t.nav.auction, icon: Gavel },
-    { href: "/shop", label: t.nav.shop, icon: Package },
     { href: "/coupang", label: "트렌드픽", icon: ShoppingBag },
+  ];
+
+  const shopCategories: { value: string; label: string }[] = [
+    { value: "all", label: t.shop.categories.all },
+    { value: "fashion", label: t.shop.categories.fashion },
+    { value: "beauty", label: t.shop.categories.beauty },
+    { value: "electronics", label: t.shop.categories.electronics },
+    { value: "smartphone", label: t.shop.categories.smartphone },
+    { value: "household", label: t.shop.categories.household },
+    { value: "kitchen", label: t.shop.categories.kitchen },
+    { value: "kids", label: t.shop.categories.kids },
+    { value: "pet", label: t.shop.categories.pet },
+    { value: "jewelry", label: t.shop.categories.jewelry },
+    { value: "watches", label: t.shop.categories.watches },
+    { value: "optical", label: t.shop.categories.optical },
+    { value: "bagsShoes", label: t.shop.categories.bagsShoes },
+    { value: "carAccessories", label: t.shop.categories.carAccessories },
+    { value: "lighting", label: t.shop.categories.lighting },
+    { value: "homeDecor", label: t.shop.categories.homeDecor },
+    { value: "sportsOutdoor", label: t.shop.categories.sportsOutdoor },
+    { value: "toysHobby", label: t.shop.categories.toysHobby },
+    { value: "art", label: t.shop.categories.art },
   ];
 
   const aiServiceLinks = [
@@ -75,7 +99,7 @@ export function Navbar() {
   ];
 
   const isChargeActive = pathname === "/topup" || (pathname === "/profile" && typeof window !== "undefined" && window.location.search.includes("tab=withdrawal"));
-  const isServiceActive = serviceLinks.some((l) => pathname === l.href);
+  const isServiceActive = serviceLinks.some((l) => pathname === l.href) || pathname === "/shop";
   const isAiServiceActive = aiServiceLinks.some((l) => pathname === l.href);
 
   return (
@@ -149,6 +173,27 @@ export function Navbar() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
+              <DropdownMenuItem asChild>
+                <Link href="/shop" className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  {t.nav.shop}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="flex items-center gap-2">
+                  <Package className="h-4 w-4" />
+                  {t.nav.shopCategories}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent className="max-h-80 overflow-y-auto">
+                  {shopCategories.map(({ value, label }) => (
+                    <DropdownMenuItem key={value} asChild>
+                      <Link href={value === "all" ? "/shop" : `/shop?category=${value}`}>
+                        {label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
               {serviceLinks.map(({ href, label, icon: Icon }) => (
                 <DropdownMenuItem key={href} asChild>
                   <Link href={href} className="flex items-center gap-2">
@@ -353,6 +398,34 @@ export function Navbar() {
                 {label}
               </Link>
             ))}
+          </div>
+          <div className="pt-1 border-t mt-1">
+            <Link
+              href="/shop"
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                "flex items-center gap-3 rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-accent",
+                pathname === "/shop" ? "bg-accent text-accent-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Package className="h-4 w-4" />
+              {t.nav.shop}
+            </Link>
+            <p className="px-3 pt-1 pb-1.5 text-xs font-semibold text-violet-600 dark:text-violet-400">
+              {t.nav.shopCategories}
+            </p>
+            <div className="flex flex-wrap gap-1.5 px-3 pb-2">
+              {shopCategories.map(({ value, label }) => (
+                <Link
+                  key={value}
+                  href={value === "all" ? "/shop" : `/shop?category=${value}`}
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
           </div>
           <div className="pt-1 border-t mt-1">
             {serviceLinks.map(({ href, label, icon: Icon }) => (

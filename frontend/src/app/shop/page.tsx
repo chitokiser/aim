@@ -6,7 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Coins, Package, Sparkles, TriangleAlert, Star, Search } from "lucide-react";
+import { Coins, Package, Sparkles, TriangleAlert, Star, Search, Sun } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -28,8 +28,9 @@ function ShopPageContent() {
   const searchParams = useSearchParams();
   const [products, setProducts] = useState<CjProduct[]>([]);
   const [loading, setLoading] = useState(true);
-  const [category, setCategory] = useState("all");
+  const [category, setCategory] = useState(searchParams.get("category") ?? "all");
   const [featuredProducts, setFeaturedProducts] = useState<CjProduct[]>([]);
+  const [summer2026Products, setSummer2026Products] = useState<CjProduct[]>([]);
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
 
   const loadProducts = useCallback(async () => {
@@ -54,8 +55,19 @@ function ShopPageContent() {
     }
   }, []);
 
+  const loadSummer2026Products = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/cj-shop/summer2026`);
+      const data = (await res.json()) as CjProduct[];
+      setSummer2026Products(Array.isArray(data) ? data : []);
+    } catch {
+      setSummer2026Products([]);
+    }
+  }, []);
+
   useEffect(() => { void loadProducts(); }, [loadProducts]);
   useEffect(() => { void loadFeaturedProducts(); }, [loadFeaturedProducts]);
+  useEffect(() => { void loadSummer2026Products(); }, [loadSummer2026Products]);
 
   const availableCategories = Array.from(new Set(products.map((p) => p.category || "other")));
   const searchTerm = search.trim().toLowerCase();
@@ -96,6 +108,23 @@ function ShopPageContent() {
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {featuredProducts.map((p) => (
+              <ProductCard key={p.id} p={p} sh={sh} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {summer2026Products.length > 0 && (
+        <div className="mb-10">
+          <div className="flex items-center gap-2 mb-4">
+            <Sun className="h-5 w-5 text-cyan-500" />
+            <div>
+              <h2 className="font-bold text-lg leading-tight">{sh.summer2026Title}</h2>
+              <p className="text-xs text-muted-foreground">{sh.summer2026Subtitle}</p>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {summer2026Products.map((p) => (
               <ProductCard key={p.id} p={p} sh={sh} />
             ))}
           </div>
