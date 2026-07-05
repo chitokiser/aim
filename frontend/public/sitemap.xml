@@ -25,6 +25,12 @@
     <priority>0.9</priority>
   </url>
   <url>
+    <loc>https://ai119.netlify.app/shop</loc>
+    <lastmod>2026-07-05</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://ai119.netlify.app/missions</loc>
     <lastmod>2026-06-29</lastmod>
     <changefreq>daily</changefreq>
@@ -49,10 +55,34 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://ai119.netlify.app/music-video</loc>
+    <lastmod>2026-07-05</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://ai119.netlify.app/tts</loc>
     <lastmod>2026-06-29</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://ai119.netlify.app/coupang</loc>
+    <lastmod>2026-07-05</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://ai119.netlify.app/about</loc>
+    <lastmod>2026-07-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://ai119.netlify.app/contact</loc>
+    <lastmod>2026-07-05</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
   </url>
   <url>
     <loc>https://ai119.netlify.app/topup</loc>
