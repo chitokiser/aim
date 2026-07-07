@@ -2,6 +2,7 @@ import {
   Controller, Get, Post, Delete, Patch, Param, Body,
   UseGuards, Request, ForbiddenException,
 } from '@nestjs/common';
+import { FieldValue } from 'firebase-admin/firestore';
 import { JwtAuthGuard } from '../auth/jwt.guard';
 import { FirebaseService } from '../firebase/firebase.service';
 import { UsersService } from '../users/users.service';
@@ -65,8 +66,12 @@ export class CoupangController {
     const iframeWidth = widthMatch ? parseInt(widthMatch[1]) : 120;
     const iframeHeight = heightMatch ? parseInt(heightMatch[1]) : 240;
 
-    const countSnap = await this.firebase.collection('coupang_products').get();
-    const productNo = countSnap.size + 1;
+    const allSnap = await this.firebase.collection('coupang_products').get();
+    const maxProductNo = allSnap.docs.reduce((max, d) => {
+      const no = d.data()['productNo'];
+      return typeof no === 'number' && no > max ? no : max;
+    }, 0);
+    const productNo = maxProductNo + 1;
 
     const name = body.name?.trim() || `쿠팡 상품 #${productNo}`;
     const now = new Date();
@@ -80,11 +85,20 @@ export class CoupangController {
       iframeHeight,
       videoUrl: body.videoUrl?.trim() || null,
       active: true,
+      clicks: 0,
       createdAt: now.toISOString(),
     };
 
     const ref = await this.firebase.collection('coupang_products').add(doc);
     return { id: ref.id, ...doc };
+  }
+
+  @Post('products/:id/click')
+  async trackClick(@Param('id') id: string) {
+    await this.firebase.collection('coupang_products').doc(id).update({
+      clicks: FieldValue.increment(1),
+    });
+    return { ok: true };
   }
 
   @Patch('products/:id')
