@@ -108,9 +108,10 @@ export function Navbar() {
     return n.toLocaleString();
   };
 
-  const isChargeActive = pathname === "/topup" || (pathname === "/profile" && typeof window !== "undefined" && window.location.search.includes("tab=withdrawal"));
-  const isServiceActive = serviceLinks.some((l) => pathname === l.href) || pathname === "/shop";
-  const isAiServiceActive = aiServiceLinks.some((l) => pathname === l.href);
+  const isServiceActive =
+    serviceLinks.some((l) => pathname === l.href) ||
+    aiServiceLinks.some((l) => pathname === l.href) ||
+    pathname === "/shop";
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -134,7 +135,7 @@ export function Navbar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                "flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                 pathname === href ? "bg-accent text-accent-foreground" : "text-muted-foreground"
               )}
             >
@@ -143,38 +144,12 @@ export function Navbar() {
             </Link>
           ))}
 
-          {/* Charge / AP Trade dropdown */}
+          {/* Services dropdown — Shop, Advertiser services, and AI tools all live here */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
                 className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                  isChargeActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                )}
-              >
-                <Zap className="h-4 w-4" />
-                {t.nav.topup}
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {chargeLinks.map(({ href, label, icon: Icon }) => (
-                <DropdownMenuItem key={href} asChild>
-                  <Link href={href} className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          {/* Services dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                  "flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
                   isServiceActive ? "bg-accent text-accent-foreground" : "text-muted-foreground"
                 )}
               >
@@ -204,6 +179,23 @@ export function Navbar() {
                   ))}
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger className="flex items-center gap-2">
+                  <Bot className="h-4 w-4" />
+                  {t.nav.aiServices}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {aiServiceLinks.map(({ href, label, icon: Icon }) => (
+                    <DropdownMenuItem key={href} asChild>
+                      <Link href={href} className="flex items-center gap-2">
+                        <Icon className="h-4 w-4" />
+                        {label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+              <DropdownMenuSeparator />
               {serviceLinks.map(({ href, label, icon: Icon }) => (
                 <DropdownMenuItem key={href} asChild>
                   <Link href={href} className="flex items-center gap-2">
@@ -214,35 +206,6 @@ export function Navbar() {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-
-          {/* AI Services dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                className={cn(
-                  "flex items-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-                  isAiServiceActive
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground"
-                )}
-              >
-                <Bot className="h-4 w-4" />
-                {t.nav.aiServices}
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              {aiServiceLinks.map(({ href, label, icon: Icon }) => (
-                <DropdownMenuItem key={href} asChild>
-                  <Link href={href} className="flex items-center gap-2">
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-
         </nav>
 
         {/* Right side */}
@@ -319,6 +282,15 @@ export function Navbar() {
                       </span>
                     </div>
                   </div>
+                  <DropdownMenuSeparator />
+                  {chargeLinks.map(({ href, label, icon: Icon }) => (
+                    <DropdownMenuItem key={href} asChild>
+                      <Link href={href}>
+                        <Icon className="mr-2 h-4 w-4" />
+                        {label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild>
                     <Link href="/profile">{t.nav.myProfile}</Link>

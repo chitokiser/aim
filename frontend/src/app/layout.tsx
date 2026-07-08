@@ -68,6 +68,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <head>
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8673715186885112"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <Providers>
           <Suspense>
