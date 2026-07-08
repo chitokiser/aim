@@ -39,6 +39,24 @@ export class BlogController {
     return this.blog.listAll();
   }
 
+  @Get('admin/suggest-keywords')
+  @UseGuards(JwtAuthGuard)
+  async suggestKeywords(@Request() req: { user: { sub: string } }) {
+    if (!(await this.users.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    const keywords = await this.blog.suggestKeywords();
+    return { keywords };
+  }
+
+  @Post('admin/generate-draft')
+  @UseGuards(JwtAuthGuard)
+  async generateDraft(
+    @Request() req: { user: { sub: string } },
+    @Body() body: { keyword: string },
+  ) {
+    if (!(await this.users.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.blog.generateDraft(body.keyword);
+  }
+
   @Post('admin/posts')
   @UseGuards(JwtAuthGuard)
   async create(

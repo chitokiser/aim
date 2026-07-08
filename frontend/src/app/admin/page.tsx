@@ -16,7 +16,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText,
+  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText, Sparkles,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -310,6 +310,9 @@ export default function AdminPage() {
   const [blogEditingId, setBlogEditingId] = useState<string | null>(null);
   const [blogForm, setBlogForm] = useState(emptyBlogForm);
   const [blogSubmitting, setBlogSubmitting] = useState(false);
+  const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
+  const [suggestingKeywords, setSuggestingKeywords] = useState(false);
+  const [generatingDraftFor, setGeneratingDraftFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
@@ -1295,6 +1298,49 @@ export default function AdminPage() {
   const cancelEditBlogPost = () => {
     setBlogEditingId(null);
     setBlogForm(emptyBlogForm);
+  };
+
+  const suggestBlogKeywords = async () => {
+    setSuggestingKeywords(true);
+    try {
+      const res = await fetch(`${API}/api/blog/admin/suggest-keywords`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      const data: { keywords: string[] } = await res.json();
+      setSuggestedKeywords(data.keywords);
+    } catch {
+      toast.error(t.admin.blogKeywordsFail);
+    } finally {
+      setSuggestingKeywords(false);
+    }
+  };
+
+  const generateBlogDraft = async (keyword: string) => {
+    setGeneratingDraftFor(keyword);
+    try {
+      const res = await fetch(`${API}/api/blog/admin/generate-draft`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ keyword }),
+      });
+      if (!res.ok) throw new Error();
+      const draft: { title: string; excerpt: string; content: string; tags: string[] } = await res.json();
+      setBlogEditingId(null);
+      setBlogForm({
+        title: draft.title,
+        slug: "",
+        excerpt: draft.excerpt,
+        content: draft.content,
+        coverImage: "",
+        videoUrl: "",
+        tags: draft.tags.join(", "),
+        published: false,
+      });
+      toast.success(t.admin.blogDraftReady);
+    } catch {
+      toast.error(t.admin.blogDraftFail);
+    } finally {
+      setGeneratingDraftFor(null);
+    }
   };
 
   const saveBlogPost = async () => {
@@ -3225,6 +3271,46 @@ export default function AdminPage() {
         {/* Blog */}
         <TabsContent value="blog">
           <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  {t.admin.blogSuggestKeywords}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button size="sm" variant="outline" disabled={suggestingKeywords} onClick={suggestBlogKeywords}>
+                  {suggestingKeywords ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4 mr-2" />
+                  )}
+                  {suggestingKeywords ? t.admin.blogSuggestingKeywords : t.admin.blogSuggestKeywords}
+                </Button>
+                {suggestedKeywords.length > 0 && (
+                  <>
+                    <p className="text-xs text-muted-foreground">{t.admin.blogKeywordsHint}</p>
+                    <div className="flex flex-wrap gap-2">
+                      {suggestedKeywords.map((keyword) => (
+                        <Button
+                          key={keyword}
+                          size="sm"
+                          variant="secondary"
+                          disabled={generatingDraftFor !== null}
+                          onClick={() => void generateBlogDraft(keyword)}
+                        >
+                          {generatingDraftFor === keyword ? (
+                            <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                          ) : null}
+                          {generatingDraftFor === keyword ? t.admin.blogGeneratingDraft : keyword}
+                        </Button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
