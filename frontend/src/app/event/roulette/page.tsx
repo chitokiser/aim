@@ -10,10 +10,12 @@ import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const BOT_USERNAME = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "";
+const SPIN_DURATION_MS = 3200;
 
 type ViewState = "loading" | "no-source" | "need-login" | "ready" | "already-spun";
 
@@ -21,6 +23,31 @@ interface SpinResult {
   exp: number;
   level: number;
   leveledUp: boolean;
+}
+
+// Matches backend/src/roulette/roulette.service.ts PRIZE_TIERS — display only,
+// the actual prize is always determined server-side.
+const WHEEL_SEGMENTS = [
+  { label: "10-100", color: "#7c3aed" },
+  { label: "100-1K", color: "#a855f7" },
+  { label: "1K-5K", color: "#c026d3" },
+  { label: "5K-10K", color: "#db2777" },
+  { label: "10-100", color: "#7c3aed" },
+  { label: "100-1K", color: "#a855f7" },
+  { label: "1K-5K", color: "#c026d3" },
+  { label: "5K-10K", color: "#db2777" },
+];
+const SEGMENT_ANGLE = 360 / WHEEL_SEGMENTS.length;
+
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
+}
+
+function describeSegment(cx: number, cy: number, r: number, startAngle: number, endAngle: number) {
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 0 0 ${end.x} ${end.y} Z`;
 }
 
 type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
@@ -38,18 +65,33 @@ function playTone(ctx: AudioContext, freq: number, duration: number, type: Oscil
   osc.stop(ctx.currentTime + duration);
 }
 
-// Decelerating ticks that mimic a physical wheel slowing down over ~3.2s
-function playSpinSound(ctx: AudioContext) {
+// Decelerating wheel sound: a pitch-dropping drone plus clicking ticks that
+// slow down over the animation, like a physical wheel losing momentum.
+function playSpinSound(ctx: AudioContext, durationSec: number) {
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = "sawtooth";
+  osc.frequency.setValueAtTime(720, ctx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + durationSec);
+  gainNode.gain.setValueAtTime(0.001, ctx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(0.06, ctx.currentTime + 0.15);
+  gainNode.gain.linearRampToValueAtTime(0.001, ctx.currentTime + durationSec);
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + durationSec);
+
   let elapsed = 0;
-  for (let i = 0; i < 22; i++) {
-    elapsed += 50 + i * 11;
-    setTimeout(() => playTone(ctx, 620, 0.045, "square", 0.07), elapsed);
+  for (let i = 0; i < 26; i++) {
+    elapsed += 45 + i * 10;
+    if (elapsed > durationSec * 1000) break;
+    setTimeout(() => playTone(ctx, 640, 0.045, "square", 0.12), elapsed);
   }
 }
 
 function playWinSound(ctx: AudioContext) {
-  [523.25, 659.25, 783.99].forEach((freq, i) => {
-    setTimeout(() => playTone(ctx, freq, 0.28, "sine", 0.18), i * 130);
+  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+    setTimeout(() => playTone(ctx, freq, 0.3, "sine", 0.2), i * 120);
   });
 }
 
@@ -141,7 +183,7 @@ function RouletteContent() {
         return;
       }
       const data: SpinResult = await res.json();
-      if (ctx) playSpinSound(ctx);
+      if (ctx) playSpinSound(ctx, SPIN_DURATION_MS / 1000);
       const extraTurns = 5 * 360;
       const landingOffset = Math.floor(Math.random() * 360);
       setRotation((prev) => prev + extraTurns + landingOffset);
@@ -149,8 +191,9 @@ function RouletteContent() {
         setResult(data);
         setPastExp(data.exp);
         setSpinning(false);
+        setView("already-spun");
         if (ctx) playWinSound(ctx);
-      }, 3200);
+      }, SPIN_DURATION_MS);
     } catch {
       toast.error(r.errorGeneric);
       setSpinning(false);
@@ -212,18 +255,55 @@ function RouletteContent() {
                     borderTop: "16px solid #facc15",
                   }}
                 />
-                <div
+                <svg
+                  viewBox="0 0 200 200"
                   className="h-full w-full rounded-full border-4 border-white/20 shadow-[0_0_40px_rgba(217,70,239,0.4)]"
                   style={{
-                    background:
-                      "repeating-conic-gradient(#7c3aed 0deg 45deg, #db2777 45deg 90deg)",
                     transform: `rotate(${rotation}deg)`,
                     transition: spinning ? "transform 3.2s cubic-bezier(0.17,0.67,0.12,0.99)" : undefined,
                   }}
-                />
-                <div className="absolute inset-0 m-auto flex h-16 w-16 items-center justify-center rounded-full bg-white text-sm font-bold text-fuchsia-700 shadow-lg">
-                  TIGU
-                </div>
+                >
+                  {WHEEL_SEGMENTS.map((seg, i) => {
+                    const startAngle = i * SEGMENT_ANGLE;
+                    const endAngle = startAngle + SEGMENT_ANGLE;
+                    const midAngle = startAngle + SEGMENT_ANGLE / 2;
+                    const textPos = polarToCartesian(100, 100, 65, midAngle);
+                    return (
+                      <g key={i}>
+                        <path
+                          d={describeSegment(100, 100, 96, startAngle, endAngle)}
+                          fill={seg.color}
+                          stroke="#1e1b3a"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={textPos.x}
+                          y={textPos.y}
+                          fill="white"
+                          fontSize="11"
+                          fontWeight="bold"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          transform={`rotate(${midAngle}, ${textPos.x}, ${textPos.y})`}
+                        >
+                          {seg.label}
+                        </text>
+                      </g>
+                    );
+                  })}
+                  <circle cx="100" cy="100" r="28" fill="white" />
+                  <text
+                    x="100"
+                    y="100"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="15"
+                    fontWeight="bold"
+                    fill="#a21caf"
+                  >
+                    TIGU
+                  </text>
+                </svg>
               </div>
               <Button
                 size="lg"
@@ -233,30 +313,6 @@ function RouletteContent() {
               >
                 {spinning ? r.spinning : r.spinBtn}
               </Button>
-            </div>
-          )}
-
-          {result && (
-            <div className="rounded-lg bg-white/10 px-6 py-4">
-              <p className="text-lg font-semibold text-fuchsia-200">{r.resultTitle}</p>
-              <p className="mt-1 text-3xl font-bold">
-                {r.resultWon} {result.exp.toLocaleString()} {r.resultExpUnit}
-              </p>
-              {result.leveledUp && (
-                <p className="mt-1 text-sm text-yellow-300">
-                  {r.resultLeveledUp.replace("{n}", String(result.level))}
-                </p>
-              )}
-              <Link
-                href="/shop"
-                className={cn(
-                  buttonVariants({ size: "lg" }),
-                  "mt-4 w-full bg-white text-fuchsia-700 hover:bg-white/90",
-                )}
-              >
-                <ShoppingBag className="h-4 w-4 mr-2" />
-                {r.shopCta}
-              </Link>
             </div>
           )}
 
@@ -275,6 +331,42 @@ function RouletteContent() {
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={!!result} onOpenChange={(open) => { if (!open) setResult(null); }}>
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-xs border-none bg-gradient-to-b from-fuchsia-600 to-violet-700 text-white text-center py-8"
+        >
+          <DialogTitle className="text-lg font-semibold text-fuchsia-100">
+            🎉 {r.resultTitle}
+          </DialogTitle>
+          {result && (
+            <>
+              <p className="text-sm text-white/80">{r.resultWon}</p>
+              <p className="text-5xl font-black tracking-tight drop-shadow-lg">
+                {result.exp.toLocaleString()}
+                <span className="ml-1 text-2xl font-bold">{r.resultExpUnit}</span>
+              </p>
+              {result.leveledUp && (
+                <p className="text-sm text-yellow-300">
+                  {r.resultLeveledUp.replace("{n}", String(result.level))}
+                </p>
+              )}
+              <Link
+                href="/shop"
+                onClick={() => setResult(null)}
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "mt-2 w-full bg-white text-fuchsia-700 hover:bg-white/90",
+                )}
+              >
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                {r.shopCta}
+              </Link>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

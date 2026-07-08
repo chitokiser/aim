@@ -101,6 +101,13 @@ export function Navbar() {
     { href: "/music-gen", label: t.nav.musicGen, icon: Music },
   ];
 
+  const formatCompact = (n: number) => {
+    if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return n.toLocaleString();
+  };
+
   const isChargeActive = pathname === "/topup" || (pathname === "/profile" && typeof window !== "undefined" && window.location.search.includes("tab=withdrawal"));
   const isServiceActive = serviceLinks.some((l) => pathname === l.href) || pathname === "/shop";
   const isAiServiceActive = aiServiceLinks.some((l) => pathname === l.href);
@@ -261,22 +268,24 @@ export function Navbar() {
 
           {(mounted && user) ? (
             <>
-              {/* Telegram ID + Points Badge */}
-              <div className="hidden sm:flex items-center gap-2">
-                <div className="flex items-center gap-1 rounded-full bg-muted border px-2.5 py-1">
+              {/* AP / EXP Badge — visible at every breakpoint so mobile users see their balance too */}
+              <div className="flex items-center gap-1 sm:gap-2">
+                <div className="hidden sm:flex items-center gap-1 rounded-full bg-muted border px-2.5 py-1">
                   <Send className="h-3 w-3 text-muted-foreground" />
                   <span className="text-xs font-mono text-muted-foreground">{user.telegramId}</span>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-200 dark:border-violet-800 px-3 py-1">
-                  <Coins className="h-4 w-4 text-violet-600" />
-                  <span className="text-sm font-semibold text-violet-700 dark:text-violet-400">
-                    {user.points.toLocaleString()} AP
+                <div className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-gradient-to-r from-violet-500/10 to-cyan-500/10 border border-violet-200 dark:border-violet-800 px-2 py-0.5 sm:px-3 sm:py-1">
+                  <Coins className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-violet-600 shrink-0" />
+                  <span className="text-xs sm:text-sm font-semibold text-violet-700 dark:text-violet-400 whitespace-nowrap">
+                    <span className="sm:hidden">{formatCompact(user.points)}</span>
+                    <span className="hidden sm:inline">{user.points.toLocaleString()} AP</span>
                   </span>
                 </div>
-                <div className="flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 dark:border-amber-800 px-3 py-1">
-                  <Star className="h-4 w-4 text-amber-600" />
-                  <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
-                    Lv.{user.level ?? 1} · {(user.exp ?? 0).toLocaleString()} EXP
+                <div className="flex items-center gap-1 sm:gap-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-200 dark:border-amber-800 px-2 py-0.5 sm:px-3 sm:py-1">
+                  <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600 shrink-0" />
+                  <span className="text-xs sm:text-sm font-semibold text-amber-700 dark:text-amber-400 whitespace-nowrap">
+                    <span className="sm:hidden">{formatCompact(user.exp ?? 0)}</span>
+                    <span className="hidden sm:inline">Lv.{user.level ?? 1} · {(user.exp ?? 0).toLocaleString()} EXP</span>
                   </span>
                 </div>
               </div>
