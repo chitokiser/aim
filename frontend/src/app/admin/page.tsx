@@ -16,7 +16,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw, Star, Sun, Dices, Copy, Download,
+  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
@@ -281,6 +281,35 @@ export default function AdminPage() {
   const [rouletteLoading, setRouletteLoading] = useState(false);
   const [rouletteLabel, setRouletteLabel] = useState("");
   const [rouletteCreating, setRouletteCreating] = useState(false);
+
+  // Blog posts state
+  interface BlogPostItem {
+    id: string;
+    title: string;
+    slug: string;
+    excerpt: string;
+    content: string;
+    coverImage: string | null;
+    videoUrl: string | null;
+    tags: string[];
+    published: boolean;
+    createdAt: string;
+  }
+  const emptyBlogForm = {
+    title: "",
+    slug: "",
+    excerpt: "",
+    content: "",
+    coverImage: "",
+    videoUrl: "",
+    tags: "",
+    published: false,
+  };
+  const [blogPosts, setBlogPosts] = useState<BlogPostItem[]>([]);
+  const [blogLoading, setBlogLoading] = useState(false);
+  const [blogEditingId, setBlogEditingId] = useState<string | null>(null);
+  const [blogForm, setBlogForm] = useState(emptyBlogForm);
+  const [blogSubmitting, setBlogSubmitting] = useState(false);
 
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
@@ -1235,6 +1264,104 @@ export default function AdminPage() {
     }
   };
 
+  const loadBlogPosts = useCallback(async () => {
+    if (!token) return;
+    setBlogLoading(true);
+    try {
+      const res = await fetch(`${API}/api/blog/admin/posts`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setBlogPosts(await res.json());
+    } catch {
+      toast.error(t.admin.blogSaveFail);
+    } finally {
+      setBlogLoading(false);
+    }
+  }, [token, authHeader, t]);
+
+  const startEditBlogPost = (post: BlogPostItem) => {
+    setBlogEditingId(post.id);
+    setBlogForm({
+      title: post.title,
+      slug: post.slug,
+      excerpt: post.excerpt,
+      content: post.content,
+      coverImage: post.coverImage ?? "",
+      videoUrl: post.videoUrl ?? "",
+      tags: post.tags?.join(", ") ?? "",
+      published: post.published,
+    });
+  };
+
+  const cancelEditBlogPost = () => {
+    setBlogEditingId(null);
+    setBlogForm(emptyBlogForm);
+  };
+
+  const saveBlogPost = async () => {
+    if (!blogForm.title.trim() || !blogForm.excerpt.trim() || !blogForm.content.trim()) {
+      toast.error(t.admin.blogSaveFail);
+      return;
+    }
+    setBlogSubmitting(true);
+    try {
+      const body = {
+        title: blogForm.title.trim(),
+        slug: blogForm.slug.trim() || undefined,
+        excerpt: blogForm.excerpt.trim(),
+        content: blogForm.content,
+        coverImage: blogForm.coverImage.trim() || undefined,
+        videoUrl: blogForm.videoUrl.trim() || undefined,
+        tags: blogForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        published: blogForm.published,
+      };
+      const url = blogEditingId
+        ? `${API}/api/blog/admin/posts/${blogEditingId}`
+        : `${API}/api/blog/admin/posts`;
+      const res = await fetch(url, {
+        method: blogEditingId ? "PATCH" : "POST",
+        headers: authHeader(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(blogEditingId ? t.admin.blogPostUpdated : t.admin.blogPostCreated);
+      cancelEditBlogPost();
+      void loadBlogPosts();
+    } catch {
+      toast.error(t.admin.blogSaveFail);
+    } finally {
+      setBlogSubmitting(false);
+    }
+  };
+
+  const toggleBlogPublished = async (post: BlogPostItem) => {
+    try {
+      const res = await fetch(`${API}/api/blog/admin/posts/${post.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ published: !post.published }),
+      });
+      if (!res.ok) throw new Error();
+      void loadBlogPosts();
+    } catch {
+      toast.error(t.admin.blogSaveFail);
+    }
+  };
+
+  const deleteBlogPost = async (id: string) => {
+    if (!confirm(t.admin.blogDeleteConfirm)) return;
+    try {
+      const res = await fetch(`${API}/api/blog/admin/posts/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.blogPostDeleted);
+      void loadBlogPosts();
+    } catch {
+      toast.error(t.admin.blogSaveFail);
+    }
+  };
+
   const sendNotice = async () => {
     if (!notice.trim()) return;
     try {
@@ -1352,6 +1479,10 @@ export default function AdminPage() {
           <TabsTrigger value="roulette" onClick={loadRouletteEvents}>
             <Dices className="h-3.5 w-3.5 mr-1" />
             {t.admin.tabRoulette}
+          </TabsTrigger>
+          <TabsTrigger value="blog" onClick={loadBlogPosts}>
+            <FileText className="h-3.5 w-3.5 mr-1" />
+            {t.admin.tabBlog}
           </TabsTrigger>
         </TabsList>
 
@@ -3084,6 +3215,148 @@ export default function AdminPage() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Blog */}
+        <TabsContent value="blog">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  {blogEditingId ? t.admin.editBlogPost : t.admin.createBlogPost}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.blogTitle}</Label>
+                    <Input
+                      value={blogForm.title}
+                      onChange={(e) => setBlogForm({ ...blogForm, title: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.blogSlug}</Label>
+                    <Input
+                      value={blogForm.slug}
+                      onChange={(e) => setBlogForm({ ...blogForm, slug: e.target.value })}
+                      placeholder="how-to-earn-ap"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.admin.blogExcerpt}</Label>
+                  <Input
+                    value={blogForm.excerpt}
+                    onChange={(e) => setBlogForm({ ...blogForm, excerpt: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.admin.blogContent}</Label>
+                  <textarea
+                    className="w-full min-h-48 rounded-md border bg-background px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={blogForm.content}
+                    onChange={(e) => setBlogForm({ ...blogForm, content: e.target.value })}
+                    placeholder="<h2>Heading</h2><p>Paragraph text...</p>"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.blogCoverImage}</Label>
+                    <Input
+                      value={blogForm.coverImage}
+                      onChange={(e) => setBlogForm({ ...blogForm, coverImage: e.target.value })}
+                      placeholder="https://..."
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.blogVideoUrl}</Label>
+                    <Input
+                      value={blogForm.videoUrl}
+                      onChange={(e) => setBlogForm({ ...blogForm, videoUrl: e.target.value })}
+                      placeholder="https://www.youtube.com/embed/VIDEO_ID"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t.admin.blogTags}</Label>
+                  <Input
+                    value={blogForm.tags}
+                    onChange={(e) => setBlogForm({ ...blogForm, tags: e.target.value })}
+                    placeholder="missions, guide, ap"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={blogForm.published}
+                    onChange={(e) => setBlogForm({ ...blogForm, published: e.target.checked })}
+                  />
+                  {t.admin.blogPublished}
+                </label>
+                <div className="flex gap-2">
+                  <Button disabled={blogSubmitting} onClick={saveBlogPost}>
+                    {blogSubmitting ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    {blogEditingId ? t.admin.updateBlogPost : t.admin.createBlogPost}
+                  </Button>
+                  {blogEditingId && (
+                    <Button variant="outline" onClick={cancelEditBlogPost}>
+                      {t.admin.blogCancel}
+                    </Button>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t.admin.blogPostsTitle}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {blogLoading ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading...</span>
+                  </div>
+                ) : blogPosts.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-6">{t.admin.noBlogPosts}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {blogPosts.map((post) => (
+                      <div key={post.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold truncate">{post.title}</span>
+                            <Badge variant={post.published ? "default" : "secondary"}>
+                              {post.published ? t.admin.published : t.admin.draft}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-muted-foreground">/blog/{post.slug}</div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <Button size="sm" variant="outline" onClick={() => startEditBlogPost(post)}>
+                            <Pencil className="h-3.5 w-3.5 mr-1" />
+                            {t.admin.blogEdit}
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => void toggleBlogPublished(post)}>
+                            {post.published ? t.admin.unpublish : t.admin.publish}
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => void deleteBlogPost(post.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>

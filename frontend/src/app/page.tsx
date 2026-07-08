@@ -612,6 +612,7 @@ export default function HomePage() {
                 💬 {h.communityLink}
               </a>
               <Link href="/about" className="hover:text-foreground">{t.footer.about}</Link>
+              <Link href="/blog" className="hover:text-foreground">{t.nav.blog}</Link>
               <Link href="/privacy" className="hover:text-foreground">{h.privacy}</Link>
               <Link href="/terms" className="hover:text-foreground">{h.terms}</Link>
               <Link href="/contact" className="hover:text-foreground">{t.footer.contactUs}</Link>
