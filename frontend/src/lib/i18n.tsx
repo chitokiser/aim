@@ -206,6 +206,8 @@ const T = {
       noSourceTitle: "TIGU Roulette Event",
       noSourceDesc: "Scan the QR code shown in a TIGU promo video to join this roulette event.",
       errorGeneric: "Something went wrong. Please try again.",
+      shopCta: "Go Shopping",
+      newMemberNotice: "First time here? You'll be automatically registered with our admin as your referrer — no code needed.",
     },
     auth: {
       subtitle: "AI Creation, Missions, Digital Asset Auction & more — Earn TON coins.",
@@ -1337,6 +1339,8 @@ const T = {
       noSourceTitle: "TIGU 룰렛 이벤트",
       noSourceDesc: "TIGU 홍보 영상에 나온 QR코드를 스캔하면 이 룰렛 이벤트에 참여할 수 있습니다.",
       errorGeneric: "문제가 발생했습니다. 다시 시도해주세요.",
+      shopCta: "쇼핑하러 가기",
+      newMemberNotice: "처음 오셨나요? 별도의 추천코드 없이 관리자를 추천인으로 자동 등록됩니다.",
     },
     auth: {
       subtitle: "AI 창작, 미션, 디지털자산경매 등으로 TON코인을 버세요",
@@ -2468,6 +2472,8 @@ const T = {
       noSourceTitle: "Sự kiện Vòng quay TIGU",
       noSourceDesc: "Quét mã QR trong video quảng bá TIGU để tham gia sự kiện vòng quay này.",
       errorGeneric: "Đã xảy ra lỗi. Vui lòng thử lại.",
+      shopCta: "Đi mua sắm",
+      newMemberNotice: "Lần đầu đến đây? Bạn sẽ tự động được đăng ký với quản trị viên làm người giới thiệu — không cần mã.",
     },
     auth: {
       subtitle: "Sáng tạo AI, Nhiệm vụ, Đấu giá tài sản số & hơn nữa — Kiếm TON coin.",

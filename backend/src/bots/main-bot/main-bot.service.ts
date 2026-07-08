@@ -197,15 +197,20 @@ export class MainBotService extends BaseTelegrafBotService {
       // roulette_<code> deep link from a QR code shown in a promo video — one spin per event code
       if (payload.startsWith('roulette_')) {
         const code = payload.replace('roulette_', '');
-        await this.usersService.registerFromTelegram({
+        // No refCode passed here — new users fall back to the admin as mentor,
+        // same as registerFromTelegram's default behavior for un-referred signups.
+        const { isNew } = await this.usersService.registerFromTelegram({
           telegramId: String(tg.id),
           firstName: tg.first_name,
           lastName: tg.last_name,
           username: tg.username,
         });
         const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
+        const greeting = isNew
+          ? `🎉 *Welcome to AI119, ${tg.first_name}!*\n\nYou've been registered automatically (our admin is your referrer — no code needed).\n\n`
+          : '';
         await ctx.reply(
-          `🎡 *TIGU Roulette Event!*\n\nSpin the wheel and win 10~10,000 EXP!`,
+          `${greeting}🎡 *TIGU Roulette Event!*\n\nSpin the wheel and win 10~10,000 EXP!`,
           {
             parse_mode: 'Markdown',
             reply_markup: {

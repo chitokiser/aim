@@ -1,8 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
+import { ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/lib/store";
 import { useLanguage } from "@/lib/i18n";
@@ -21,6 +23,36 @@ interface SpinResult {
   leveledUp: boolean;
 }
 
+type AudioContextWindow = Window & { webkitAudioContext?: typeof AudioContext };
+
+function playTone(ctx: AudioContext, freq: number, duration: number, type: OscillatorType, gain: number) {
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gainNode.gain.setValueAtTime(gain, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+}
+
+// Decelerating ticks that mimic a physical wheel slowing down over ~3.2s
+function playSpinSound(ctx: AudioContext) {
+  let elapsed = 0;
+  for (let i = 0; i < 22; i++) {
+    elapsed += 50 + i * 11;
+    setTimeout(() => playTone(ctx, 620, 0.045, "square", 0.07), elapsed);
+  }
+}
+
+function playWinSound(ctx: AudioContext) {
+  [523.25, 659.25, 783.99].forEach((freq, i) => {
+    setTimeout(() => playTone(ctx, freq, 0.28, "sine", 0.18), i * 130);
+  });
+}
+
 function RouletteContent() {
   const searchParams = useSearchParams();
   const src = searchParams.get("src");
@@ -33,6 +65,15 @@ function RouletteContent() {
   const [spinning, setSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState<SpinResult | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+
+  const getAudioCtx = useCallback(() => {
+    if (!audioCtxRef.current) {
+      const AudioContextClass = window.AudioContext || (window as AudioContextWindow).webkitAudioContext;
+      if (AudioContextClass) audioCtxRef.current = new AudioContextClass();
+    }
+    return audioCtxRef.current;
+  }, []);
 
   const authHeader = useCallback(
     () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
@@ -80,6 +121,10 @@ function RouletteContent() {
   const handleSpin = async () => {
     if (!src || spinning) return;
     setSpinning(true);
+    // Create/resume the AudioContext synchronously within the click gesture —
+    // browsers block audio started after an `await` gap without one.
+    const ctx = getAudioCtx();
+    if (ctx?.state === "suspended") void ctx.resume();
     try {
       const res = await fetch(`${API}/api/roulette/spin`, {
         method: "POST",
@@ -96,6 +141,7 @@ function RouletteContent() {
         return;
       }
       const data: SpinResult = await res.json();
+      if (ctx) playSpinSound(ctx);
       const extraTurns = 5 * 360;
       const landingOffset = Math.floor(Math.random() * 360);
       setRotation((prev) => prev + extraTurns + landingOffset);
@@ -103,6 +149,7 @@ function RouletteContent() {
         setResult(data);
         setPastExp(data.exp);
         setSpinning(false);
+        if (ctx) playWinSound(ctx);
       }, 3200);
     } catch {
       toast.error(r.errorGeneric);
@@ -150,6 +197,7 @@ function RouletteContent() {
               >
                 {r.openInTelegram}
               </a>
+              <p className="text-xs text-white/50">{r.newMemberNotice}</p>
             </>
           )}
 
@@ -199,6 +247,16 @@ function RouletteContent() {
                   {r.resultLeveledUp.replace("{n}", String(result.level))}
                 </p>
               )}
+              <Link
+                href="/shop"
+                className={cn(
+                  buttonVariants({ size: "lg" }),
+                  "mt-4 w-full bg-white text-fuchsia-700 hover:bg-white/90",
+                )}
+              >
+                <ShoppingBag className="h-4 w-4 mr-2" />
+                {r.shopCta}
+              </Link>
             </div>
           )}
 
