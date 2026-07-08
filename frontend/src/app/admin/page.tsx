@@ -3066,6 +3066,19 @@ export default function AdminPage() {
                                 <Copy className="h-3.5 w-3.5 mr-1" />
                                 {t.admin.rouletteCopyLink}
                               </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() =>
+                                  void downloadRouletteVideoKit(
+                                    eventUrl,
+                                    `tigu-roulette-${ev.code}-videokit.png`,
+                                  ).catch(() => toast.error(t.admin.rouletteCreateFail))
+                                }
+                              >
+                                <Download className="h-3.5 w-3.5 mr-1" />
+                                {t.admin.rouletteDownloadKit}
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -3182,6 +3195,103 @@ export default function AdminPage() {
       </Dialog>
     </div>
   );
+}
+
+function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    img.src = src;
+  });
+}
+
+// Composites the TIGU mascot + QR code + a caption into a single PNG a video
+// editor can drop straight into a promo video — no separate QR/logo layers to align.
+async function downloadRouletteVideoKit(eventUrl: string, filename: string) {
+  const QRCode = await import("qrcode");
+  const qrDataUrl = await QRCode.toDataURL(eventUrl, { width: 480, margin: 1 });
+  const [botImg, qrImg] = await Promise.all([
+    loadImageElement("/images/aimbot.png"),
+    loadImageElement(qrDataUrl),
+  ]);
+
+  const W = 800;
+  const H = 1000;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#4c1d95");
+  bg.addColorStop(1, "#a21caf");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const botSize = 180;
+  const botX = W / 2;
+  const botY = 150;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(botX, botY, botSize / 2, 0, Math.PI * 2);
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(botImg, botX - botSize / 2, botY - botSize / 2, botSize, botSize);
+  ctx.restore();
+  ctx.lineWidth = 6;
+  ctx.strokeStyle = "#f0abfc";
+  ctx.beginPath();
+  ctx.arc(botX, botY, botSize / 2, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 56px sans-serif";
+  ctx.fillText("TIGU", W / 2, 300);
+  ctx.font = "600 28px sans-serif";
+  ctx.fillStyle = "#f5d0fe";
+  ctx.fillText("🎡 룰렛 이벤트", W / 2, 345);
+
+  const qrCard = 460;
+  const qrCardX = (W - qrCard) / 2;
+  const qrCardY = 390;
+  const radius = 24;
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.moveTo(qrCardX + radius, qrCardY);
+  ctx.arcTo(qrCardX + qrCard, qrCardY, qrCardX + qrCard, qrCardY + qrCard, radius);
+  ctx.arcTo(qrCardX + qrCard, qrCardY + qrCard, qrCardX, qrCardY + qrCard, radius);
+  ctx.arcTo(qrCardX, qrCardY + qrCard, qrCardX, qrCardY, radius);
+  ctx.arcTo(qrCardX, qrCardY, qrCardX + qrCard, qrCardY, radius);
+  ctx.closePath();
+  ctx.fill();
+  const qrPad = 30;
+  ctx.drawImage(qrImg, qrCardX + qrPad, qrCardY + qrPad, qrCard - qrPad * 2, qrCard - qrPad * 2);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 44px sans-serif";
+  ctx.fillText("📱 QR 스캔하면", W / 2, 900);
+  ctx.fillStyle = "#fde047";
+  ctx.font = "bold 52px sans-serif";
+  ctx.fillText("쇼핑머니 지급!", W / 2, 960);
+
+  await new Promise<void>((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        reject(new Error("Failed to render PNG"));
+        return;
+      }
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objectUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+      resolve();
+    }, "image/png");
+  });
 }
 
 function RouletteQrImage({ url, filename }: { url: string; filename: string }) {

@@ -30,6 +30,7 @@ import { CoupangModule } from './coupang/coupang.module';
 import { CjShopModule } from './cj-shop/cj-shop.module';
 import { LevelModule } from './level/level.module';
 import { RouletteModule } from './roulette/roulette.module';
+import { BlogModule } from './blog/blog.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { RouletteModule } from './roulette/roulette.module';
     CjShopModule,
     LevelModule,
     RouletteModule,
+    BlogModule,
   ],
   controllers: [AppController],
   providers: [AppService],
