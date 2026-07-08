@@ -58,11 +58,11 @@ export class BlogService {
   }
 
   async listPublished(): Promise<BlogPost[]> {
-    const snap = await this.collection
-      .where('published', '==', true)
-      .orderBy('createdAt', 'desc')
-      .get();
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
+    // Sorted in-memory (not via Firestore .orderBy) to avoid requiring a
+    // composite index for the published + createdAt combination.
+    const snap = await this.collection.where('published', '==', true).get();
+    const posts = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
+    return posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
   async listAll(): Promise<BlogPost[]> {
