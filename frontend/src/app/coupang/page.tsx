@@ -19,6 +19,7 @@ interface CoupangProduct {
   iframeHeight: number;
   videoUrl?: string | null;
   active: boolean;
+  clicks?: number;
   createdAt: string;
 }
 
@@ -70,6 +71,15 @@ export default function CoupangPage() {
     const lower = q.toLowerCase();
     return products.filter((p) => p.name.toLowerCase().includes(lower));
   }, [products, query]);
+
+  const getProductLink = (iframeSrc: string) => {
+    try {
+      const params = new URL(iframeSrc).searchParams;
+      return params.get("link") || params.get("linkUrl") || iframeSrc;
+    } catch {
+      return iframeSrc;
+    }
+  };
 
   const isYouTube = (url: string) =>
     url.includes("youtube.com") || url.includes("youtu.be");
@@ -148,10 +158,11 @@ export default function CoupangPage() {
                 {/* Iframe area */}
                 <div className="flex items-center justify-center bg-muted/30 p-3 min-h-[230px]">
                   <iframe
+                    loading="lazy"
                     srcDoc={(() => {
                     const w = product.iframeWidth || 120;
                     const h = product.iframeHeight || 240;
-                    const code = product.iframeCode || `<iframe src="${product.iframeSrc}" width="${w}" height="${h}" frameborder="0" scrolling="no" referrerpolicy="unsafe-url"></iframe>`;
+                    const code = product.iframeCode || `<iframe src="${product.iframeSrc}" width="${w}" height="${h}" frameborder="0" scrolling="no" referrerpolicy="unsafe-url" loading="lazy"></iframe>`;
                     return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${code}</body></html>`;
                   })()}
                     width={product.iframeWidth || 120}
@@ -185,9 +196,12 @@ export default function CoupangPage() {
 
                   {/* Direct link */}
                   <a
-                    href={product.iframeSrc}
+                    href={getProductLink(product.iframeSrc)}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => {
+                      fetch(`${API}/api/coupang/products/${product.id}/click`, { method: "POST" }).catch(() => {});
+                    }}
                     className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground mt-auto"
                   >
                     <ExternalLink className="h-3 w-3" />
