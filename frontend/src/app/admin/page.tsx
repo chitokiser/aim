@@ -16,11 +16,12 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw, Star, Sun,
+  Package, RefreshCw, Star, Sun, Dices, Copy, Download,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const SITE_URL = "https://ai119.netlify.app";
 
 
 interface Member {
@@ -186,6 +187,7 @@ export default function AdminPage() {
     iframeHeight: number;
     videoUrl?: string | null;
     active: boolean;
+    clicks?: number;
     createdAt: string;
   }
   const [coupangProducts, setCoupangProducts] = useState<CoupangProduct[]>([]);
@@ -264,6 +266,21 @@ export default function AdminPage() {
   const [rejectWithdrawalId, setRejectWithdrawalId] = useState<string | null>(null);
   const [rejectWithdrawalNote, setRejectWithdrawalNote] = useState("");
   const [withdrawalActioning, setWithdrawalActioning] = useState(false);
+
+  // Roulette events state
+  interface RouletteEventItem {
+    id: string;
+    code: string;
+    label: string;
+    active: boolean;
+    createdAt: string;
+    spinCount: number;
+    totalExpAwarded: number;
+  }
+  const [rouletteEvents, setRouletteEvents] = useState<RouletteEventItem[]>([]);
+  const [rouletteLoading, setRouletteLoading] = useState(false);
+  const [rouletteLabel, setRouletteLabel] = useState("");
+  const [rouletteCreating, setRouletteCreating] = useState(false);
 
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
@@ -1184,6 +1201,40 @@ export default function AdminPage() {
     }
   };
 
+  const loadRouletteEvents = useCallback(async () => {
+    if (!token) return;
+    setRouletteLoading(true);
+    try {
+      const res = await fetch(`${API}/api/admin/roulette-events`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setRouletteEvents(await res.json());
+    } catch {
+      toast.error(t.admin.rouletteCreateFail);
+    } finally {
+      setRouletteLoading(false);
+    }
+  }, [token, authHeader, t]);
+
+  const createRouletteEvent = async () => {
+    if (!rouletteLabel.trim() || rouletteCreating) return;
+    setRouletteCreating(true);
+    try {
+      const res = await fetch(`${API}/api/admin/roulette-events`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ label: rouletteLabel.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.rouletteCreateSuccess);
+      setRouletteLabel("");
+      void loadRouletteEvents();
+    } catch {
+      toast.error(t.admin.rouletteCreateFail);
+    } finally {
+      setRouletteCreating(false);
+    }
+  };
+
   const sendNotice = async () => {
     if (!notice.trim()) return;
     try {
@@ -1297,6 +1348,10 @@ export default function AdminPage() {
           <TabsTrigger value="cjshop" onClick={loadCjShopData}>
             <Package className="h-3.5 w-3.5 mr-1" />
             {t.shop.admin.tabTitle}
+          </TabsTrigger>
+          <TabsTrigger value="roulette" onClick={loadRouletteEvents}>
+            <Dices className="h-3.5 w-3.5 mr-1" />
+            {t.admin.tabRoulette}
           </TabsTrigger>
         </TabsList>
 
@@ -2411,10 +2466,11 @@ export default function AdminPage() {
                           {/* Preview iframe */}
                           <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center" style={{ minWidth: 80 }}>
                             <iframe
+                              loading="lazy"
                               srcDoc={(() => {
                                 const w = Math.min(p.iframeWidth || 120, 120);
                                 const h = Math.min(p.iframeHeight || 240, 200);
-                                const code = p.iframeCode || `<iframe src="${p.iframeSrc}" width="${w}" height="${h}" frameborder="0" scrolling="no" referrerpolicy="unsafe-url"></iframe>`;
+                                const code = p.iframeCode || `<iframe src="${p.iframeSrc}" width="${w}" height="${h}" frameborder="0" scrolling="no" referrerpolicy="unsafe-url" loading="lazy"></iframe>`;
                                 return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;}iframe{display:block;margin-top:-28px;}</style></head><body>${code}</body></html>`;
                               })()}
                               width={Math.min(p.iframeWidth || 120, 120)}
@@ -2430,6 +2486,7 @@ export default function AdminPage() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="font-mono text-xs">#{p.productNo ?? "—"}</Badge>
                               {!p.active && <Badge variant="secondary" className="text-xs">비활성</Badge>}
+                              <Badge variant="outline" className="text-xs">클릭 {p.clicks ?? 0}회</Badge>
                             </div>
                             <p className="font-semibold text-sm">{p.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{p.iframeSrc}</p>
@@ -2942,6 +2999,84 @@ export default function AdminPage() {
             </Card>
           </div>
         </TabsContent>
+
+        {/* Roulette Events */}
+        <TabsContent value="roulette">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Dices className="h-4 w-4" />
+                  {t.admin.rouletteCreateTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-3">
+                <Input
+                  value={rouletteLabel}
+                  onChange={(e) => setRouletteLabel(e.target.value)}
+                  placeholder={t.admin.rouletteLabelPlaceholder}
+                />
+                <Button disabled={rouletteCreating} onClick={createRouletteEvent}>
+                  {rouletteCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Dices className="h-4 w-4 mr-2" />}
+                  {t.admin.rouletteCreateBtn}
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t.admin.rouletteListTitle}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {rouletteLoading ? (
+                  <div className="flex items-center justify-center py-8 gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Loading...</span>
+                  </div>
+                ) : rouletteEvents.length === 0 ? (
+                  <p className="text-center text-sm text-muted-foreground py-6">{t.admin.rouletteEmpty}</p>
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {rouletteEvents.map((ev) => {
+                      const eventUrl = `${SITE_URL}/event/roulette?src=${ev.code}`;
+                      return (
+                        <div key={ev.id} className="flex gap-4 rounded-lg border p-4">
+                          <RouletteQrImage url={eventUrl} filename={`roulette-${ev.code}.png`} />
+                          <div className="flex flex-1 flex-col justify-between">
+                            <div>
+                              <div className="font-semibold">{ev.label}</div>
+                              <div className="text-xs text-muted-foreground">{ev.code}</div>
+                              <div className="mt-2 text-sm">
+                                {t.admin.rouletteSpins}: <span className="font-medium">{ev.spinCount.toLocaleString()}</span>
+                              </div>
+                              <div className="text-sm">
+                                {t.admin.rouletteExpAwarded}:{" "}
+                                <span className="font-medium">{ev.totalExpAwarded.toLocaleString()}</span>
+                              </div>
+                            </div>
+                            <div className="mt-3">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  void navigator.clipboard.writeText(eventUrl);
+                                  toast.success(t.admin.rouletteLinkCopied);
+                                }}
+                              >
+                                <Copy className="h-3.5 w-3.5 mr-1" />
+                                {t.admin.rouletteCopyLink}
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Approve Withdrawal Dialog */}
@@ -3045,6 +3180,41 @@ export default function AdminPage() {
           </div>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function RouletteQrImage({ url, filename }: { url: string; filename: string }) {
+  const { t } = useLanguage();
+  const [dataUrl, setDataUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import("qrcode").then((QRCode) =>
+      QRCode.toDataURL(url, { width: 200, margin: 1 }).then((result) => {
+        if (!cancelled) setDataUrl(result);
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [url]);
+
+  if (!dataUrl) {
+    return <div className="h-[200px] w-[124px] animate-pulse rounded-md bg-muted" />;
+  }
+  return (
+    <div className="flex flex-col items-center gap-2">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={dataUrl} alt="Roulette event QR code" width={124} height={124} className="rounded-md border" />
+      <a
+        href={dataUrl}
+        download={filename}
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+      >
+        <Download className="h-3 w-3" />
+        {t.admin.rouletteDownloadQr}
+      </a>
     </div>
   );
 }

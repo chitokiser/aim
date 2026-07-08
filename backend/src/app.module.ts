@@ -29,6 +29,7 @@ import { EarnwallModule } from './earnwall/earnwall.module';
 import { CoupangModule } from './coupang/coupang.module';
 import { CjShopModule } from './cj-shop/cj-shop.module';
 import { LevelModule } from './level/level.module';
+import { RouletteModule } from './roulette/roulette.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { LevelModule } from './level/level.module';
     CoupangModule,
     CjShopModule,
     LevelModule,
+    RouletteModule,
   ],
   controllers: [AppController],
   providers: [AppService],

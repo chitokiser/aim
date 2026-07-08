@@ -194,6 +194,36 @@ export class MainBotService extends BaseTelegrafBotService {
         return;
       }
 
+      // roulette_<code> deep link from a QR code shown in a promo video — one spin per event code
+      if (payload.startsWith('roulette_')) {
+        const code = payload.replace('roulette_', '');
+        await this.usersService.registerFromTelegram({
+          telegramId: String(tg.id),
+          firstName: tg.first_name,
+          lastName: tg.last_name,
+          username: tg.username,
+        });
+        const loginToken = this.authService.createBotLoginToken(String(tg.id), tg);
+        await ctx.reply(
+          `🎡 *TIGU Roulette Event!*\n\nSpin the wheel and win 10~10,000 EXP!`,
+          {
+            parse_mode: 'Markdown',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  {
+                    text: '🎡 Spin the Roulette',
+                    web_app: { url: `${SITE}/event/roulette?tg=${loginToken}&src=${code}` },
+                  },
+                ],
+                [{ text: '💬 AI119 Community', url: COMMUNITY }],
+              ],
+            },
+          },
+        );
+        return;
+      }
+
       const refCode = (payload.startsWith('AIM') || payload.startsWith('AI119')) ? payload : undefined;
 
       const { user, isNew, referredByCode } = await this.usersService.registerFromTelegram({
