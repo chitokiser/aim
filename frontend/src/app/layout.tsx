@@ -19,8 +19,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI119 — Earn TON Crypto with Missions, AI Content & Auctions",
-  description: "Earn TON crypto on AI119: complete advertiser missions, trade AI-generated content, and bid in digital asset auctions. 광고주 미션·AI 창작물·디지털 자산 경매로 수익 창출.",
+  title: "AI119 — Content Marketing & AI Creator Rewards",
+  description: "Complete real advertiser marketing campaigns, trade AI-generated content, and bid in digital asset auctions to earn reward points redeemable for TON.",
   metadataBase: new URL("https://ai119.netlify.app"),
   icons: {
     icon: "/images/favicon.png",
@@ -38,8 +38,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "AI119 — Earn TON Crypto with Missions, AI Content & Auctions",
-    description: "Earn TON crypto on AI119: complete advertiser missions, trade AI content, and bid in digital asset auctions. 광고주 미션·AI 창작물·디지털 자산 경매.",
+    title: "AI119 — Content Marketing & AI Creator Rewards",
+    description: "Complete real advertiser marketing campaigns, trade AI-generated content, and bid in digital asset auctions to earn reward points redeemable for TON.",
     url: "https://ai119.netlify.app",
     siteName: "AI119",
     type: "website",
@@ -47,8 +47,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "AI119 — Earn TON Crypto with Missions, AI Content & Auctions",
-    description: "Complete advertiser missions, trade AI content, and bid in digital asset auctions to earn TON crypto.",
+    title: "AI119 — Content Marketing & AI Creator Rewards",
+    description: "Complete real advertiser marketing campaigns, trade AI creations, and bid in digital asset auctions to earn reward points redeemable for TON.",
     images: ["/images/aimlogo.png"],
   },
   robots: {

@@ -41,8 +41,8 @@ export class WebzineController {
     return post ?? { ok: false, message: 'No article generated from current news sources' };
   }
 
-  // Runs the ~40-article daily batch on demand instead of waiting for the
-  // midnight cron. Fires in the background since it takes several minutes.
+  // Runs the ~50-article daily batch on demand instead of waiting for the
+  // 4am KST cron. Fires in the background since it takes several minutes.
   @Post('run-daily-batch')
   @UseGuards(JwtAuthGuard)
   async runDailyBatchNow(@Request() req: { user: { sub: string } }) {
