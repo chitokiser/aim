@@ -79,7 +79,7 @@ export class WebzineSchedulerService {
 
             const written = await this.writer.write(category, headlines);
             if (written?.title && written.content) {
-              const coverImage = await this.images.generateCoverImage(written.title);
+              const coverImage = await this.images.generateCoverImage(written.title, written.imageQuery);
               await this.blog.create({
                 title: written.title,
                 excerpt: written.excerpt,
@@ -129,7 +129,7 @@ export class WebzineSchedulerService {
       return null;
     }
 
-    const coverImage = await this.images.generateCoverImage(written.title);
+    const coverImage = await this.images.generateCoverImage(written.title, written.imageQuery);
     return this.blog.create({
       title: written.title,
       excerpt: written.excerpt,

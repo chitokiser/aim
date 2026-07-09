@@ -219,6 +219,7 @@ interface WrittenArticle {
   content: string;
   keyPoints: string[];
   tags: string[];
+  imageQuery: string;
 }
 
 async function writeArticle(item: SeriesTopic): Promise<WrittenArticle | null> {
@@ -243,9 +244,10 @@ Requirements:
 - Figures like exact capacity, price, area, weight, or output change over time and vary by source — describe them as approximate/well-known estimates (e.g. "약 ~로 알려져 있다", "~수준으로 평가받는다") rather than stating precise numbers as certain fact. Do not fabricate specific statistics you aren't confident about; when uncertain, describe general scale and reputation instead of inventing a number.
 - Structure: an engaging Korean title, a 1-2 sentence excerpt (under 160 characters), and a full body as HTML using only <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <a> tags — at least 3 sections, 1200-2500 Korean characters total.
 - Include 3-5 short bullet "key points" and 3-6 SEO tags (Korean).
+- Also provide a 3-6 word English keyword phrase suitable for searching a stock photo site for a real, relevant photo (e.g. "excavator construction site", "semiconductor factory clean room") — not a description of an illustration.
 
 Return ONLY valid JSON, no markdown fences:
-{"title": "...", "excerpt": "...", "content": "<h2>...</h2><p>...</p>", "keyPoints": ["...", "..."], "tags": ["...", "..."]}`;
+{"title": "...", "excerpt": "...", "content": "<h2>...</h2><p>...</p>", "keyPoints": ["...", "..."], "tags": ["...", "..."], "imageQuery": "..."}`;
 
   try {
     const text = await generateText(aiKeys, prompt, 4096);
@@ -259,6 +261,7 @@ Return ONLY valid JSON, no markdown fences:
       content,
       keyPoints: Array.isArray(draft.keyPoints) ? draft.keyPoints.map((k) => String(k)) : [],
       tags: Array.isArray(draft.tags) ? draft.tags.map((t) => String(t)) : [],
+      imageQuery: String(draft.imageQuery ?? ''),
     };
   } catch (err) {
     console.error(`  Write failed for "${item.topic}":`, err instanceof Error ? err.message : err);
@@ -292,7 +295,7 @@ async function main() {
         continue;
       }
 
-      const coverImage = await images.generateCoverImage(written.title);
+      const coverImage = await images.generateCoverImage(written.title, written.imageQuery);
       const post = await blog.create({
         title: written.title,
         excerpt: written.excerpt,

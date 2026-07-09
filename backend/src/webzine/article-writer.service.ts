@@ -12,6 +12,7 @@ export interface WrittenArticle {
   keyPoints: string[];
   tags: string[];
   sources: BlogSource[];
+  imageQuery: string;
 }
 
 @Injectable()
@@ -45,9 +46,10 @@ Task:
 - State only facts supported by the source material above. Do not invent quotes, numbers, or events not present in the sources.
 - Structure: an engaging title, a 1-2 sentence excerpt (under 160 characters), and a full body as HTML using only <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <a> tags (at least 3 sections, 1500-3000 Korean characters total), 3-5 short bullet "key points", and 3-6 SEO tags.
 - Note which of the numbered sources above you actually drew from, by their index numbers.
+- Also provide a 3-6 word English keyword phrase suitable for searching a stock photo site for a real, relevant photo (e.g. "stock market trading floor", "electric vehicle factory") — not a description of an illustration.
 
 Return ONLY valid JSON, no markdown fences:
-{"title": "...", "excerpt": "...", "content": "<h2>...</h2><p>...</p>", "keyPoints": ["...", "..."], "tags": ["...", "..."], "usedSourceIndexes": [1, 3]}`;
+{"title": "...", "excerpt": "...", "content": "<h2>...</h2><p>...</p>", "keyPoints": ["...", "..."], "tags": ["...", "..."], "usedSourceIndexes": [1, 3], "imageQuery": "..."}`;
 
     try {
       const text = await generateText(this.aiKeys, prompt, 4096);
@@ -71,6 +73,7 @@ Return ONLY valid JSON, no markdown fences:
         keyPoints: Array.isArray(draft.keyPoints) ? draft.keyPoints.map((k) => String(k)) : [],
         tags: Array.isArray(draft.tags) ? draft.tags.map((tg) => String(tg)) : [],
         sources,
+        imageQuery: String(draft.imageQuery ?? ''),
       };
     } catch {
       throw new BadRequestException('Failed to generate webzine article');
