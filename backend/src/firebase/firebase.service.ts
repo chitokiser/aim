@@ -30,7 +30,7 @@ export class FirebaseService implements OnModuleInit {
           return;
         }
 
-        const storageBucket = this.config.get<string>('FIREBASE_STORAGE_BUCKET') || `${projectId}.appspot.com`;
+        const storageBucket = this.config.get<string>('FIREBASE_STORAGE_BUCKET') || `${projectId}.firebasestorage.app`;
         this.app = initializeApp({ credential: cert({ projectId, clientEmail, privateKey }), storageBucket });
         this.logger.log('Firebase Admin initialized');
       } else {

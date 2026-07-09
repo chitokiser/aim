@@ -256,7 +256,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
 
   // Seeds a handful of generic filler comments so a newly published article
   // doesn't look empty — mirrors the randomized views/likes defaults above.
-  private async seedComments(postId: string, postCreatedAt: string): Promise<void> {
+  private async seedComments(postId: string, postCreatedAt: string): Promise<number> {
     const count = randomInt(1, 20);
     const baseMs = new Date(postCreatedAt).getTime();
     const batch = this.firebase.getFirestore().batch();
@@ -268,6 +268,30 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       batch.set(ref, { postId, userId: `seed-${ref.id}`, userName, content, createdAt });
     }
     await batch.commit();
+    return count;
+  }
+
+  // Backfills engagement data (views/likes/comments) for posts created before
+  // these were seeded on create() — e.g. articles written by the older
+  // seed-webzine-articles.ts script, which left views/likes at 0 and no
+  // comments. Cover images are backfilled separately by the caller since
+  // image generation lives in the webzine module, not here.
+  async backfillEngagement(id: string): Promise<{ commentsAdded: number; viewsLikesSeeded: boolean }> {
+    const post = await this.getById(id);
+
+    const update: Partial<Omit<BlogPost, 'id'>> = {};
+    if (!post.views) update.views = randomInt(50, 1000);
+    if (!post.likes) update.likes = randomInt(50, 200);
+    const viewsLikesSeeded = Object.keys(update).length > 0;
+    if (viewsLikesSeeded) {
+      update.updatedAt = new Date().toISOString();
+      await this.collection.doc(id).update(update);
+    }
+
+    const existing = await this.commentsCollection.where('postId', '==', id).limit(1).get();
+    const commentsAdded = existing.empty ? await this.seedComments(id, post.createdAt) : 0;
+
+    return { commentsAdded, viewsLikesSeeded };
   }
 
   async update(id: string, input: BlogPostInput): Promise<BlogPost> {
