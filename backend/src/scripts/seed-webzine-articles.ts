@@ -186,6 +186,8 @@ async function main() {
     } catch (err) {
       console.error(`  Failed for "${headline.title}":`, err instanceof Error ? err.message : err);
     }
+    // Small delay between calls to stay comfortably under free-tier rate limits.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
   }
 
   console.log(`Done. Created ${created}/${headlines.length} draft articles in category "${category}".`);

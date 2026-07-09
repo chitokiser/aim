@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash-lite';
 const ANTHROPIC_MODEL = 'claude-opus-4-8';
 
 export interface AiKeys {
