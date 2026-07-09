@@ -139,7 +139,7 @@ export default function HomePage() {
       const res = await fetch(`${API}/api/blog/posts`);
       if (!res.ok) throw new Error("fetch failed");
       const data = (await res.json()) as WebzinePost[];
-      setWebzinePosts(data.slice(0, 3));
+      setWebzinePosts(data.slice(0, 12));
     } catch {
       setWebzinePosts([]);
     }
@@ -537,7 +537,7 @@ export default function HomePage() {
           </div>
 
           {webzinePosts.length > 0 && (
-            <div className="grid md:grid-cols-3 gap-5">
+            <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
               {webzinePosts.map((post) => (
                 <Link
                   key={post.id}

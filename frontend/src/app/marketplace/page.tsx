@@ -204,6 +204,7 @@ export default function MarketplacePage() {
   const { t } = useLanguage();
   const mp = t.marketplace;
 
+  const [activeTab, setActiveTab] = useState("browse");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [listings, setListings] = useState<Listing[]>([]);
@@ -343,7 +344,7 @@ export default function MarketplacePage() {
         <p className="text-muted-foreground">{mp.subtitle}</p>
       </div>
 
-      <Tabs defaultValue="browse">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(String(v))}>
         <TabsList className="mb-6">
           <TabsTrigger value="browse">{mp.tabBrowse}</TabsTrigger>
           <TabsTrigger value="register">
@@ -480,12 +481,19 @@ export default function MarketplacePage() {
               : listings;
 
             if (filtered.length === 0) {
-              return (
+              return q ? (
                 <p className="text-center text-sm text-muted-foreground py-16">
-                  {q ? (
-                    <><span className="font-medium text-foreground">&quot;{searchQuery}&quot;</span> — {mp.searchNoResults}</>
-                  ) : mp.noListings}
+                  <span className="font-medium text-foreground">&quot;{searchQuery}&quot;</span> — {mp.searchNoResults}
                 </p>
+              ) : (
+                <div className="flex flex-col items-center gap-3 py-16 text-center">
+                  <p className="text-sm text-muted-foreground">{mp.noListings}</p>
+                  <p className="text-sm font-medium">{mp.beFirstToList}</p>
+                  <Button size="sm" onClick={() => setActiveTab("register")}>
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    {mp.tabRegister}
+                  </Button>
+                </div>
               );
             }
             return (
