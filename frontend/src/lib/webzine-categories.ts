@@ -40,6 +40,7 @@ export const WEBZINE_CATEGORIES: WebzineCategory[] = [
   { slug: "cooking", ko: "요리", en: "Cooking", vi: "Nấu ăn" },
   { slug: "pets", ko: "반려동물", en: "Pets", vi: "Thú cưng" },
   { slug: "fitness", ko: "운동·피트니스", en: "Fitness", vi: "Thể hình" },
+  { slug: "classics", ko: "고전읽기", en: "Classic Reading", vi: "Đọc kinh điển" },
   { slug: "general", ko: "일반", en: "General", vi: "Chung" },
 ];
 
