@@ -4,6 +4,7 @@ import { BlogService } from '../blog/blog.service';
 import type { BlogPost } from '../blog/blog.service';
 import { NewsCollectorService } from './news-collector.service';
 import { ArticleWriterService } from './article-writer.service';
+import { ImageGeneratorService } from './image-generator.service';
 import { WebzineConfigService } from './webzine-config.service';
 import { CATEGORIES, findCategory, type CategoryDef } from './webzine.constants';
 
@@ -41,6 +42,7 @@ export class WebzineSchedulerService {
     private readonly blog: BlogService,
     private readonly collector: NewsCollectorService,
     private readonly writer: ArticleWriterService,
+    private readonly images: ImageGeneratorService,
     private readonly config: WebzineConfigService,
   ) {}
 
@@ -75,6 +77,7 @@ export class WebzineSchedulerService {
             try {
               const written = await this.writer.write(category, [headline]);
               if (written?.title && written.content) {
+                const coverImage = await this.images.generateCoverImage(written.title);
                 await this.blog.create({
                   title: written.title,
                   excerpt: written.excerpt,
@@ -83,6 +86,7 @@ export class WebzineSchedulerService {
                   category: category.slug,
                   keyPoints: written.keyPoints,
                   sources: written.sources,
+                  coverImage: coverImage ?? undefined,
                   aiGenerated: true,
                   published: true,
                 });
@@ -128,6 +132,7 @@ export class WebzineSchedulerService {
       return null;
     }
 
+    const coverImage = await this.images.generateCoverImage(written.title);
     return this.blog.create({
       title: written.title,
       excerpt: written.excerpt,
@@ -136,6 +141,7 @@ export class WebzineSchedulerService {
       category: slug,
       keyPoints: written.keyPoints,
       sources: written.sources,
+      coverImage: coverImage ?? undefined,
       aiGenerated: true,
       published: true,
     });

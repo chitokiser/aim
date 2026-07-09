@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { NewsCollectorService } from './news-collector.service';
 import { ArticleWriterService } from './article-writer.service';
+import { ImageGeneratorService } from './image-generator.service';
 import { WebzineConfigService } from './webzine-config.service';
 import { WebzineSchedulerService } from './webzine-scheduler.service';
 import { WebzineController } from './webzine.controller';
@@ -11,6 +12,12 @@ import { WebzineController } from './webzine.controller';
 @Module({
   imports: [BlogModule, AuthModule, UsersModule],
   controllers: [WebzineController],
-  providers: [NewsCollectorService, ArticleWriterService, WebzineConfigService, WebzineSchedulerService],
+  providers: [
+    NewsCollectorService,
+    ArticleWriterService,
+    ImageGeneratorService,
+    WebzineConfigService,
+    WebzineSchedulerService,
+  ],
 })
 export class WebzineModule {}
