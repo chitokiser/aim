@@ -28,6 +28,7 @@ export const WEBZINE_CATEGORIES: WebzineCategory[] = [
   { slug: "health", ko: "건강", en: "Health", vi: "Sức khỏe" },
   { slug: "entertainment", ko: "연예", en: "Entertainment", vi: "Giải trí" },
   { slug: "welfare-policy", ko: "정부복지정책", en: "Government Welfare Policy", vi: "Chính sách phúc lợi" },
+  { slug: "trending", ko: "실시간 이슈", en: "Trending Now", vi: "Xu hướng" },
   { slug: "general", ko: "일반", en: "General", vi: "Chung" },
 ];
 

@@ -27,6 +27,7 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'health', ko: '건강', en: 'Health', vi: 'Sức khỏe', searchQuery: '건강 뉴스' },
   { slug: 'entertainment', ko: '연예', en: 'Entertainment', vi: 'Giải trí', searchQuery: '연예 뉴스' },
   { slug: 'welfare-policy', ko: '정부복지정책', en: 'Government Welfare Policy', vi: 'Chính sách phúc lợi', searchQuery: '정부 복지 정책 지원금' },
+  { slug: 'trending', ko: '실시간 이슈', en: 'Trending Now', vi: 'Xu hướng', searchQuery: '실시간 이슈' },
 ];
 
 export function findCategory(slug: string): CategoryDef | undefined {

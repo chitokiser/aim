@@ -12,6 +12,7 @@ import { WebzineSchedulerService } from './webzine-scheduler.service';
 import { WebzineController } from './webzine.controller';
 import { TrendingKeywordsService } from './trending-keywords.service';
 import { TrendingKeywordsController } from './trending-keywords.controller';
+import { TrendingArticleService } from './trending-article.service';
 
 @Module({
   imports: [BlogModule, AuthModule, UsersModule],
@@ -25,6 +26,7 @@ import { TrendingKeywordsController } from './trending-keywords.controller';
     WebzineConfigService,
     WebzineSchedulerService,
     TrendingKeywordsService,
+    TrendingArticleService,
   ],
 })
 export class WebzineModule {}
