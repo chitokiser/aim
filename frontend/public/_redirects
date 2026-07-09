@@ -11,3 +11,8 @@
 # Blog posts published after the last build aren't in generateStaticParams()
 # yet — same fallback mechanism as /shop above.
 /blog/* /blog/_.html 200
+
+# Dynamic sitemap listing every currently-published blog post, generated at
+# request time from the live backend (see netlify/functions/blog-sitemap.js)
+# since the static sitemap.xml can't stay current with bot-published posts.
+/sitemap-blog.xml /.netlify/functions/blog-sitemap 200
