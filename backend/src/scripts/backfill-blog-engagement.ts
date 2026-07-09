@@ -14,15 +14,58 @@ import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { FirebaseModule } from '../firebase/firebase.module';
 import { BlogModule } from '../blog/blog.module';
-import { BlogService } from '../blog/blog.service';
+import { BlogService, type BlogPost } from '../blog/blog.service';
 import { WebzineModule } from '../webzine/webzine.module';
 import { ImageGeneratorService } from '../webzine/image-generator.service';
+import { generateText, hasAiProvider, type AiKeys } from '../common/ai-text.util';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const DELAY_MS = 2000;
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const aiKeys: AiKeys = {
+  geminiKey: process.env.GEMINI_API_KEY,
+  anthropicKey: process.env.ANTHROPIC_API_KEY,
+};
+
+// These are abstract/strategic concepts (36계), not literal scenes — a small
+// rotating pool of tasteful, generic stock-photo queries works better here
+// than trying to translate each Korean title literally (and skips an AI
+// call per post).
+const CLASSICS_IMAGE_QUERIES = [
+  'ancient chinese scroll calligraphy',
+  'chess strategy board',
+  'traditional east asian ink painting',
+  'ancient bronze sword artifact',
+  'calligraphy brush ink stone',
+  'ancient chinese architecture courtyard',
+  'go board strategy game',
+  'antique chinese scroll painting',
+];
+let classicsQueryIndex = 0;
+
+// Derives a short English stock-photo search phrase for posts that predate
+// the imageQuery field (written directly into WrittenArticle by newer
+// writer/seed scripts, but never persisted on the post itself). Skips the
+// AI call entirely for the classics series since a fixed rotating pool of
+// tasteful, non-literal queries fits that content better anyway.
+async function deriveImageQuery(post: BlogPost): Promise<string> {
+  if (post.category === 'classics') {
+    const q = CLASSICS_IMAGE_QUERIES[classicsQueryIndex % CLASSICS_IMAGE_QUERIES.length];
+    classicsQueryIndex += 1;
+    return q;
+  }
+  if (!hasAiProvider(aiKeys)) return '';
+  try {
+    const prompt = `Give a 3-6 word English keyword phrase suitable for searching a stock photo site for a real, relevant photo matching this Korean article title: "${post.title}". Reply with ONLY the keyword phrase, no quotes, no punctuation, no explanation.`;
+    const text = await generateText(aiKeys, prompt, 64);
+    return text.trim().replace(/^["']|["']$/g, '');
+  } catch {
+    return '';
+  }
 }
 
 @Module({
@@ -48,7 +91,8 @@ async function main() {
     for (const post of posts) {
       try {
         if (!post.coverImage) {
-          const url = await images.generateCoverImage(post.title);
+          const imageQuery = await deriveImageQuery(post);
+          const url = await images.generateCoverImage(post.title, imageQuery);
           if (url) {
             await blog.update(post.id, { coverImage: url });
             imagesAdded += 1;
