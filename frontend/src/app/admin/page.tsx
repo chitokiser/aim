@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,7 +16,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText, Sparkles,
+  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText, Sparkles, Eye,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { WEBZINE_CATEGORIES, webzineCategoryLabel } from "@/lib/webzine-categories";
@@ -3607,6 +3607,15 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div className="flex shrink-0 gap-2">
+                          <a
+                            href={`/blog/${post.slug}?preview=${post.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={buttonVariants({ size: "sm", variant: "outline" })}
+                          >
+                            <Eye className="h-3.5 w-3.5 mr-1" />
+                            {t.admin.blogPreview}
+                          </a>
                           <Button size="sm" variant="outline" onClick={() => startEditBlogPost(post)}>
                             <Pencil className="h-3.5 w-3.5 mr-1" />
                             {t.admin.blogEdit}

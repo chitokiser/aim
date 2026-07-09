@@ -232,6 +232,7 @@ const T = {
       commentLoginRequired: "Log in to leave a comment",
       likeLoginRequired: "Log in to like this post",
       deleteCommentConfirm: "Delete this comment?",
+      previewBanner: "Preview mode — this article is not published yet. Only admins can see this page.",
     },
     auth: {
       subtitle: "AI Creation, Missions, Digital Asset Auction & more — Earn TON coins.",
@@ -390,6 +391,7 @@ const T = {
       publish: "Publish",
       unpublish: "Unpublish",
       blogEdit: "Edit",
+      blogPreview: "Preview",
       blogCancel: "Cancel",
       blogSuggestKeywords: "Suggest Trending Keywords",
       blogSuggestingKeywords: "Getting suggestions...",
@@ -1434,6 +1436,7 @@ const T = {
       commentLoginRequired: "로그인 후 댓글을 작성할 수 있습니다",
       likeLoginRequired: "로그인 후 좋아요를 누를 수 있습니다",
       deleteCommentConfirm: "이 댓글을 삭제하시겠습니까?",
+      previewBanner: "미리보기 모드 — 아직 발행되지 않은 기사입니다. 관리자만 볼 수 있습니다.",
     },
     auth: {
       subtitle: "AI 창작, 미션, 디지털자산경매 등으로 TON코인을 버세요",
@@ -1592,6 +1595,7 @@ const T = {
       publish: "공개하기",
       unpublish: "비공개로 전환",
       blogEdit: "수정",
+      blogPreview: "미리보기",
       blogCancel: "취소",
       blogSuggestKeywords: "유행 키워드 추천받기",
       blogSuggestingKeywords: "추천 받는 중...",
@@ -2636,6 +2640,7 @@ const T = {
       commentLoginRequired: "Đăng nhập để bình luận",
       likeLoginRequired: "Đăng nhập để thích bài viết này",
       deleteCommentConfirm: "Xóa bình luận này?",
+      previewBanner: "Chế độ xem trước — bài viết này chưa được đăng. Chỉ quản trị viên mới xem được trang này.",
     },
     auth: {
       subtitle: "Sáng tạo AI, Nhiệm vụ, Đấu giá tài sản số & hơn nữa — Kiếm TON coin.",
@@ -2794,6 +2799,7 @@ const T = {
       publish: "Đăng",
       unpublish: "Ẩn bài viết",
       blogEdit: "Sửa",
+      blogPreview: "Xem trước",
       blogCancel: "Hủy",
       blogSuggestKeywords: "Gợi ý từ khóa xu hướng",
       blogSuggestingKeywords: "Đang lấy gợi ý...",

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import BlogDetailClient from "./BlogDetailClient";
 
 const API = `${process.env.NEXT_PUBLIC_API_URL ?? "https://ai119-bot-production.up.railway.app"}/api`;
@@ -55,5 +56,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function BlogDetailPage({ params }: Props) {
   const { slug } = await params;
-  return <BlogDetailClient slug={slug} />;
+  return (
+    <Suspense>
+      <BlogDetailClient slug={slug} />
+    </Suspense>
+  );
 }

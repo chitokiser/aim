@@ -97,6 +97,13 @@ export class BlogController {
     return this.blog.generateDraft(body.keyword);
   }
 
+  @Get('admin/posts/:id')
+  @UseGuards(JwtAuthGuard)
+  async getByIdAdmin(@Request() req: { user: { sub: string } }, @Param('id') id: string) {
+    if (!(await this.users.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    return this.blog.getById(id);
+  }
+
   @Post('admin/posts')
   @UseGuards(JwtAuthGuard)
   async create(

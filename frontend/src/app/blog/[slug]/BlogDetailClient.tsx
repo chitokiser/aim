@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
 import { toast } from "sonner";
@@ -63,6 +63,8 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
   // the build-time prop so newly published posts work without a redeploy.
   const routeParams = useParams();
   const postSlug = (routeParams?.slug as string) || slug;
+  const searchParams = useSearchParams();
+  const previewId = searchParams.get("preview");
 
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
@@ -80,12 +82,16 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`${API}/api/blog/posts/${postSlug}`)
+    const request =
+      previewId && token
+        ? fetch(`${API}/api/blog/admin/posts/${previewId}`, { headers: authHeader() })
+        : fetch(`${API}/api/blog/posts/${postSlug}`);
+    request
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setPost(data))
       .catch(() => setPost(null))
       .finally(() => setLoading(false));
-  }, [postSlug]);
+  }, [postSlug, previewId, token, authHeader]);
 
   useEffect(() => {
     if (!post) return;
@@ -203,6 +209,12 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         <ArrowLeft className="h-3.5 w-3.5" />
         {b.backToBlog}
       </Link>
+
+      {previewId && (
+        <div className="mb-6 rounded-lg border border-yellow-500/50 bg-yellow-500/10 px-4 py-2 text-sm font-medium text-yellow-700 dark:text-yellow-400">
+          {b.previewBanner}
+        </div>
+      )}
 
       <Badge variant="outline" className="mb-2">
         {webzineCategoryLabel(post.category || "general", lang)}
