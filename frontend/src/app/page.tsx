@@ -15,6 +15,7 @@ import {
 } from "@/components/mission-join-flow";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
+import { webzineCategoryLabel } from "@/lib/webzine-categories";
 import {
   Coins,
   Target,
@@ -33,6 +34,7 @@ import {
   UserPlus,
   Package,
   Search,
+  FileText,
 } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -45,6 +47,15 @@ interface CjProduct {
   images: string[];
   apPrice: number;
   supplyApPrice?: number;
+}
+
+interface WebzinePost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string;
+  coverImage: string | null;
+  category: string;
 }
 
 type CardMissionType = "cf_video" | "blog_post" | "sns_post" | "cm_song" | "review" | "signup" | "youtube_sub" | "sns_banner" | "telegram_join" | "follow_join" | "jumpdao" | "survey";
@@ -67,7 +78,7 @@ function toCardMission(m: RawMission) {
 }
 
 export default function HomePage() {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const h = t.home;
   const sh = t.shop;
   const router = useRouter();
@@ -120,6 +131,21 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => { void loadFeaturedProducts(); }, [loadFeaturedProducts]);
+
+  const [webzinePosts, setWebzinePosts] = useState<WebzinePost[]>([]);
+
+  const loadWebzinePosts = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/blog/posts`);
+      if (!res.ok) throw new Error("fetch failed");
+      const data = (await res.json()) as WebzinePost[];
+      setWebzinePosts(data.slice(0, 3));
+    } catch {
+      setWebzinePosts([]);
+    }
+  }, []);
+
+  useEffect(() => { void loadWebzinePosts(); }, [loadWebzinePosts]);
 
   const STATS = [
     { label: h.statsAuctions, value: "128+", icon: Gavel },
@@ -488,6 +514,54 @@ export default function HomePage() {
             })}
           </div>
         )}
+      </section>
+
+      {/* Web Magazine promo */}
+      <section className="py-20 bg-gradient-to-br from-indigo-950 via-slate-900 to-violet-950 text-white">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10">
+            <div className="text-center md:text-left">
+              <Badge className="mb-3 bg-white/10 text-white border-white/20 px-4 py-1">
+                <FileText className="h-3.5 w-3.5 mr-1.5" />
+                AI Web Magazine
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-black mb-3">{h.webzineTitle}</h2>
+              <p className="text-white/70 text-lg max-w-xl">{h.webzineSubtitle}</p>
+            </div>
+            <Link href="/blog">
+              <Button size="lg" className="bg-white text-indigo-700 hover:bg-white/90 font-bold px-7 h-12 rounded-full shadow-lg shrink-0">
+                {h.webzineViewAll}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+
+          {webzinePosts.length > 0 && (
+            <div className="grid md:grid-cols-3 gap-5">
+              {webzinePosts.map((post) => (
+                <Link
+                  key={post.id}
+                  href={`/blog/${post.slug}`}
+                  className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm transition-colors hover:bg-white/10"
+                >
+                  {post.coverImage && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={post.coverImage}
+                      alt={post.title}
+                      className="mb-4 h-32 w-full rounded-lg object-cover"
+                    />
+                  )}
+                  <Badge variant="outline" className="mb-2 border-white/20 text-white/70 text-xs">
+                    {webzineCategoryLabel(post.category || "general", lang)}
+                  </Badge>
+                  <h3 className="mb-1.5 line-clamp-2 font-bold">{post.title}</h3>
+                  <p className="line-clamp-2 text-sm text-white/60">{post.excerpt}</p>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
 
       {/* EXP Reward System — how to earn it, and where to spend it */}
