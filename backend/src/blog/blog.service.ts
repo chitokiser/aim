@@ -1,7 +1,22 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { FieldValue } from 'firebase-admin/firestore';
 import Anthropic from '@anthropic-ai/sdk';
 import { FirebaseService } from '../firebase/firebase.service';
+
+export interface BlogSource {
+  title: string;
+  url: string;
+}
+
+export interface BlogComment {
+  id: string;
+  postId: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
 
 export interface BlogPost {
   id: string;
@@ -13,6 +28,12 @@ export interface BlogPost {
   videoUrl: string | null;
   tags: string[];
   published: boolean;
+  category: string;
+  keyPoints: string[];
+  sources: BlogSource[];
+  aiGenerated: boolean;
+  views: number;
+  likes: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -26,6 +47,10 @@ export interface BlogPostInput {
   videoUrl?: string;
   tags?: string[];
   published?: boolean;
+  category?: string;
+  keyPoints?: string[];
+  sources?: BlogSource[];
+  aiGenerated?: boolean;
 }
 
 export interface BlogDraft {
@@ -66,6 +91,14 @@ export class BlogService {
 
   private get collection() {
     return this.firebase.collection('blog_posts');
+  }
+
+  private get likesCollection() {
+    return this.firebase.collection('blog_likes');
+  }
+
+  private get commentsCollection() {
+    return this.firebase.collection('blog_comments');
   }
 
   private extractJSON(text: string): string {
@@ -146,11 +179,12 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     }
   }
 
-  async listPublished(): Promise<BlogPost[]> {
+  async listPublished(category?: string): Promise<BlogPost[]> {
     // Sorted in-memory (not via Firestore .orderBy) to avoid requiring a
     // composite index for the published + createdAt combination.
     const snap = await this.collection.where('published', '==', true).get();
-    const posts = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
+    let posts = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
+    if (category) posts = posts.filter((p) => p.category === category);
     return posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
@@ -190,6 +224,12 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       videoUrl: input.videoUrl?.trim() || null,
       tags: input.tags ?? [],
       published: input.published ?? false,
+      category: input.category?.trim() || 'general',
+      keyPoints: input.keyPoints ?? [],
+      sources: input.sources ?? [],
+      aiGenerated: input.aiGenerated ?? false,
+      views: 0,
+      likes: 0,
       createdAt: now,
       updatedAt: now,
     };
@@ -208,6 +248,9 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (input.videoUrl !== undefined) update.videoUrl = input.videoUrl?.trim() || null;
     if (input.tags !== undefined) update.tags = input.tags;
     if (input.published !== undefined) update.published = input.published;
+    if (input.category !== undefined) update.category = input.category.trim() || 'general';
+    if (input.keyPoints !== undefined) update.keyPoints = input.keyPoints;
+    if (input.sources !== undefined) update.sources = input.sources;
     if (input.slug !== undefined && input.slug.trim() && input.slug.trim() !== existing.slug) {
       update.slug = await this.generateUniqueSlug(input.slug.trim(), id);
     }
@@ -218,5 +261,63 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
 
   async remove(id: string): Promise<void> {
     await this.collection.doc(id).delete();
+  }
+
+  async incrementViews(slug: string): Promise<void> {
+    const snap = await this.collection.where('slug', '==', slug).limit(1).get();
+    if (snap.empty) return;
+    await this.collection.doc(snap.docs[0].id).update({ views: FieldValue.increment(1) });
+  }
+
+  async listComments(slug: string): Promise<BlogComment[]> {
+    const post = await this.getPublishedBySlug(slug);
+    const snap = await this.commentsCollection.where('postId', '==', post.id).get();
+    const comments = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogComment, 'id'>) }));
+    return comments.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  async addComment(slug: string, userId: string, userName: string, content: string): Promise<BlogComment> {
+    const trimmed = content?.trim();
+    if (!trimmed) throw new BadRequestException('Comment content is required');
+    if (trimmed.length > 1000) throw new BadRequestException('Comment is too long');
+
+    const post = await this.getPublishedBySlug(slug);
+    const now = new Date().toISOString();
+    const doc = { postId: post.id, userId, userName, content: trimmed, createdAt: now };
+    const ref = await this.commentsCollection.add(doc);
+    return { id: ref.id, ...doc };
+  }
+
+  async deleteComment(commentId: string, userId: string, isAdmin: boolean): Promise<void> {
+    const doc = await this.commentsCollection.doc(commentId).get();
+    if (!doc.exists) throw new NotFoundException('Comment not found');
+    const data = doc.data() as { userId: string };
+    if (data.userId !== userId && !isAdmin) throw new BadRequestException('Not allowed to delete this comment');
+    await this.commentsCollection.doc(commentId).delete();
+  }
+
+  async toggleLike(slug: string, userId: string): Promise<{ liked: boolean; likes: number }> {
+    const post = await this.getPublishedBySlug(slug);
+    const likeRef = this.likesCollection.doc(`${post.id}_${userId}`);
+    const postRef = this.collection.doc(post.id);
+    const likeSnap = await likeRef.get();
+
+    if (likeSnap.exists) {
+      await likeRef.delete();
+      await postRef.update({ likes: FieldValue.increment(-1) });
+    } else {
+      await likeRef.create({ postId: post.id, userId, createdAt: new Date().toISOString() });
+      await postRef.update({ likes: FieldValue.increment(1) });
+    }
+
+    const updated = await postRef.get();
+    const likes = Math.max(0, Number(updated.data()?.likes ?? 0));
+    return { liked: !likeSnap.exists, likes };
+  }
+
+  async getLikeStatus(slug: string, userId: string): Promise<{ liked: boolean }> {
+    const post = await this.getPublishedBySlug(slug);
+    const likeSnap = await this.likesCollection.doc(`${post.id}_${userId}`).get();
+    return { liked: likeSnap.exists };
   }
 }

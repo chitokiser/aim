@@ -31,6 +31,7 @@ import { CjShopModule } from './cj-shop/cj-shop.module';
 import { LevelModule } from './level/level.module';
 import { RouletteModule } from './roulette/roulette.module';
 import { BlogModule } from './blog/blog.module';
+import { WebzineModule } from './webzine/webzine.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { BlogModule } from './blog/blog.module';
     LevelModule,
     RouletteModule,
     BlogModule,
+    WebzineModule,
   ],
   controllers: [AppController],
   providers: [AppService],

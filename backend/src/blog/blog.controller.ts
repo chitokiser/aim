@@ -6,6 +6,7 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   Request,
   ForbiddenException,
@@ -23,13 +24,52 @@ export class BlogController {
   ) {}
 
   @Get('posts')
-  listPublished() {
-    return this.blog.listPublished();
+  listPublished(@Query('category') category?: string) {
+    return this.blog.listPublished(category);
   }
 
   @Get('posts/:slug')
-  getBySlug(@Param('slug') slug: string) {
-    return this.blog.getPublishedBySlug(slug);
+  async getBySlug(@Param('slug') slug: string) {
+    const post = await this.blog.getPublishedBySlug(slug);
+    void this.blog.incrementViews(slug);
+    return post;
+  }
+
+  @Get('posts/:slug/comments')
+  listComments(@Param('slug') slug: string) {
+    return this.blog.listComments(slug);
+  }
+
+  @Post('posts/:slug/comments')
+  @UseGuards(JwtAuthGuard)
+  async addComment(
+    @Request() req: { user: { sub: string } },
+    @Param('slug') slug: string,
+    @Body() body: { content: string },
+  ) {
+    const user = (await this.users.findById(req.user.sub)) as Record<string, unknown>;
+    const userName = (user.firstName as string) || (user.username as string) || 'User';
+    return this.blog.addComment(slug, req.user.sub, userName, body.content);
+  }
+
+  @Delete('comments/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteComment(@Request() req: { user: { sub: string } }, @Param('id') id: string) {
+    const isAdmin = await this.users.isAdminUser(req.user.sub);
+    await this.blog.deleteComment(id, req.user.sub, isAdmin);
+    return { ok: true };
+  }
+
+  @Post('posts/:slug/like')
+  @UseGuards(JwtAuthGuard)
+  toggleLike(@Request() req: { user: { sub: string } }, @Param('slug') slug: string) {
+    return this.blog.toggleLike(slug, req.user.sub);
+  }
+
+  @Get('posts/:slug/like-status')
+  @UseGuards(JwtAuthGuard)
+  getLikeStatus(@Request() req: { user: { sub: string } }, @Param('slug') slug: string) {
+    return this.blog.getLikeStatus(slug, req.user.sub);
   }
 
   @Get('admin/posts')

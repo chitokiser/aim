@@ -1,16 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import DOMPurify from "isomorphic-dompurify";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
-import { Loader2, ArrowLeft, FileText } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Loader2, ArrowLeft, FileText, Heart, Eye, ExternalLink, Trash2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
+import { useAuthStore } from "@/lib/store";
+import { webzineCategoryLabel } from "@/lib/webzine-categories";
 import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+interface BlogSource {
+  title: string;
+  url: string;
+}
 
 interface BlogPost {
   id: string;
@@ -21,12 +30,33 @@ interface BlogPost {
   coverImage: string | null;
   videoUrl: string | null;
   tags: string[];
+  category: string;
+  keyPoints: string[];
+  sources: BlogSource[];
+  views: number;
+  likes: number;
   createdAt: string;
 }
 
+interface BlogComment {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string;
+  createdAt: string;
+}
+
+interface RelatedPost {
+  id: string;
+  title: string;
+  slug: string;
+  coverImage: string | null;
+}
+
 export default function BlogDetailClient({ slug }: { slug: string }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const b = t.blog;
+  const { user, token } = useAuthStore();
   // When this page is served from the static-export fallback (slug="_", e.g.
   // via a Netlify _redirects rewrite for a post published after the last
   // build), useParams() still reflects the real browser URL — prefer it over
@@ -36,6 +66,17 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
 
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
+  const [related, setRelated] = useState<RelatedPost[]>([]);
+  const [comments, setComments] = useState<BlogComment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
+
+  const authHeader = useCallback(
+    () => ({ Authorization: `Bearer ${token}`, "Content-Type": "application/json" }),
+    [token],
+  );
 
   useEffect(() => {
     setLoading(true);
@@ -45,6 +86,94 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
       .catch(() => setPost(null))
       .finally(() => setLoading(false));
   }, [postSlug]);
+
+  useEffect(() => {
+    if (!post) return;
+    fetch(`${API}/api/blog/posts?category=${encodeURIComponent(post.category)}`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: RelatedPost[]) =>
+        setRelated(data.filter((p) => p.slug !== post.slug).slice(0, 3)),
+      )
+      .catch(() => setRelated([]));
+
+    fetch(`${API}/api/blog/posts/${post.slug}/comments`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data: BlogComment[]) => setComments(data))
+      .catch(() => setComments([]));
+  }, [post]);
+
+  useEffect(() => {
+    if (!post || !token) {
+      setLiked(false);
+      return;
+    }
+    fetch(`${API}/api/blog/posts/${post.slug}/like-status`, { headers: authHeader() })
+      .then((r) => (r.ok ? r.json() : { liked: false }))
+      .then((data: { liked: boolean }) => setLiked(data.liked))
+      .catch(() => setLiked(false));
+  }, [post, token, authHeader]);
+
+  const toggleLike = async () => {
+    if (!post) return;
+    if (!token) {
+      toast.error(b.likeLoginRequired);
+      return;
+    }
+    setLikeBusy(true);
+    try {
+      const res = await fetch(`${API}/api/blog/posts/${post.slug}/like`, {
+        method: "POST",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      const data: { liked: boolean; likes: number } = await res.json();
+      setLiked(data.liked);
+      setPost({ ...post, likes: data.likes });
+    } catch {
+      // silently ignore — non-critical interaction
+    } finally {
+      setLikeBusy(false);
+    }
+  };
+
+  const submitComment = async () => {
+    if (!post) return;
+    if (!token) {
+      toast.error(b.commentLoginRequired);
+      return;
+    }
+    if (!commentText.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`${API}/api/blog/posts/${post.slug}/comments`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ content: commentText.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      const comment: BlogComment = await res.json();
+      setComments([...comments, comment]);
+      setCommentText("");
+    } catch {
+      toast.error(b.commentLoginRequired);
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const deleteComment = async (id: string) => {
+    if (!confirm(b.deleteCommentConfirm)) return;
+    try {
+      const res = await fetch(`${API}/api/blog/comments/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      setComments(comments.filter((c) => c.id !== id));
+    } catch {
+      // silently ignore
+    }
+  };
 
   if (loading) {
     return (
@@ -75,10 +204,28 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         {b.backToBlog}
       </Link>
 
+      <Badge variant="outline" className="mb-2">
+        {webzineCategoryLabel(post.category || "general", lang)}
+      </Badge>
       <h1 className="mb-2 text-3xl font-black">{post.title}</h1>
-      <p className="mb-6 text-sm text-muted-foreground">
-        {b.postedOn} {new Date(post.createdAt).toLocaleDateString()}
-      </p>
+      <div className="mb-6 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <span>
+          {b.postedOn} {new Date(post.createdAt).toLocaleDateString()}
+        </span>
+        <span className="flex items-center gap-1">
+          <Eye className="h-3.5 w-3.5" /> {post.views ?? 0} {b.views}
+        </span>
+        <button
+          onClick={toggleLike}
+          disabled={likeBusy}
+          className={cn(
+            "flex items-center gap-1 transition-colors hover:text-foreground",
+            liked && "text-red-500 hover:text-red-500",
+          )}
+        >
+          <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} /> {post.likes ?? 0}
+        </button>
+      </div>
 
       {post.coverImage && (
         // eslint-disable-next-line @next/next/no-img-element
@@ -101,6 +248,17 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         </div>
       )}
 
+      {post.keyPoints?.length > 0 && (
+        <div className="mb-6 rounded-lg border bg-muted/40 p-4">
+          <h2 className="mb-2 text-sm font-semibold">{b.keyPoints}</h2>
+          <ul className="list-disc space-y-1 pl-5 text-sm">
+            {post.keyPoints.map((point, i) => (
+              <li key={i}>{point}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div
         className="prose prose-neutral dark:prose-invert max-w-none"
         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
@@ -116,6 +274,96 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
           ))}
         </div>
       )}
+
+      {post.sources?.length > 0 && (
+        <div className="mt-6 border-t pt-4">
+          <h2 className="mb-2 text-sm font-semibold text-muted-foreground">{b.sources}</h2>
+          <ul className="space-y-1 text-sm">
+            {post.sources.map((source, i) => (
+              <li key={i}>
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {source.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {related.length > 0 && (
+        <div className="mt-10 border-t pt-6">
+          <h2 className="mb-3 text-lg font-bold">{b.relatedPosts}</h2>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {related.map((r) => (
+              <Link
+                key={r.id}
+                href={`/blog/${r.slug}`}
+                className="rounded-lg border p-3 text-sm font-medium transition-colors hover:bg-muted"
+              >
+                {r.title}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mt-10 border-t pt-6">
+        <h2 className="mb-3 text-lg font-bold">
+          {b.comments} ({comments.length})
+        </h2>
+
+        <div className="mb-4 flex flex-col gap-2">
+          <Textarea
+            value={commentText}
+            onChange={(e) => setCommentText(e.target.value)}
+            placeholder={token ? b.commentPlaceholder : b.commentLoginRequired}
+            disabled={!token}
+            rows={2}
+          />
+          <Button
+            size="sm"
+            className="self-end"
+            disabled={!token || submittingComment || !commentText.trim()}
+            onClick={submitComment}
+          >
+            {submittingComment ? <Loader2 className="h-4 w-4 animate-spin" /> : b.commentSubmit}
+          </Button>
+        </div>
+
+        {comments.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{b.noComments}</p>
+        ) : (
+          <ul className="space-y-3">
+            {comments.map((c) => (
+              <li key={c.id} className="rounded-lg border p-3">
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-sm font-semibold">{c.userName}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(c.createdAt).toLocaleDateString()}
+                    </span>
+                    {user && (user.id === c.userId || user.isAdmin) && (
+                      <button
+                        onClick={() => void deleteComment(c.id)}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-sm">{c.content}</p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </article>
   );
 }

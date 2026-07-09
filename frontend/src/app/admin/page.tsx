@@ -19,6 +19,7 @@ import {
   Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText, Sparkles,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
+import { WEBZINE_CATEGORIES, webzineCategoryLabel } from "@/lib/webzine-categories";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const SITE_URL = "https://ai119.netlify.app";
@@ -84,7 +85,7 @@ const MISSION_TYPES = ["sns_marketing", "ai_review", "ai_music", "business_conte
 export default function AdminPage() {
   const { user, token } = useAuthStore();
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
 
@@ -293,6 +294,11 @@ export default function AdminPage() {
     videoUrl: string | null;
     tags: string[];
     published: boolean;
+    category: string;
+    keyPoints: string[];
+    aiGenerated: boolean;
+    views: number;
+    likes: number;
     createdAt: string;
   }
   const emptyBlogForm = {
@@ -303,6 +309,8 @@ export default function AdminPage() {
     coverImage: "",
     videoUrl: "",
     tags: "",
+    category: "general",
+    keyPoints: "",
     published: false,
   };
   const [blogPosts, setBlogPosts] = useState<BlogPostItem[]>([]);
@@ -313,6 +321,19 @@ export default function AdminPage() {
   const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
   const [suggestingKeywords, setSuggestingKeywords] = useState(false);
   const [generatingDraftFor, setGeneratingDraftFor] = useState<string | null>(null);
+
+  // Webzine (AI auto-collection) state
+  interface WebzineCategoryState {
+    slug: string;
+    ko: string;
+    en: string;
+    vi: string;
+    enabled: boolean;
+    lastRunAt: string | null;
+  }
+  const [webzineCategories, setWebzineCategories] = useState<WebzineCategoryState[]>([]);
+  const [webzineLoading, setWebzineLoading] = useState(false);
+  const [webzineRunningFor, setWebzineRunningFor] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
@@ -1291,6 +1312,8 @@ export default function AdminPage() {
       coverImage: post.coverImage ?? "",
       videoUrl: post.videoUrl ?? "",
       tags: post.tags?.join(", ") ?? "",
+      category: post.category || "general",
+      keyPoints: post.keyPoints?.join("\n") ?? "",
       published: post.published,
     });
   };
@@ -1333,6 +1356,8 @@ export default function AdminPage() {
         coverImage: "",
         videoUrl: "",
         tags: draft.tags.join(", "),
+        category: "general",
+        keyPoints: "",
         published: false,
       });
       toast.success(t.admin.blogDraftReady);
@@ -1358,6 +1383,8 @@ export default function AdminPage() {
         coverImage: blogForm.coverImage.trim() || undefined,
         videoUrl: blogForm.videoUrl.trim() || undefined,
         tags: blogForm.tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+        category: blogForm.category || "general",
+        keyPoints: blogForm.keyPoints.split("\n").map((p) => p.trim()).filter(Boolean),
         published: blogForm.published,
       };
       const url = blogEditingId
@@ -1405,6 +1432,59 @@ export default function AdminPage() {
       void loadBlogPosts();
     } catch {
       toast.error(t.admin.blogSaveFail);
+    }
+  };
+
+  const loadWebzineCategories = useCallback(async () => {
+    if (!token) return;
+    setWebzineLoading(true);
+    try {
+      const res = await fetch(`${API}/api/blog/admin/webzine/categories`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setWebzineCategories(await res.json());
+    } catch {
+      // silently ignore — panel just shows empty state
+    } finally {
+      setWebzineLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const toggleWebzineBot = async (category: WebzineCategoryState) => {
+    setWebzineCategories((prev) =>
+      prev.map((c) => (c.slug === category.slug ? { ...c, enabled: !c.enabled } : c)),
+    );
+    try {
+      const res = await fetch(`${API}/api/blog/admin/webzine/toggle`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({ category: category.slug, enabled: !category.enabled }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      void loadWebzineCategories();
+    }
+  };
+
+  const runWebzineCategory = async (slug: string) => {
+    setWebzineRunningFor(slug);
+    try {
+      const res = await fetch(`${API}/api/blog/admin/webzine/run/${slug}`, {
+        method: "POST",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      const data: { id?: string; message?: string } = await res.json();
+      if (data.id) {
+        toast.success(t.admin.webzineRunSuccess);
+        void loadBlogPosts();
+      } else {
+        toast.error(t.admin.webzineRunEmpty);
+      }
+      void loadWebzineCategories();
+    } catch {
+      toast.error(t.admin.webzineRunFail);
+    } finally {
+      setWebzineRunningFor(null);
     }
   };
 
@@ -1526,7 +1606,13 @@ export default function AdminPage() {
             <Dices className="h-3.5 w-3.5 mr-1" />
             {t.admin.tabRoulette}
           </TabsTrigger>
-          <TabsTrigger value="blog" onClick={loadBlogPosts}>
+          <TabsTrigger
+            value="blog"
+            onClick={() => {
+              void loadBlogPosts();
+              void loadWebzineCategories();
+            }}
+          >
             <FileText className="h-3.5 w-3.5 mr-1" />
             {t.admin.tabBlog}
           </TabsTrigger>
@@ -3274,6 +3360,60 @@ export default function AdminPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
+                  <Bot className="h-4 w-4" />
+                  {t.admin.webzineTitle}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-xs text-muted-foreground">{t.admin.webzineDesc}</p>
+                {webzineLoading ? (
+                  <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {webzineCategories.map((c) => (
+                      <div key={c.slug} className="flex items-center justify-between gap-2 rounded-lg border p-2.5">
+                        <div className="min-w-0 flex-1">
+                          <button
+                            className="flex items-center gap-1.5 text-sm font-medium"
+                            onClick={() => void toggleWebzineBot(c)}
+                            title={c.enabled ? "ON" : "OFF"}
+                          >
+                            {c.enabled ? (
+                              <ToggleRight className="h-4 w-4 text-green-500 shrink-0" />
+                            ) : (
+                              <ToggleLeft className="h-4 w-4 text-muted-foreground shrink-0" />
+                            )}
+                            {webzineCategoryLabel(c.slug, lang)}
+                          </button>
+                          <div className="truncate text-xs text-muted-foreground">
+                            {t.admin.webzineLastRun}:{" "}
+                            {c.lastRunAt ? new Date(c.lastRunAt).toLocaleString() : t.admin.webzineNeverRun}
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={webzineRunningFor === c.slug}
+                          onClick={() => void runWebzineCategory(c.slug)}
+                        >
+                          {webzineRunningFor === c.slug ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
                   <Sparkles className="h-4 w-4" />
                   {t.admin.blogSuggestKeywords}
                 </CardTitle>
@@ -3370,12 +3510,41 @@ export default function AdminPage() {
                     />
                   </div>
                 </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.blogTags}</Label>
+                    <Input
+                      value={blogForm.tags}
+                      onChange={(e) => setBlogForm({ ...blogForm, tags: e.target.value })}
+                      placeholder="missions, guide, ap"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>{t.admin.blogCategory}</Label>
+                    <Select
+                      value={blogForm.category}
+                      onValueChange={(v) => setBlogForm({ ...blogForm, category: v })}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WEBZINE_CATEGORIES.map((c) => (
+                          <SelectItem key={c.slug} value={c.slug}>
+                            {webzineCategoryLabel(c.slug, lang)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <div className="space-y-1.5">
-                  <Label>{t.admin.blogTags}</Label>
-                  <Input
-                    value={blogForm.tags}
-                    onChange={(e) => setBlogForm({ ...blogForm, tags: e.target.value })}
-                    placeholder="missions, guide, ap"
+                  <Label>{t.admin.blogKeyPoints}</Label>
+                  <textarea
+                    className="w-full min-h-20 rounded-md border bg-background px-3 py-2 text-sm resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                    value={blogForm.keyPoints}
+                    onChange={(e) => setBlogForm({ ...blogForm, keyPoints: e.target.value })}
+                    placeholder={"Point one\nPoint two"}
                   />
                 </div>
                 <label className="flex items-center gap-2 text-sm">
@@ -3426,8 +3595,16 @@ export default function AdminPage() {
                             <Badge variant={post.published ? "default" : "secondary"}>
                               {post.published ? t.admin.published : t.admin.draft}
                             </Badge>
+                            {post.aiGenerated && (
+                              <Badge variant="outline" className="gap-1">
+                                <Sparkles className="h-3 w-3" />
+                                {t.admin.blogAiGenerated}
+                              </Badge>
+                            )}
                           </div>
-                          <div className="text-xs text-muted-foreground">/blog/{post.slug}</div>
+                          <div className="text-xs text-muted-foreground">
+                            /blog/{post.slug} · {webzineCategoryLabel(post.category || "general", lang)}
+                          </div>
                         </div>
                         <div className="flex shrink-0 gap-2">
                           <Button size="sm" variant="outline" onClick={() => startEditBlogPost(post)}>
