@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
 import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
 import { RouletteService } from '../roulette/roulette.service';
+import { IndexNowService } from './indexnow.service';
 
 export interface BlogSource {
   title: string;
@@ -117,6 +118,7 @@ export class BlogService {
     private readonly firebase: FirebaseService,
     private readonly config: ConfigService,
     private readonly roulette: RouletteService,
+    private readonly indexNow: IndexNowService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -262,6 +264,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     const ref = await this.collection.add(doc);
     const commentCount = await this.seedComments(ref.id, now);
     if (commentCount > 0) await this.collection.doc(ref.id).update({ commentCount });
+    if (doc.published) void this.indexNow.submitUrl(`/blog/${slug}`);
     return { id: ref.id, ...doc, commentCount };
   }
 
@@ -340,7 +343,9 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     }
 
     await this.collection.doc(id).update(update);
-    return { ...existing, ...update };
+    const merged = { ...existing, ...update };
+    if (input.published === true && !existing.published) void this.indexNow.submitUrl(`/blog/${merged.slug}`);
+    return merged;
   }
 
   async remove(id: string): Promise<void> {
