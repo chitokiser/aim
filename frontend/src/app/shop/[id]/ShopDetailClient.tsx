@@ -7,13 +7,14 @@ import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
+import { useCartStore } from "@/lib/cart-store";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Coins, Loader2, Minus, Package, Plus, Sparkles } from "lucide-react";
+import { ArrowLeft, Coins, Loader2, Minus, Package, Plus, ShoppingCart, Sparkles } from "lucide-react";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
@@ -45,6 +46,7 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const sh = t.shop;
   const router = useRouter();
   const { user, token } = useAuthStore();
+  const addToCart = useCartStore((s) => s.addItem);
   // When this page is served from the static-export fallback (id="_", e.g. via
   // a Netlify _redirects rewrite for a product created after the last build),
   // useParams() still reflects the real browser URL — prefer it over the
@@ -95,6 +97,12 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const expCap = Math.min(maxExpPayable, spendableExp);
   const clampedExpToUse = Math.min(expToUse, expCap);
   const apToCharge = totalAp - clampedExpToUse;
+
+  const handleAddToCart = () => {
+    if (!user || !token) { router.push("/auth"); return; }
+    addToCart(productId, activeVariant?.vid ?? null, quantity);
+    toast.success(sh.addedToCart);
+  };
 
   const handlePurchase = async () => {
     if (!user || !token) { router.push("/auth"); return; }
@@ -353,14 +361,25 @@ export default function ShopDetailClient({ id }: { id: string }) {
 
           <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-relaxed mb-3">{sh.noReturnsNotice}</p>
 
-          <Button
-            className="w-full bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 font-semibold h-12"
-            disabled={submitting || !product.active}
-            onClick={() => void handlePurchase()}
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Coins className="h-4 w-4 mr-2" />}
-            {sh.buyBtn} — {apToCharge.toLocaleString()} AP{clampedExpToUse > 0 ? ` + ${clampedExpToUse.toLocaleString()} EXP` : ""}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="h-12 shrink-0 px-4"
+              disabled={!product.active}
+              onClick={handleAddToCart}
+            >
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              {sh.addToCart}
+            </Button>
+            <Button
+              className="flex-1 bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90 font-semibold h-12"
+              disabled={submitting || !product.active}
+              onClick={() => void handlePurchase()}
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Coins className="h-4 w-4 mr-2" />}
+              {sh.buyBtn} — {apToCharge.toLocaleString()} AP{clampedExpToUse > 0 ? ` + ${clampedExpToUse.toLocaleString()} EXP` : ""}
+            </Button>
+          </div>
         </div>
       </div>
 

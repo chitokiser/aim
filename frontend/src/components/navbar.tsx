@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
+import { useCartStore } from "@/lib/cart-store";
 import { useLanguage, type Lang } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
   Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film, Music,
-  ArrowLeftRight, ShoppingBag, Package, Star, FileText,
+  ArrowLeftRight, ShoppingBag, Package, Star, FileText, ShoppingCart,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ const LANG_OPTIONS: { code: Lang; flag: string; label: string }[] = [
 export function Navbar() {
   const pathname = usePathname();
   const { user, logout, token, setUser } = useAuthStore();
+  const cartCount = useCartStore((s) => s.items.reduce((sum, i) => sum + i.quantity, 0));
   const { lang, setLang, t } = useLanguage();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -229,6 +231,20 @@ export function Navbar() {
               </button>
             ))}
           </div>
+
+          {/* Cart icon — always visible once mounted so guests can see it too */}
+          {mounted && (
+            <Link href="/shop/cart" className="relative">
+              <Button variant="ghost" size="icon" className="h-9 w-9">
+                <ShoppingCart className="h-4 w-4" />
+              </Button>
+              {cartCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-violet-600 px-1 text-[10px] font-bold text-white">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </Link>
+          )}
 
           {(mounted && user) ? (
             <>

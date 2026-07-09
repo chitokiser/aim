@@ -46,10 +46,51 @@ export class CjShopController {
     return this.cjShopService.createOrder(req.user.sub, dto);
   }
 
+  @Post('orders/bulk')
+  @UseGuards(JwtAuthGuard)
+  createBulkOrder(
+    @Request() req: { user: { sub: string } },
+    @Body() dto: {
+      items: { productId: string; quantity: number; selectedVid?: string; expToUse?: number }[];
+      shipping: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string };
+    },
+  ) {
+    return this.cjShopService.createBulkOrder(req.user.sub, dto);
+  }
+
   @Get('orders/my')
   @UseGuards(JwtAuthGuard)
   getMyOrders(@Request() req: { user: { sub: string } }) {
     return this.cjShopService.getMyOrders(req.user.sub);
+  }
+
+  // ── Saved shipping addresses ─────────────────────────────────────────────
+
+  @Get('addresses')
+  @UseGuards(JwtAuthGuard)
+  listAddresses(@Request() req: { user: { sub: string } }) {
+    return this.cjShopService.listAddresses(req.user.sub);
+  }
+
+  @Post('addresses')
+  @UseGuards(JwtAuthGuard)
+  saveAddress(
+    @Request() req: { user: { sub: string } },
+    @Body() dto: { name: string; phone: string; address: string; detailAddress?: string; zip: string; country?: string; label?: string },
+  ) {
+    return this.cjShopService.saveAddress(req.user.sub, dto);
+  }
+
+  @Delete('addresses/:addressId')
+  @UseGuards(JwtAuthGuard)
+  deleteAddress(@Request() req: { user: { sub: string } }, @Param('addressId') addressId: string) {
+    return this.cjShopService.deleteAddress(req.user.sub, addressId);
+  }
+
+  @Patch('addresses/:addressId/default')
+  @UseGuards(JwtAuthGuard)
+  setDefaultAddress(@Request() req: { user: { sub: string } }, @Param('addressId') addressId: string) {
+    return this.cjShopService.setDefaultAddress(req.user.sub, addressId);
   }
 
   @Get('my-exp')

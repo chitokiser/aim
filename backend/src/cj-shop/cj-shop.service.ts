@@ -79,12 +79,30 @@ export interface ShippingInfo {
   country?: string; // ISO country code, e.g. "KR" or "VN" — defaults to "KR" for older orders
 }
 
+export interface SavedAddress extends ShippingInfo {
+  id: string;
+  label: string;
+  isDefault?: boolean;
+}
+
 interface CreateOrderDto {
   productId: string;
   quantity: number;
   shipping: ShippingInfo;
   expToUse?: number;
   selectedVid?: string;
+}
+
+interface BulkOrderItemDto {
+  productId: string;
+  quantity: number;
+  selectedVid?: string;
+  expToUse?: number;
+}
+
+interface CreateBulkOrderDto {
+  items: BulkOrderItemDto[];
+  shipping: ShippingInfo;
 }
 
 function computeSupplyApPrice(cjPriceUsd: number): number {
@@ -378,29 +396,25 @@ export class CjShopService {
     return all.docs.find((d) => d.id.toLowerCase() === id.toLowerCase()) ?? null;
   }
 
-  // ── Checkout (AP only) ────────────────────────────────────────────────────
-
-  // NOTE: CJ prepaid balance is not funded yet, so we don't call createOrderV3/payBalance
-  // automatically here. Instead the order is recorded as 'pending' and the admin is notified
-  // via Telegram to fund the CJ wallet and place the order manually on CJ's own site.
-  async createOrder(userId: string, dto: CreateOrderDto) {
-    const quantity = Math.max(1, dto.quantity || 1);
-    let productSnap = await this.firebase.collection('cj_products').doc(dto.productId).get();
-    let productId = dto.productId;
-    if (!productSnap.exists) {
+  private async resolveProductDoc(productId: string): Promise<{ id: string; data: Record<string, unknown> }> {
+    let snap = await this.firebase.collection('cj_products').doc(productId).get();
+    let id = productId;
+    if (!snap.exists) {
       // Netlify's CDN 301-redirects mixed-case product URLs to lowercase,
       // so the checkout form may submit a lowercased id — resolve it back.
-      const match = await this.findProductDocByIdCaseInsensitive(dto.productId);
+      const match = await this.findProductDocByIdCaseInsensitive(productId);
       if (!match) throw new NotFoundException('Product not found');
-      productSnap = match;
-      productId = match.id;
+      snap = match;
+      id = match.id;
     }
-    const product = productSnap.data() as Record<string, unknown>;
-    if (product.active !== true) throw new BadRequestException('Product is not available');
+    const data = snap.data() as Record<string, unknown>;
+    if (data.active !== true) throw new BadRequestException('Product is not available');
+    return { id, data };
+  }
 
+  private computePricing(product: Record<string, unknown>, quantity: number, selectedVid?: string) {
     const variants = product.variants as ProductVariant[] | undefined;
-    const selectedVariant = variants?.find((v) => v.vid === dto.selectedVid) ?? variants?.[0] ?? null;
-
+    const selectedVariant = variants?.find((v) => v.vid === selectedVid) ?? variants?.[0] ?? null;
     const apPrice = selectedVariant?.apPrice ?? (product.apPrice as number);
     // Legacy products registered before EXP-payment support have no supplyApPrice —
     // fall back to apPrice so their maxExpPayable is 0 (no EXP discount) until re-saved.
@@ -408,6 +422,18 @@ export class CjShopService {
     const totalPrice = apPrice * quantity;
     const marginTotal = Math.max(0, apPrice - supplyApPrice) * quantity;
     const maxExpPayable = Math.floor(marginTotal * (1 - MENTOR_FUND_RATIO));
+    return { selectedVariant, apPrice, supplyApPrice, totalPrice, maxExpPayable };
+  }
+
+  // ── Checkout (AP only) ────────────────────────────────────────────────────
+
+  // NOTE: CJ prepaid balance is not funded yet, so we don't call createOrderV3/payBalance
+  // automatically here. Instead the order is recorded as 'pending' and the admin is notified
+  // via Telegram to fund the CJ wallet and place the order manually on CJ's own site.
+  async createOrder(userId: string, dto: CreateOrderDto) {
+    const quantity = Math.max(1, dto.quantity || 1);
+    const { id: productId, data: product } = await this.resolveProductDoc(dto.productId);
+    const { selectedVariant, totalPrice, maxExpPayable } = this.computePricing(product, quantity, dto.selectedVid);
 
     const requestedExp = Math.max(0, Math.floor(dto.expToUse || 0));
     const userSpendableExp = await this.levelService.getSpendableExp(userId);
@@ -438,6 +464,7 @@ export class CjShopService {
       variantLabel: selectedVariant?.label ?? null,
       cjOrderId: null as string | null,
       cjOrderNumber: orderNumber,
+      batchId: null as string | null,
       quantity,
       totalPrice,
       expUsed,
@@ -459,6 +486,97 @@ export class CjShopService {
     this.notifyAdmin(username, productLabel, quantity, apToCharge, expUsed, mentorId ? mentorBonus : 0, (selectedVariant?.cjPriceUsd ?? (product.cjPriceUsd as number)) * quantity, dto.shipping);
 
     return { id: ref.id, ...order };
+  }
+
+  // Cart checkout: charges + creates one cj_orders doc per line item (sharing
+  // a single shipping address and a common batchId), then sends ONE combined
+  // Telegram notification instead of one per item. Items are grouped by their
+  // underlying cjProductId in the notification because CJ Dropshipping ships
+  // each product from its own supplier warehouse — lines sharing the same
+  // cjProductId (i.e. different options of the same listing) are likely to
+  // ship together, but different listings are very likely separate parcels.
+  // Combining shipments across different listings is a manual best-effort the
+  // admin does when placing the order on CJ's site, never guaranteed.
+  async createBulkOrder(userId: string, dto: CreateBulkOrderDto) {
+    if (!dto.items || dto.items.length === 0) throw new BadRequestException('Cart is empty');
+
+    const batchId = `AIM-BATCH-${Date.now()}`;
+    const userSnap = await this.firebase.collection('users').doc(userId).get();
+    const userData = userSnap.data() as Record<string, unknown> | undefined;
+    const username = (userData?.username as string) || (userData?.name as string) || userId;
+    const mentorId = (userData?.mentorId as string | null) ?? null;
+
+    let remainingSpendableExp = await this.levelService.getSpendableExp(userId);
+    const createdOrders: Record<string, unknown>[] = [];
+    const notifyLines: { productLabel: string; cjProductId: string; quantity: number; apCharged: number; expUsed: number; cjCostUsd: number }[] = [];
+    let totalApCharged = 0;
+    let totalExpUsed = 0;
+    let totalMentorBonus = 0;
+
+    for (const item of dto.items) {
+      const quantity = Math.max(1, item.quantity || 1);
+      const { id: productId, data: product } = await this.resolveProductDoc(item.productId);
+      const { selectedVariant, totalPrice, maxExpPayable } = this.computePricing(product, quantity, item.selectedVid);
+
+      const requestedExp = Math.max(0, Math.floor(item.expToUse || 0));
+      const expUsed = Math.min(requestedExp, maxExpPayable, remainingSpendableExp);
+      remainingSpendableExp -= expUsed;
+      const apToCharge = totalPrice - expUsed;
+
+      await this.points.deduct(userId, apToCharge, `CJ Shop 주문: ${product.nameKo as string}`);
+      if (expUsed > 0) {
+        await this.levelService.spendExp(userId, expUsed);
+      }
+
+      const mentorBonus = Math.floor(apToCharge * 0.1);
+      if (mentorId && mentorBonus > 0) {
+        await this.points.award(mentorId, mentorBonus, 'mentor_bonus', `멘토 수당: 멘티 CJ 쇼핑몰 구매 (${product.nameKo as string})`);
+      }
+
+      const orderNumber = `AIM-${Date.now()}-${createdOrders.length}`;
+      const order = {
+        userId,
+        productId,
+        variantVid: selectedVariant?.vid ?? null,
+        variantLabel: selectedVariant?.label ?? null,
+        cjOrderId: null as string | null,
+        cjOrderNumber: orderNumber,
+        batchId,
+        quantity,
+        totalPrice,
+        expUsed,
+        apCharged: apToCharge,
+        mentorId,
+        mentorBonus: mentorId ? mentorBonus : 0,
+        shipping: dto.shipping,
+        status: 'pending' as const,
+        cjStatus: null as string | null,
+        trackNumber: null as string | null,
+        trackingProvider: null as string | null,
+        failReason: null as string | null,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const ref = await this.firebase.collection('cj_orders').add(order);
+      createdOrders.push({ id: ref.id, ...order });
+
+      const productLabel = selectedVariant?.label ? `${product.nameKo as string} (${selectedVariant.label})` : (product.nameKo as string);
+      notifyLines.push({
+        productLabel,
+        cjProductId: product.cjProductId as string,
+        quantity,
+        apCharged: apToCharge,
+        expUsed,
+        cjCostUsd: (selectedVariant?.cjPriceUsd ?? (product.cjPriceUsd as number)) * quantity,
+      });
+      totalApCharged += apToCharge;
+      totalExpUsed += expUsed;
+      totalMentorBonus += mentorId ? mentorBonus : 0;
+    }
+
+    this.notifyAdminBulk(username, notifyLines, totalApCharged, totalExpUsed, totalMentorBonus, dto.shipping);
+
+    return { batchId, orders: createdOrders };
   }
 
   private notifyAdmin(
@@ -488,6 +606,98 @@ export class CjShopService {
       `🔍 [관리자 패널에서 확인](https://ai119.netlify.app/admin)`;
 
     new Telegram(botToken).sendMessage(adminId, msg, { parse_mode: 'Markdown' }).catch(() => {});
+  }
+
+  private notifyAdminBulk(
+    username: string,
+    lines: { productLabel: string; cjProductId: string; quantity: number; apCharged: number; expUsed: number; cjCostUsd: number }[],
+    totalApCharged: number,
+    totalExpUsed: number,
+    totalMentorBonus: number,
+    shipping: ShippingInfo,
+  ) {
+    const botToken = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+    const adminId = this.config.get<string>('ADMIN_TELEGRAM_ID');
+    if (!botToken || !adminId) return;
+
+    const country = shipping.country || 'KR';
+    const groups = new Map<string, typeof lines>();
+    for (const line of lines) {
+      const key = line.cjProductId || line.productLabel;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(line);
+    }
+    const totalCjCostUsd = lines.reduce((sum, l) => sum + l.cjCostUsd, 0);
+
+    const groupText = Array.from(groups.values())
+      .map((group) => {
+        const items = group.map((l) => `  • ${l.productLabel} x${l.quantity}`).join('\n');
+        const combineHint = group.length > 1 ? ' (같은 상품 — 함께 배송 가능)' : '';
+        return `${items}${combineHint}`;
+      })
+      .join('\n');
+
+    const msg =
+      `🛒 *CJ 쇼핑몰 일괄 주문 접수* (${lines.length}개 상품)\n\n` +
+      `👤 회원: ${username}\n` +
+      `📦 주문 내역:\n${groupText}\n\n` +
+      `💰 총 차감 AP: ${totalApCharged.toLocaleString()} AP` + (totalExpUsed > 0 ? ` (+ EXP 결제 ${totalExpUsed.toLocaleString()})\n` : `\n`) +
+      (totalMentorBonus > 0 ? `🎁 멘토 수당: ${totalMentorBonus.toLocaleString()} AP\n` : ``) +
+      `💵 CJ 발주 필요 금액: $${totalCjCostUsd.toFixed(2)} (CJ 잔액 충전 후 수동 발주 필요)\n` +
+      `🌍 배송국가: ${country}\n` +
+      `🏠 배송지: ${shipping.name} / ${shipping.phone} / ${shipping.address} ${shipping.detailAddress ?? ''} (${shipping.zip})\n\n` +
+      `⚠️ 서로 다른 상품은 CJ 공급처가 달라 개별 배송될 수 있습니다. 가능한 경우 발주 시 배송 통합을 시도해 주세요.\n\n` +
+      `🔍 [관리자 패널에서 확인](https://ai119.netlify.app/admin)`;
+
+    new Telegram(botToken).sendMessage(adminId, msg, { parse_mode: 'Markdown' }).catch(() => {});
+  }
+
+  // ── Saved shipping addresses ──────────────────────────────────────────────
+  // Stored directly on the user doc (users/{uid}.shippingAddresses) so a buyer
+  // enters their address once and can reuse/select it on every future order
+  // instead of retyping it — this is purely a checkout convenience, not a
+  // Firestore collection of its own.
+
+  async listAddresses(userId: string): Promise<SavedAddress[]> {
+    const snap = await this.firebase.collection('users').doc(userId).get();
+    return ((snap.data()?.shippingAddresses as SavedAddress[] | undefined) ?? []);
+  }
+
+  async saveAddress(userId: string, input: ShippingInfo & { label?: string }): Promise<SavedAddress[]> {
+    const existing = await this.listAddresses(userId);
+    const address: SavedAddress = {
+      id: `addr_${Date.now()}`,
+      label: input.label?.trim() || input.name,
+      name: input.name,
+      phone: input.phone,
+      address: input.address,
+      detailAddress: input.detailAddress,
+      zip: input.zip,
+      country: input.country || 'KR',
+      isDefault: existing.length === 0,
+    };
+    const updated = [...existing, address];
+    await this.firebase.collection('users').doc(userId).update({ shippingAddresses: updated });
+    return updated;
+  }
+
+  async deleteAddress(userId: string, addressId: string): Promise<SavedAddress[]> {
+    const existing = await this.listAddresses(userId);
+    const removedWasDefault = existing.find((a) => a.id === addressId)?.isDefault === true;
+    let updated = existing.filter((a) => a.id !== addressId);
+    if (removedWasDefault && updated.length > 0) {
+      updated = updated.map((a, i) => ({ ...a, isDefault: i === 0 }));
+    }
+    await this.firebase.collection('users').doc(userId).update({ shippingAddresses: updated });
+    return updated;
+  }
+
+  async setDefaultAddress(userId: string, addressId: string): Promise<SavedAddress[]> {
+    const existing = await this.listAddresses(userId);
+    if (!existing.some((a) => a.id === addressId)) throw new NotFoundException('Address not found');
+    const updated = existing.map((a) => ({ ...a, isDefault: a.id === addressId }));
+    await this.firebase.collection('users').doc(userId).update({ shippingAddresses: updated });
+    return updated;
   }
 
   async getMyOrders(userId: string) {
