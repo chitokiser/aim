@@ -684,10 +684,10 @@ function extractYouTubeId(url: string): string | null {
   return null;
 }
 
-// Loads a direct video URL off-screen and grabs its first frame as a JPEG data URL.
+// Loads a direct video URL off-screen and grabs a random frame as a JPEG data URL.
 // Only works for directly-playable video files with CORS enabled — silently
 // resolves to null for page URLs (Instagram/TikTok/Facebook) or CORS-blocked sources.
-function captureVideoFirstFrame(url: string): Promise<string | null> {
+function captureVideoRandomFrame(url: string): Promise<string | null> {
   return new Promise((resolve) => {
     const video = document.createElement("video");
     video.crossOrigin = "anonymous";
@@ -706,8 +706,14 @@ function captureVideoFirstFrame(url: string): Promise<string | null> {
       resolve(null);
     }, 8000);
 
-    video.addEventListener("loadeddata", () => {
-      video.currentTime = 0.1;
+    // Pick a random point in the video rather than always the first frame,
+    // which is frequently a black/blank or unrepresentative frame.
+    video.addEventListener("loadedmetadata", () => {
+      const duration = video.duration;
+      const seekTime = Number.isFinite(duration) && duration > 0.5
+        ? 0.1 + Math.random() * (duration - 0.2)
+        : 0.1;
+      video.currentTime = seekTime;
     });
 
     video.addEventListener("seeked", () => {
@@ -759,7 +765,7 @@ function CreativeMarketPageContent() {
   const [submitting, setSubmitting] = useState(false);
   const [thumbGenerating, setThumbGenerating] = useState(false);
 
-  // Auto-fills the thumbnail from the video's first frame — YouTube links get the
+  // Auto-fills the thumbnail from a random frame of the video — YouTube links get the
   // official thumbnail image instantly; direct video file URLs are captured via canvas.
   // Never overwrites a thumbnail the user already provided.
   const maybeAutoThumbnail = useCallback(async (link: string, contentType: string, currentThumb: string) => {
@@ -773,7 +779,7 @@ function CreativeMarketPageContent() {
 
     setThumbGenerating(true);
     try {
-      const dataUrl = await captureVideoFirstFrame(link.trim());
+      const dataUrl = await captureVideoRandomFrame(link.trim());
       if (dataUrl) {
         setForm((p) => (p.thumbnailUrl.trim() ? p : { ...p, thumbnailUrl: dataUrl }));
       }

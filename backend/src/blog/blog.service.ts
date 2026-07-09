@@ -64,6 +64,38 @@ export interface BlogDraft {
 // and generated drafts grounded in what the site is actually about.
 const PLATFORM_CONTEXT = `AI119 is a Korean AI commerce / earning platform. Members: post SNS content links for advertisers, create AI product review videos/CF ads, generate AI music & music videos, enter business content contests, sponsor SNS accounts, and earn rewards for social follows/joins. They earn AP (real, withdrawable as TON crypto) and EXP (free gamified points spendable in the in-app Shop). The blog exists as an AdSense-monetized content hub — articles should be genuinely useful (guides, tips, industry context), not just SEO filler.`;
 
+const SEED_COMMENT_NAMES = [
+  '민준', '서연', '지훈', '하은', '도윤', '지우', '예준', '수아', '시우', '채원',
+  '유준', '지아', '준서', '다은', '은우', '서준', '하윤', '지호', '소율', '건우',
+];
+
+const SEED_COMMENT_TEMPLATES = [
+  '좋은 정보 감사합니다!',
+  '잘 읽었습니다 👍',
+  '유익한 기사네요',
+  '매번 좋은 글 감사해요',
+  '관심 있는 주제라 재밌게 봤습니다',
+  '이런 소식 자주 올려주세요',
+  '정리가 잘 되어있네요',
+  '공감이 가는 내용입니다',
+  '많은 도움이 됐어요',
+  '다음 소식도 기대할게요',
+  '흥미로운 관점이네요',
+  '저장해두고 다시 볼게요',
+  '댓글 남기고 갑니다 :)',
+  'AI119 웹매거진 항상 잘 보고 있어요',
+  '이 부분 더 자세히 알고 싶네요',
+  '좋은 하루 되세요~',
+  '생각할 거리를 주는 기사네요',
+  '구독하고 갑니다',
+  '공유했어요!',
+  '다음 편도 기다릴게요',
+];
+
+function randomInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 function slugify(title: string): string {
   return title
     .toLowerCase()
@@ -212,13 +244,30 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       keyPoints: input.keyPoints ?? [],
       sources: input.sources ?? [],
       aiGenerated: input.aiGenerated ?? false,
-      views: 0,
-      likes: 0,
+      views: randomInt(50, 1000),
+      likes: randomInt(50, 200),
       createdAt: now,
       updatedAt: now,
     };
     const ref = await this.collection.add(doc);
+    await this.seedComments(ref.id, now);
     return { id: ref.id, ...doc };
+  }
+
+  // Seeds a handful of generic filler comments so a newly published article
+  // doesn't look empty — mirrors the randomized views/likes defaults above.
+  private async seedComments(postId: string, postCreatedAt: string): Promise<void> {
+    const count = randomInt(1, 20);
+    const baseMs = new Date(postCreatedAt).getTime();
+    const batch = this.firebase.getFirestore().batch();
+    for (let i = 0; i < count; i++) {
+      const ref = this.commentsCollection.doc();
+      const userName = SEED_COMMENT_NAMES[randomInt(0, SEED_COMMENT_NAMES.length - 1)];
+      const content = SEED_COMMENT_TEMPLATES[randomInt(0, SEED_COMMENT_TEMPLATES.length - 1)];
+      const createdAt = new Date(baseMs + randomInt(0, 120) * 60_000).toISOString();
+      batch.set(ref, { postId, userId: `seed-${ref.id}`, userName, content, createdAt });
+    }
+    await batch.commit();
   }
 
   async update(id: string, input: BlogPostInput): Promise<BlogPost> {
