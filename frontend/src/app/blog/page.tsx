@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Loader2, FileText, Eye, Heart } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { WEBZINE_CATEGORIES, webzineCategoryLabel } from "@/lib/webzine-categories";
+import { TrendingKeywordsWidget } from "@/components/trending-keywords-widget";
 import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
@@ -52,6 +53,8 @@ export default function BlogPage() {
         <h1 className="text-3xl font-black mb-1">{b.title}</h1>
         <p className="text-muted-foreground">{b.subtitle}</p>
       </div>
+
+      <TrendingKeywordsWidget />
 
       {usedCategories.length > 0 && (
         <div className="mb-8 flex flex-wrap justify-center gap-2">

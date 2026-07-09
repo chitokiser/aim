@@ -10,10 +10,12 @@ import { KeywordResearchService } from './keyword-research.service';
 import { WebzineConfigService } from './webzine-config.service';
 import { WebzineSchedulerService } from './webzine-scheduler.service';
 import { WebzineController } from './webzine.controller';
+import { TrendingKeywordsService } from './trending-keywords.service';
+import { TrendingKeywordsController } from './trending-keywords.controller';
 
 @Module({
   imports: [BlogModule, AuthModule, UsersModule],
-  controllers: [WebzineController],
+  controllers: [WebzineController, TrendingKeywordsController],
   providers: [
     NewsCollectorService,
     ArticleWriterService,
@@ -22,6 +24,7 @@ import { WebzineController } from './webzine.controller';
     KeywordResearchService,
     WebzineConfigService,
     WebzineSchedulerService,
+    TrendingKeywordsService,
   ],
 })
 export class WebzineModule {}
