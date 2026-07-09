@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, ArrowLeft, FileText, Heart, Eye, ExternalLink, Trash2 } from "lucide-react";
+import { Loader2, ArrowLeft, FileText, Heart, Eye, ExternalLink, Trash2, Share2 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { useAuthStore } from "@/lib/store";
 import { webzineCategoryLabel } from "@/lib/webzine-categories";
@@ -71,6 +71,8 @@ interface RelatedPost {
   title: string;
   slug: string;
   coverImage: string | null;
+  category: string;
+  tags: string[];
 }
 
 export default function BlogDetailClient({ slug }: { slug: string }) {
@@ -115,11 +117,26 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
 
   useEffect(() => {
     if (!post) return;
-    fetch(`${API}/api/blog/posts?category=${encodeURIComponent(post.category)}`)
+    // Ranks by shared-tag count first (series-like grouping, e.g. all the
+    // "World's Biggest ___" articles share tags), falling back to same
+    // category — a plain category match alone is too broad once a category
+    // has hundreds of unrelated articles in it.
+    fetch(`${API}/api/blog/posts`)
       .then((r) => (r.ok ? r.json() : []))
-      .then((data: RelatedPost[]) =>
-        setRelated(data.filter((p) => p.slug !== post.slug).slice(0, 3)),
-      )
+      .then((data: RelatedPost[]) => {
+        const others = data.filter((p) => p.slug !== post.slug);
+        const scored = others.map((p) => {
+          const sharedTags = p.tags?.filter((tag) => post.tags?.includes(tag)).length ?? 0;
+          const sameCategory = p.category === post.category ? 1 : 0;
+          return { post: p, score: sharedTags * 10 + sameCategory };
+        });
+        const ranked = scored
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3)
+          .map((s) => s.post);
+        setRelated(ranked);
+      })
       .catch(() => setRelated([]));
 
     fetch(`${API}/api/blog/posts/${post.slug}/comments`)
@@ -138,6 +155,25 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
       .then((data: { liked: boolean }) => setLiked(data.liked))
       .catch(() => setLiked(false));
   }, [post, token, authHeader]);
+
+  const shareArticle = async () => {
+    if (!post) return;
+    const url = `${window.location.origin}/blog/${post.slug}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: post.title, url });
+      } catch {
+        // user cancelled the native share sheet — not an error
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(b.linkCopied);
+    } catch {
+      toast.error(b.shareFailed);
+    }
+  };
 
   const toggleLike = async () => {
     if (!post) return;
@@ -257,6 +293,9 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         >
           <Heart className={cn("h-3.5 w-3.5", liked && "fill-current")} /> {post.likes ?? 0}
         </button>
+        <button onClick={shareArticle} className="flex items-center gap-1 transition-colors hover:text-foreground">
+          <Share2 className="h-3.5 w-3.5" /> {b.share}
+        </button>
       </div>
 
       {post.coverImage && (
@@ -321,9 +360,11 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         <div className="mt-8 flex flex-wrap items-center gap-1.5 border-t pt-4">
           <span className="text-sm text-muted-foreground">{b.tags}:</span>
           {post.tags.map((tag) => (
-            <Badge key={tag} variant="secondary">
-              {tag}
-            </Badge>
+            <Link key={tag} href={`/blog?tag=${encodeURIComponent(tag)}`}>
+              <Badge variant="secondary" className="transition-colors hover:bg-foreground hover:text-background">
+                {tag}
+              </Badge>
+            </Link>
           ))}
         </div>
       )}

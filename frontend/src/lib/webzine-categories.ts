@@ -29,6 +29,17 @@ export const WEBZINE_CATEGORIES: WebzineCategory[] = [
   { slug: "entertainment", ko: "연예", en: "Entertainment", vi: "Giải trí" },
   { slug: "welfare-policy", ko: "정부복지정책", en: "Government Welfare Policy", vi: "Chính sách phúc lợi" },
   { slug: "trending", ko: "실시간 이슈", en: "Trending Now", vi: "Xu hướng" },
+  { slug: "investing", ko: "투자·재테크", en: "Investing", vi: "Đầu tư" },
+  { slug: "startup", ko: "창업", en: "Startup", vi: "Khởi nghiệp" },
+  { slug: "blogging-seo", ko: "블로그·SEO", en: "Blogging & SEO", vi: "Blog & SEO" },
+  { slug: "programming", ko: "프로그래밍", en: "Programming", vi: "Lập trình" },
+  { slug: "ai-tools", ko: "AI 활용법", en: "AI Tools", vi: "Công cụ AI" },
+  { slug: "space-aviation", ko: "우주·항공", en: "Space & Aviation", vi: "Vũ trụ & Hàng không" },
+  { slug: "self-improvement", ko: "자기계발", en: "Self-Improvement", vi: "Phát triển bản thân" },
+  { slug: "travel", ko: "여행", en: "Travel", vi: "Du lịch" },
+  { slug: "cooking", ko: "요리", en: "Cooking", vi: "Nấu ăn" },
+  { slug: "pets", ko: "반려동물", en: "Pets", vi: "Thú cưng" },
+  { slug: "fitness", ko: "운동·피트니스", en: "Fitness", vi: "Thể hình" },
   { slug: "general", ko: "일반", en: "General", vi: "Chung" },
 ];
 

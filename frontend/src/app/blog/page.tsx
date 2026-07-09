@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, FileText, Eye, Heart } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, FileText, Eye, Heart, MessageCircle, Search, Flame } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { WEBZINE_CATEGORIES, webzineCategoryLabel } from "@/lib/webzine-categories";
 import { TrendingKeywordsWidget } from "@/components/trending-keywords-widget";
 import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 interface BlogPost {
   id: string;
@@ -22,15 +26,50 @@ interface BlogPost {
   category: string;
   views: number;
   likes: number;
+  commentCount: number;
   createdAt: string;
 }
 
-export default function BlogPage() {
+function RankedList({ posts, emptyLabel }: { posts: BlogPost[]; emptyLabel: string }) {
+  if (posts.length === 0) {
+    return <p className="py-6 text-center text-sm text-muted-foreground">{emptyLabel}</p>;
+  }
+  return (
+    <ol className="grid gap-2 sm:grid-cols-2">
+      {posts.map((post, i) => (
+        <li key={post.id}>
+          <Link
+            href={`/blog/${post.slug}`}
+            className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted"
+          >
+            <span className={cn("w-5 shrink-0 text-center font-black", i < 3 ? "text-emerald-500" : "text-muted-foreground")}>
+              {i + 1}
+            </span>
+            <span className="line-clamp-1 flex-1">{post.title}</span>
+          </Link>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function BlogPageContent() {
   const { t, lang } = useLanguage();
   const b = t.blog;
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string>("");
+  const [tagFilter, setTagFilter] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchFocused, setSearchFocused] = useState(false);
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const tag = searchParams.get("tag");
+    setTagFilter(tag ?? "");
+  }, [searchParams]);
 
   useEffect(() => {
     fetch(`${API}/api/blog/posts`)
@@ -40,12 +79,69 @@ export default function BlogPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    const onClickOutside = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
   const usedCategories = useMemo(() => {
     const slugs = new Set(posts.map((p) => p.category || "general"));
     return WEBZINE_CATEGORIES.filter((c) => slugs.has(c.slug));
   }, [posts]);
 
-  const filteredPosts = category ? posts.filter((p) => (p.category || "general") === category) : posts;
+  const searchMatches = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return posts
+      .filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.tags?.some((tag) => tag.toLowerCase().includes(q)),
+      )
+      .slice(0, 8);
+  }, [posts, searchQuery]);
+
+  const filteredPosts = useMemo(() => {
+    let result = posts;
+    if (category) result = result.filter((p) => (p.category || "general") === category);
+    if (tagFilter) result = result.filter((p) => p.tags?.includes(tagFilter));
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.excerpt.toLowerCase().includes(q) ||
+          p.tags?.some((tag) => tag.toLowerCase().includes(q)),
+      );
+    }
+    return result;
+  }, [posts, category, tagFilter, searchQuery]);
+
+  const rankings = useMemo(() => {
+    const now = Date.now();
+    const today = posts.filter((p) => now - new Date(p.createdAt).getTime() < DAY_MS);
+    const week = posts.filter((p) => now - new Date(p.createdAt).getTime() < 7 * DAY_MS);
+    const byViews = (list: BlogPost[]) => [...list].sort((a, b) => (b.views ?? 0) - (a.views ?? 0));
+    const byLikes = (list: BlogPost[]) => [...list].sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0));
+    const byComments = (list: BlogPost[]) => [...list].sort((a, b) => (b.commentCount ?? 0) - (a.commentCount ?? 0));
+    return {
+      today: byViews(today).slice(0, 6),
+      week: byViews(week).slice(0, 6),
+      views: byViews(posts).slice(0, 6),
+      likes: byLikes(posts).slice(0, 6),
+      comments: byComments(posts).filter((p) => (p.commentCount ?? 0) > 0).slice(0, 6),
+    };
+  }, [posts]);
+
+  const clearTagFilter = () => {
+    setTagFilter("");
+    router.replace("/blog");
+  };
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-6xl">
@@ -54,7 +150,69 @@ export default function BlogPage() {
         <p className="text-muted-foreground">{b.subtitle}</p>
       </div>
 
+      {/* Search with live autocomplete */}
+      <div ref={searchBoxRef} className="relative mx-auto mb-6 max-w-lg">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            placeholder={b.searchPlaceholder}
+            className="pl-9"
+          />
+        </div>
+        {searchFocused && searchMatches.length > 0 && (
+          <div className="absolute z-20 mt-1 w-full rounded-lg border bg-background shadow-lg">
+            {searchMatches.map((post) => (
+              <Link
+                key={post.id}
+                href={`/blog/${post.slug}`}
+                className="block truncate px-4 py-2 text-sm hover:bg-muted"
+                onClick={() => setSearchFocused(false)}
+              >
+                {post.title}
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
       <TrendingKeywordsWidget />
+
+      {/* Popular content rankings */}
+      {posts.length > 0 && (
+        <div className="mb-8 rounded-xl border bg-muted/30 p-4">
+          <div className="mb-3 flex items-center gap-1.5 text-sm font-semibold">
+            <Flame className="h-4 w-4 text-orange-500" />
+            {b.popularTitle}
+          </div>
+          <Tabs defaultValue="today">
+            <TabsList className="mb-3">
+              <TabsTrigger value="today">{b.rankToday}</TabsTrigger>
+              <TabsTrigger value="week">{b.rankWeek}</TabsTrigger>
+              <TabsTrigger value="views">{b.rankViews}</TabsTrigger>
+              <TabsTrigger value="likes">{b.rankLikes}</TabsTrigger>
+              <TabsTrigger value="comments">{b.rankComments}</TabsTrigger>
+            </TabsList>
+            <TabsContent value="today"><RankedList posts={rankings.today} emptyLabel={b.noPosts} /></TabsContent>
+            <TabsContent value="week"><RankedList posts={rankings.week} emptyLabel={b.noPosts} /></TabsContent>
+            <TabsContent value="views"><RankedList posts={rankings.views} emptyLabel={b.noPosts} /></TabsContent>
+            <TabsContent value="likes"><RankedList posts={rankings.likes} emptyLabel={b.noPosts} /></TabsContent>
+            <TabsContent value="comments"><RankedList posts={rankings.comments} emptyLabel={b.noPosts} /></TabsContent>
+          </Tabs>
+        </div>
+      )}
+
+      {tagFilter && (
+        <div className="mb-6 flex items-center justify-center gap-2 text-sm">
+          <span className="text-muted-foreground">{b.filteredByTag}</span>
+          <Badge variant="secondary">#{tagFilter}</Badge>
+          <button onClick={clearTagFilter} className="text-muted-foreground underline hover:text-foreground">
+            {b.clearFilter}
+          </button>
+        </div>
+      )}
 
       {usedCategories.length > 0 && (
         <div className="mb-8 flex flex-wrap justify-center gap-2">
@@ -128,6 +286,9 @@ export default function BlogPage() {
                       <span className="flex items-center gap-0.5">
                         <Heart className="h-3 w-3" /> {post.likes ?? 0}
                       </span>
+                      <span className="flex items-center gap-0.5">
+                        <MessageCircle className="h-3 w-3" /> {post.commentCount ?? 0}
+                      </span>
                     </span>
                   </div>
                 </CardContent>
@@ -137,5 +298,13 @@ export default function BlogPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BlogPage() {
+  return (
+    <Suspense>
+      <BlogPageContent />
+    </Suspense>
   );
 }

@@ -35,6 +35,7 @@ export interface BlogPost {
   aiGenerated: boolean;
   views: number;
   likes: number;
+  commentCount: number;
   treasureCode: string | null;
   createdAt: string;
   updatedAt: string;
@@ -253,13 +254,15 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       aiGenerated: input.aiGenerated ?? false,
       views: randomInt(50, 1000),
       likes: randomInt(50, 200),
+      commentCount: 0,
       treasureCode: treasureEvent.code,
       createdAt: now,
       updatedAt: now,
     };
     const ref = await this.collection.add(doc);
-    await this.seedComments(ref.id, now);
-    return { id: ref.id, ...doc };
+    const commentCount = await this.seedComments(ref.id, now);
+    if (commentCount > 0) await this.collection.doc(ref.id).update({ commentCount });
+    return { id: ref.id, ...doc, commentCount };
   }
 
   // Seeds a handful of generic filler comments so a newly published article
@@ -296,8 +299,14 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       await this.collection.doc(id).update(update);
     }
 
-    const existing = await this.commentsCollection.where('postId', '==', id).limit(1).get();
-    const commentsAdded = existing.empty ? await this.seedComments(id, post.createdAt) : 0;
+    const existingSnap = await this.commentsCollection.where('postId', '==', id).get();
+    const commentsAdded = existingSnap.empty ? await this.seedComments(id, post.createdAt) : 0;
+    // Also self-heals commentCount for posts that had comments seeded before
+    // this counter field existed.
+    const actualCount = existingSnap.empty ? commentsAdded : existingSnap.size;
+    if (post.commentCount !== actualCount) {
+      await this.collection.doc(id).update({ commentCount: actualCount });
+    }
 
     return { commentsAdded, viewsLikesSeeded };
   }
@@ -360,15 +369,17 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     const now = new Date().toISOString();
     const doc = { postId: post.id, userId, userName, content: trimmed, createdAt: now };
     const ref = await this.commentsCollection.add(doc);
+    await this.collection.doc(post.id).update({ commentCount: FieldValue.increment(1) });
     return { id: ref.id, ...doc };
   }
 
   async deleteComment(commentId: string, userId: string, isAdmin: boolean): Promise<void> {
     const doc = await this.commentsCollection.doc(commentId).get();
     if (!doc.exists) throw new NotFoundException('Comment not found');
-    const data = doc.data() as { userId: string };
+    const data = doc.data() as { userId: string; postId: string };
     if (data.userId !== userId && !isAdmin) throw new BadRequestException('Not allowed to delete this comment');
     await this.commentsCollection.doc(commentId).delete();
+    await this.collection.doc(data.postId).update({ commentCount: FieldValue.increment(-1) });
   }
 
   async toggleLike(slug: string, userId: string): Promise<{ liked: boolean; likes: number }> {

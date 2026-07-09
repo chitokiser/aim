@@ -28,6 +28,17 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'entertainment', ko: '연예', en: 'Entertainment', vi: 'Giải trí', searchQuery: '연예 뉴스' },
   { slug: 'welfare-policy', ko: '정부복지정책', en: 'Government Welfare Policy', vi: 'Chính sách phúc lợi', searchQuery: '정부 복지 정책 지원금' },
   { slug: 'trending', ko: '실시간 이슈', en: 'Trending Now', vi: 'Xu hướng', searchQuery: '실시간 이슈' },
+  { slug: 'investing', ko: '투자·재테크', en: 'Investing', vi: 'Đầu tư', searchQuery: '재테크 투자 주식 부동산' },
+  { slug: 'startup', ko: '창업', en: 'Startup', vi: 'Khởi nghiệp', searchQuery: '창업 스타트업' },
+  { slug: 'blogging-seo', ko: '블로그·SEO', en: 'Blogging & SEO', vi: 'Blog & SEO', searchQuery: '애드센스 SEO 블로그 수익화' },
+  { slug: 'programming', ko: '프로그래밍', en: 'Programming', vi: 'Lập trình', searchQuery: '프로그래밍 Python 코딩' },
+  { slug: 'ai-tools', ko: 'AI 활용법', en: 'AI Tools', vi: 'Công cụ AI', searchQuery: 'ChatGPT AI 활용법 자동화' },
+  { slug: 'space-aviation', ko: '우주·항공', en: 'Space & Aviation', vi: 'Vũ trụ & Hàng không', searchQuery: '우주 항공 철도' },
+  { slug: 'self-improvement', ko: '자기계발', en: 'Self-Improvement', vi: 'Phát triển bản thân', searchQuery: '자기계발 심리학 명언' },
+  { slug: 'travel', ko: '여행', en: 'Travel', vi: 'Du lịch', searchQuery: '여행 정보' },
+  { slug: 'cooking', ko: '요리', en: 'Cooking', vi: 'Nấu ăn', searchQuery: '요리 레시피' },
+  { slug: 'pets', ko: '반려동물', en: 'Pets', vi: 'Thú cưng', searchQuery: '반려동물' },
+  { slug: 'fitness', ko: '운동·피트니스', en: 'Fitness', vi: 'Thể hình', searchQuery: '운동 피트니스' },
 ];
 
 export function findCategory(slug: string): CategoryDef | undefined {
