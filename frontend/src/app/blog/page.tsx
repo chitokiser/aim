@@ -16,6 +16,14 @@ import { cn } from "@/lib/utils";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Sub-series within the "classics" (고전읽기) category — surfaced as a filter
+// row of tag badges rather than a real sub-category field, since every post
+// in a series already shares a consistent tag (see backend seed scripts).
+const CLASSICS_SERIES: { tag: string; ko: string; en: string; vi: string }[] = [
+  { tag: "삼십육계", ko: "36계", en: "36 Stratagems", vi: "36 Kế" },
+  { tag: "손자병법", ko: "손자병법", en: "The Art of War", vi: "Binh Pháp Tôn Tử" },
+];
+
 interface BlogPost {
   id: string;
   title: string;
@@ -235,6 +243,23 @@ function BlogPageContent() {
               )}
             >
               {c[lang]}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {category === "classics" && (
+        <div className="mb-8 flex flex-wrap justify-center gap-2">
+          {CLASSICS_SERIES.map((s) => (
+            <button
+              key={s.tag}
+              onClick={() => router.push(`/blog?tag=${encodeURIComponent(s.tag)}`)}
+              className={cn(
+                "rounded-full border border-dashed px-3 py-1 text-xs transition-colors",
+                tagFilter === s.tag ? "bg-violet-600 text-white border-violet-600" : "text-muted-foreground hover:bg-muted",
+              )}
+            >
+              {s[lang]}
             </button>
           ))}
         </div>
