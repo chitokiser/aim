@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenAI } from '@google/genai';
 
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 const ANTHROPIC_MODEL = 'claude-opus-4-8';
 
 export interface AiKeys {
@@ -29,6 +29,7 @@ export async function generateText(keys: AiKeys, prompt: string, maxTokens = 409
       if (resp.text) return resp.text;
     } catch (err) {
       if (!isConfigured(keys.anthropicKey, 'your-anthropic-api-key')) throw err;
+      console.warn('Gemini call failed, falling back to Claude:', err instanceof Error ? err.message : err);
     }
   }
 
