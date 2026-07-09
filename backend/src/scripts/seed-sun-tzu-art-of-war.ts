@@ -132,8 +132,23 @@ async function main() {
     const blog = app.get(BlogService);
     const images = app.get(ImageGeneratorService);
 
+    // Idempotent re-run support: skip chapters already created by a previous
+    // (possibly partial, e.g. rate-limited) run instead of duplicating them.
+    const existingPosts = await blog.listAll();
+    const existingChapterNos = new Set(
+      existingPosts
+        .filter((p) => p.tags?.includes(SERIES_TAG))
+        .map((p) => p.title.match(/제(\d+)편/)?.[1])
+        .filter((n): n is string => Boolean(n))
+        .map(Number),
+    );
+
     let created = 0;
     for (const item of CHAPTERS) {
+      if (existingChapterNos.has(item.no)) {
+        console.log(`Skipping #${item.no}: ${item.ko} (already exists)`);
+        continue;
+      }
       console.log(`Writing #${item.no}: ${item.ko}(${item.hanja})`);
       const written = await writeArticle(item);
       if (!written) {
