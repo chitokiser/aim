@@ -34,7 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!res.ok) throw new Error("not found");
     const post: BlogPostSeo = await res.json();
 
-    const title = `${post.title} | AI119 Blog`;
+    const title = `${post.title} | AI119 Web Magazine`;
     const description = post.excerpt.slice(0, 160);
     const image = post.coverImage ?? "/images/aimlogo.png";
     const url = `https://ai119.netlify.app/blog/${slug}`;
@@ -42,14 +42,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return {
       title,
       description,
-      keywords: [...(post.tags ?? []), "AI119", "AI119 blog"],
+      keywords: [...(post.tags ?? []), "AI119", "AI119 web magazine"],
       alternates: { canonical: url },
       openGraph: { title, description, url, siteName: "AI119", type: "article", images: [{ url: image }] },
       twitter: { card: "summary_large_image", title, description, images: [image] },
       robots: { index: true, follow: true },
     };
   } catch {
-    return { title: "Post | AI119 Blog" };
+    return { title: "Post | AI119 Web Magazine" };
   }
 }
 
