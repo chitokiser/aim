@@ -409,6 +409,8 @@ const T = {
       webzineRunFail: "Failed to collect or generate an article",
       webzineLastRun: "Last run",
       webzineNeverRun: "Never run yet",
+      webzineRunDailyBatch: "Run Today's Batch (~40 articles)",
+      webzineDailyBatchStarted: "Daily batch started — running in the background, check back in a few minutes",
       blogCategory: "Category",
       blogKeyPoints: "Key Points (one per line, optional)",
       blogAiGenerated: "AI Generated",

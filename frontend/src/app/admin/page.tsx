@@ -311,7 +311,7 @@ export default function AdminPage() {
     tags: "",
     category: "general",
     keyPoints: "",
-    published: false,
+    published: true,
   };
   const [blogPosts, setBlogPosts] = useState<BlogPostItem[]>([]);
   const [blogLoading, setBlogLoading] = useState(false);
@@ -334,6 +334,7 @@ export default function AdminPage() {
   const [webzineCategories, setWebzineCategories] = useState<WebzineCategoryState[]>([]);
   const [webzineLoading, setWebzineLoading] = useState(false);
   const [webzineRunningFor, setWebzineRunningFor] = useState<string | null>(null);
+  const [runningDailyBatch, setRunningDailyBatch] = useState(false);
 
   useEffect(() => {
     if (user && !user.isAdmin) router.push("/");
@@ -1358,7 +1359,7 @@ export default function AdminPage() {
         tags: draft.tags.join(", "),
         category: "general",
         keyPoints: "",
-        published: false,
+        published: true,
       });
       toast.success(t.admin.blogDraftReady);
     } catch {
@@ -1485,6 +1486,22 @@ export default function AdminPage() {
       toast.error(t.admin.webzineRunFail);
     } finally {
       setWebzineRunningFor(null);
+    }
+  };
+
+  const runDailyBatchNow = async () => {
+    setRunningDailyBatch(true);
+    try {
+      const res = await fetch(`${API}/api/blog/admin/webzine/run-daily-batch`, {
+        method: "POST",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t.admin.webzineDailyBatchStarted);
+    } catch {
+      toast.error(t.admin.webzineRunFail);
+    } finally {
+      setRunningDailyBatch(false);
     }
   };
 
@@ -3366,6 +3383,14 @@ export default function AdminPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <p className="text-xs text-muted-foreground">{t.admin.webzineDesc}</p>
+                <Button size="sm" disabled={runningDailyBatch} onClick={() => void runDailyBatchNow()}>
+                  {runningDailyBatch ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 mr-2" />
+                  )}
+                  {t.admin.webzineRunDailyBatch}
+                </Button>
                 {webzineLoading ? (
                   <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -3607,6 +3632,10 @@ export default function AdminPage() {
                           </div>
                         </div>
                         <div className="flex shrink-0 gap-2">
+                          <Button size="sm" variant="outline" onClick={() => startEditBlogPost(post)}>
+                            <Pencil className="h-3.5 w-3.5 mr-1" />
+                            {t.admin.blogEdit}
+                          </Button>
                           <a
                             href={`/blog/${post.slug}?preview=${post.id}`}
                             target="_blank"
@@ -3616,10 +3645,6 @@ export default function AdminPage() {
                             <Eye className="h-3.5 w-3.5 mr-1" />
                             {t.admin.blogPreview}
                           </a>
-                          <Button size="sm" variant="outline" onClick={() => startEditBlogPost(post)}>
-                            <Pencil className="h-3.5 w-3.5 mr-1" />
-                            {t.admin.blogEdit}
-                          </Button>
                           <Button size="sm" variant="outline" onClick={() => void toggleBlogPublished(post)}>
                             {post.published ? t.admin.unpublish : t.admin.publish}
                           </Button>

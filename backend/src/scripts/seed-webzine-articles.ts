@@ -171,7 +171,7 @@ async function main() {
         coverImage: null,
         videoUrl: null,
         tags: written.tags,
-        published: false,
+        published: true,
         category,
         keyPoints: written.keyPoints,
         sources: [{ title: headline.title, url: headline.link }],

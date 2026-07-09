@@ -5,6 +5,7 @@ import { CATEGORIES } from './webzine.constants';
 interface WebzineState {
   enabled: Record<string, boolean>;
   lastRunAt: Record<string, string>;
+  lastDailyBatchDate: string | null;
 }
 
 @Injectable()
@@ -22,7 +23,7 @@ export class WebzineConfigService {
     const enabled: Record<string, boolean> = {};
     for (const c of CATEGORIES) enabled[c.slug] = data?.enabled?.[c.slug] ?? true;
 
-    return { enabled, lastRunAt: data?.lastRunAt ?? {} };
+    return { enabled, lastRunAt: data?.lastRunAt ?? {}, lastDailyBatchDate: data?.lastDailyBatchDate ?? null };
   }
 
   async setEnabled(category: string, enabled: boolean): Promise<void> {
@@ -31,5 +32,9 @@ export class WebzineConfigService {
 
   async markRun(category: string): Promise<void> {
     await this.doc.set({ lastRunAt: { [category]: new Date().toISOString() } }, { merge: true });
+  }
+
+  async markDailyBatch(date: string): Promise<void> {
+    await this.doc.set({ lastDailyBatchDate: date }, { merge: true });
   }
 }

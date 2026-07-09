@@ -5,11 +5,32 @@ import type { BlogPost } from '../blog/blog.service';
 import { NewsCollectorService } from './news-collector.service';
 import { ArticleWriterService } from './article-writer.service';
 import { WebzineConfigService } from './webzine-config.service';
-import { CATEGORIES, findCategory } from './webzine.constants';
+import { CATEGORIES, findCategory, type CategoryDef } from './webzine.constants';
 
-// ~4 runs/day per category, spread out by polling frequently and gating on
-// last-run time rather than hardcoding 16 categories' worth of cron expressions.
-const RUN_INTERVAL_MS = 6 * 60 * 60 * 1000;
+// Target total articles/day across all enabled categories combined — sized
+// to roughly match the observed free-tier ceiling (~20 requests/day/model,
+// x2 Gemini models rotated in ai-text.util.ts).
+const DAILY_TARGET = 40;
+const DELAY_BETWEEN_CALLS_MS = 2500;
+
+function todayDateString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Splits `total` as evenly as possible across `categories`, e.g. 40 across
+// 16 categories -> eight get 3, eight get 2.
+function distributeCounts(categories: CategoryDef[], total: number): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (categories.length === 0) return counts;
+  const base = Math.floor(total / categories.length);
+  const remainder = total % categories.length;
+  categories.forEach((c, i) => counts.set(c.slug, base + (i < remainder ? 1 : 0)));
+  return counts;
+}
 
 @Injectable()
 export class WebzineSchedulerService {
@@ -23,30 +44,77 @@ export class WebzineSchedulerService {
     private readonly config: WebzineConfigService,
   ) {}
 
-  @Cron('*/15 * * * *')
-  async handleCron(): Promise<void> {
-    if (this.running) return;
+  // Runs once/day (server local time). A stored lastDailyBatchDate guards
+  // against duplicate runs if the process restarts and the cron re-fires
+  // the same day.
+  @Cron('0 0 * * *')
+  async handleDailyCron(): Promise<void> {
+    const state = await this.config.getState();
+    if (state.lastDailyBatchDate === todayDateString()) return;
+    await this.runDailyBatch();
+  }
+
+  async runDailyBatch(): Promise<{ created: number; attempted: number }> {
+    if (this.running) return { created: 0, attempted: 0 };
     this.running = true;
+    let created = 0;
+    let attempted = 0;
     try {
       const state = await this.config.getState();
-      const now = Date.now();
-      for (const category of CATEGORIES) {
-        if (!state.enabled[category.slug]) continue;
-        const last = state.lastRunAt[category.slug];
-        const lastMs = last ? new Date(last).getTime() : 0;
-        if (now - lastMs < RUN_INTERVAL_MS) continue;
+      const enabledCategories = CATEGORIES.filter((c) => state.enabled[c.slug]);
+      const counts = distributeCounts(enabledCategories, DAILY_TARGET);
 
-        await this.runCategory(category.slug).catch((err) => {
+      for (const category of enabledCategories) {
+        const target = counts.get(category.slug) ?? 0;
+        if (target === 0) continue;
+
+        try {
+          const headlines = await this.collector.collect(category.searchQuery, target);
+          for (const headline of headlines) {
+            attempted += 1;
+            try {
+              const written = await this.writer.write(category, [headline]);
+              if (written?.title && written.content) {
+                await this.blog.create({
+                  title: written.title,
+                  excerpt: written.excerpt,
+                  content: written.content,
+                  tags: written.tags,
+                  category: category.slug,
+                  keyPoints: written.keyPoints,
+                  sources: written.sources,
+                  aiGenerated: true,
+                  published: true,
+                });
+                created += 1;
+              }
+            } catch (err) {
+              this.logger.warn(
+                `Article write failed for ${category.slug} ("${headline.title}"): ${err instanceof Error ? err.message : String(err)}`,
+              );
+            }
+            await sleep(DELAY_BETWEEN_CALLS_MS);
+          }
+        } catch (err) {
           this.logger.error(
-            `Webzine run failed for ${category.slug}: ${err instanceof Error ? err.message : String(err)}`,
+            `Collection failed for ${category.slug}: ${err instanceof Error ? err.message : String(err)}`,
           );
-        });
+        }
+
+        await this.config.markRun(category.slug);
       }
+
+      await this.config.markDailyBatch(todayDateString());
+      this.logger.log(`Daily webzine batch: created ${created}/${attempted} articles.`);
+      return { created, attempted };
     } finally {
       this.running = false;
     }
   }
 
+  // Manual single-article trigger for the admin "지금 수집" button — picks
+  // the single most newsworthy story from a wider pool of headlines,
+  // separate from the daily batch's one-article-per-headline approach.
   async runCategory(slug: string): Promise<BlogPost | null> {
     const category = findCategory(slug);
     if (!category) throw new Error(`Unknown webzine category: ${slug}`);
@@ -69,7 +137,7 @@ export class WebzineSchedulerService {
       keyPoints: written.keyPoints,
       sources: written.sources,
       aiGenerated: true,
-      published: false,
+      published: true,
     });
   }
 }

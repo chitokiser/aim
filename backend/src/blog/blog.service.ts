@@ -207,7 +207,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       coverImage: input.coverImage?.trim() || null,
       videoUrl: input.videoUrl?.trim() || null,
       tags: input.tags ?? [],
-      published: input.published ?? false,
+      published: input.published ?? true,
       category: input.category?.trim() || 'general',
       keyPoints: input.keyPoints ?? [],
       sources: input.sources ?? [],

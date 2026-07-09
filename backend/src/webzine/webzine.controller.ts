@@ -40,4 +40,14 @@ export class WebzineController {
     const post = await this.scheduler.runCategory(category);
     return post ?? { ok: false, message: 'No article generated from current news sources' };
   }
+
+  // Runs the ~40-article daily batch on demand instead of waiting for the
+  // midnight cron. Fires in the background since it takes several minutes.
+  @Post('run-daily-batch')
+  @UseGuards(JwtAuthGuard)
+  async runDailyBatchNow(@Request() req: { user: { sub: string } }) {
+    if (!(await this.users.isAdminUser(req.user.sub))) throw new ForbiddenException();
+    void this.scheduler.runDailyBatch();
+    return { ok: true, message: 'Daily batch started in the background' };
+  }
 }
