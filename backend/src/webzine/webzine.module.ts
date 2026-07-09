@@ -6,6 +6,7 @@ import { NewsCollectorService } from './news-collector.service';
 import { ArticleWriterService } from './article-writer.service';
 import { ImageGeneratorService } from './image-generator.service';
 import { StockImageService } from './stock-image.service';
+import { PexelsService } from './pexels.service';
 import { KeywordResearchService } from './keyword-research.service';
 import { WebzineConfigService } from './webzine-config.service';
 import { WebzineSchedulerService } from './webzine-scheduler.service';
@@ -22,6 +23,7 @@ import { TrendingArticleService } from './trending-article.service';
     ArticleWriterService,
     ImageGeneratorService,
     StockImageService,
+    PexelsService,
     KeywordResearchService,
     WebzineConfigService,
     WebzineSchedulerService,
