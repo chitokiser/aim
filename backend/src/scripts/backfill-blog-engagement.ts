@@ -1,8 +1,9 @@
 /**
- * Backfills cover image, views, likes, and comments for existing blog posts
- * that predate these fields being seeded on create() — e.g. articles written
- * by the older seed-webzine-articles.ts script, which left coverImage: null,
- * views: 0, likes: 0, and no comments.
+ * Backfills cover image, views, likes, comments, and hidden-TIGU-mascot
+ * treasure roulette codes for existing blog posts that predate these being
+ * seeded on create() — e.g. articles written by the older
+ * seed-webzine-articles.ts script, which left coverImage: null, views: 0,
+ * likes: 0, no comments, and no treasureCode.
  *
  * Run: npx ts-node -r dotenv/config src/scripts/backfill-blog-engagement.ts
  */
@@ -42,6 +43,7 @@ async function main() {
 
     let imagesAdded = 0;
     let engagementBackfilled = 0;
+    let treasureCodesAdded = 0;
 
     for (const post of posts) {
       try {
@@ -63,13 +65,21 @@ async function main() {
             `  [engagement] ${post.title} -> +${result.commentsAdded} comments, viewsLikesSeeded=${result.viewsLikesSeeded}`,
           );
         }
+
+        const gotTreasureCode = await blog.backfillTreasureCode(post.id);
+        if (gotTreasureCode) {
+          treasureCodesAdded += 1;
+          console.log(`  [treasure] ${post.title}`);
+        }
       } catch (err) {
         console.error(`Failed for "${post.title}":`, err instanceof Error ? err.message : err);
       }
       await sleep(DELAY_MS);
     }
 
-    console.log(`Done. Images added: ${imagesAdded}, engagement backfilled: ${engagementBackfilled}/${posts.length}`);
+    console.log(
+      `Done. Images added: ${imagesAdded}, engagement backfilled: ${engagementBackfilled}/${posts.length}, treasure codes added: ${treasureCodesAdded}/${posts.length}`,
+    );
   } finally {
     await app.close();
   }

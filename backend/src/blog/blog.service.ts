@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
 import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
+import { RouletteService } from '../roulette/roulette.service';
 
 export interface BlogSource {
   title: string;
@@ -34,6 +35,7 @@ export interface BlogPost {
   aiGenerated: boolean;
   views: number;
   likes: number;
+  treasureCode: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -113,6 +115,7 @@ export class BlogService {
   constructor(
     private readonly firebase: FirebaseService,
     private readonly config: ConfigService,
+    private readonly roulette: RouletteService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -231,6 +234,10 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
 
     const slug = await this.generateUniqueSlug(input.slug?.trim() || input.title);
     const now = new Date().toISOString();
+    // Each article gets its own hidden-TIGU-mascot roulette event — a small
+    // icon planted somewhere in the article body links to /event/roulette,
+    // reusing the existing weighted-EXP-prize roulette wheel unmodified.
+    const treasureEvent = await this.roulette.createEvent(`웹진: ${input.title.trim()}`, 'blog');
     const doc = {
       title: input.title.trim(),
       slug,
@@ -246,6 +253,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       aiGenerated: input.aiGenerated ?? false,
       views: randomInt(50, 1000),
       likes: randomInt(50, 200),
+      treasureCode: treasureEvent.code,
       createdAt: now,
       updatedAt: now,
     };
@@ -292,6 +300,16 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     const commentsAdded = existing.empty ? await this.seedComments(id, post.createdAt) : 0;
 
     return { commentsAdded, viewsLikesSeeded };
+  }
+
+  // Backfills a hidden-TIGU-mascot roulette code for posts created before
+  // this feature existed. Returns false if the post already had one.
+  async backfillTreasureCode(id: string): Promise<boolean> {
+    const post = await this.getById(id);
+    if (post.treasureCode) return false;
+    const event = await this.roulette.createEvent(`웹진: ${post.title}`, 'blog');
+    await this.collection.doc(id).update({ treasureCode: event.code });
+    return true;
   }
 
   async update(id: string, input: BlogPostInput): Promise<BlogPost> {

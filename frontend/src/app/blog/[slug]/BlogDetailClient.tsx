@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import DOMPurify from "isomorphic-dompurify";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +16,24 @@ import { webzineCategoryLabel } from "@/lib/webzine-categories";
 import { cn } from "@/lib/utils";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
+// Splits article HTML into two halves so a hidden TIGU mascot icon (linking
+// to the roulette EXP mini-game) can be rendered as a real React element
+// between them, at a position that's stable per-post (hashed from the post
+// id) but varies across posts rather than always landing in the same spot.
+function splitContentForTreasure(html: string, seed: string): { before: string; after: string } {
+  const parts = html.split("</p>");
+  if (parts.length < 3) return { before: html, after: "" };
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  const min = 1;
+  const max = parts.length - 2;
+  const index = min + (hash % (max - min + 1));
+  return {
+    before: parts.slice(0, index + 1).join("</p>") + "</p>",
+    after: parts.slice(index + 1).join("</p>"),
+  };
+}
 
 interface BlogSource {
   title: string;
@@ -35,6 +54,7 @@ interface BlogPost {
   sources: BlogSource[];
   views: number;
   likes: number;
+  treasureCode: string | null;
   createdAt: string;
 }
 
@@ -271,10 +291,31 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         </div>
       )}
 
-      <div
-        className="prose prose-neutral dark:prose-invert max-w-none"
-        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
-      />
+      {(() => {
+        const { before, after } = splitContentForTreasure(post.content, post.id);
+        return (
+          <div className="prose prose-neutral dark:prose-invert max-w-none">
+            <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(before) }} />
+            {post.treasureCode && (
+              <Link
+                href={`/event/roulette?src=${encodeURIComponent(post.treasureCode)}`}
+                aria-label={b.treasureHint}
+                title={b.treasureHint}
+                className="not-prose my-4 flex justify-center"
+              >
+                <Image
+                  src="/images/aimbot.png"
+                  alt="TIGU"
+                  width={40}
+                  height={40}
+                  className="animate-bounce opacity-80 transition-opacity hover:opacity-100"
+                />
+              </Link>
+            )}
+            {after && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(after) }} />}
+          </div>
+        );
+      })()}
 
       {post.tags?.length > 0 && (
         <div className="mt-8 flex flex-wrap items-center gap-1.5 border-t pt-4">

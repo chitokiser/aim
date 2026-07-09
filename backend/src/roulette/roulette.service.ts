@@ -34,6 +34,7 @@ export interface RouletteEvent {
   createdAt: string;
   spinCount: number;
   totalExpAwarded: number;
+  source: 'admin' | 'blog';
 }
 
 @Injectable()
@@ -43,7 +44,7 @@ export class RouletteService {
     private readonly levelService: LevelService,
   ) {}
 
-  async createEvent(label: string): Promise<RouletteEvent> {
+  async createEvent(label: string, source: 'admin' | 'blog' = 'admin'): Promise<RouletteEvent> {
     const code = generateEventCode();
     const doc = {
       code,
@@ -52,17 +53,23 @@ export class RouletteService {
       active: true,
       spinCount: 0,
       totalExpAwarded: 0,
+      source,
     };
     const ref = await this.firebase.collection('roulette_events').add(doc);
     return { id: ref.id, ...doc };
   }
 
+  // Excludes the per-article "hidden TIGU" treasure events (source: 'blog')
+  // from the admin management list — there's one per webzine post, so
+  // listing them alongside intentional promo events would drown the latter.
   async listEvents(): Promise<RouletteEvent[]> {
     const snap = await this.firebase
       .collection('roulette_events')
       .orderBy('createdAt', 'desc')
       .get();
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<RouletteEvent, 'id'>) }));
+    return snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<RouletteEvent, 'id'>) }))
+      .filter((event) => event.source !== 'blog');
   }
 
   private async getEventByCode(

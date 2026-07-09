@@ -9,5 +9,6 @@ import { LevelModule } from '../level/level.module';
   imports: [AuthModule, UsersModule, LevelModule],
   controllers: [RouletteController],
   providers: [RouletteService],
+  exports: [RouletteService],
 })
 export class RouletteModule {}
