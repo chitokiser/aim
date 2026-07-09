@@ -23,6 +23,10 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'life', ko: '라이프', en: 'Life', vi: 'Đời sống', searchQuery: '라이프 생활 정보' },
   { slug: 'shopping', ko: '쇼핑', en: 'Shopping', vi: 'Mua sắm', searchQuery: '쇼핑 트렌드' },
   { slug: 'event', ko: '이벤트', en: 'Events', vi: 'Sự kiện', searchQuery: '이벤트 프로모션' },
+  { slug: 'daily-life', ko: '생활', en: 'Daily Life', vi: 'Đời sống hàng ngày', searchQuery: '생활 정보 꿀팁' },
+  { slug: 'health', ko: '건강', en: 'Health', vi: 'Sức khỏe', searchQuery: '건강 뉴스' },
+  { slug: 'entertainment', ko: '연예', en: 'Entertainment', vi: 'Giải trí', searchQuery: '연예 뉴스' },
+  { slug: 'welfare-policy', ko: '정부복지정책', en: 'Government Welfare Policy', vi: 'Chính sách phúc lợi', searchQuery: '정부 복지 정책 지원금' },
 ];
 
 export function findCategory(slug: string): CategoryDef | undefined {

@@ -24,6 +24,10 @@ export const WEBZINE_CATEGORIES: WebzineCategory[] = [
   { slug: "life", ko: "라이프", en: "Life", vi: "Đời sống" },
   { slug: "shopping", ko: "쇼핑", en: "Shopping", vi: "Mua sắm" },
   { slug: "event", ko: "이벤트", en: "Events", vi: "Sự kiện" },
+  { slug: "daily-life", ko: "생활", en: "Daily Life", vi: "Đời sống hàng ngày" },
+  { slug: "health", ko: "건강", en: "Health", vi: "Sức khỏe" },
+  { slug: "entertainment", ko: "연예", en: "Entertainment", vi: "Giải trí" },
+  { slug: "welfare-policy", ko: "정부복지정책", en: "Government Welfare Policy", vi: "Chính sách phúc lợi" },
   { slug: "general", ko: "일반", en: "General", vi: "Chung" },
 ];
 

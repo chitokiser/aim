@@ -58,6 +58,10 @@ const CATEGORY_QUERIES: Record<string, { ko: string; query: string }> = {
   life: { ko: '라이프', query: '라이프 생활 정보' },
   shopping: { ko: '쇼핑', query: '쇼핑 트렌드' },
   event: { ko: '이벤트', query: '이벤트 프로모션' },
+  'daily-life': { ko: '생활', query: '생활 정보 꿀팁' },
+  health: { ko: '건강', query: '건강 뉴스' },
+  entertainment: { ko: '연예', query: '연예 뉴스' },
+  'welfare-policy': { ko: '정부복지정책', query: '정부 복지 정책 지원금' },
 };
 
 function slugify(title: string): string {
