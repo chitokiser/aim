@@ -5,13 +5,12 @@ import type { BlogPost } from '../blog/blog.service';
 import { NewsCollectorService } from './news-collector.service';
 import { ArticleWriterService } from './article-writer.service';
 import { ImageGeneratorService } from './image-generator.service';
+import { KeywordResearchService } from './keyword-research.service';
 import { WebzineConfigService } from './webzine-config.service';
 import { CATEGORIES, findCategory, type CategoryDef } from './webzine.constants';
 
-// Target total articles/day across all enabled categories combined — sized
-// to roughly match the observed free-tier ceiling (~20 requests/day/model,
-// x2 Gemini models rotated in ai-text.util.ts).
-const DAILY_TARGET = 40;
+// Target total core articles/day across all enabled categories combined.
+const DAILY_TARGET = 50;
 const DELAY_BETWEEN_CALLS_MS = 2500;
 
 function todayDateString(): string {
@@ -43,13 +42,13 @@ export class WebzineSchedulerService {
     private readonly collector: NewsCollectorService,
     private readonly writer: ArticleWriterService,
     private readonly images: ImageGeneratorService,
+    private readonly keywords: KeywordResearchService,
     private readonly config: WebzineConfigService,
   ) {}
 
-  // Runs once/day (server local time). A stored lastDailyBatchDate guards
-  // against duplicate runs if the process restarts and the cron re-fires
-  // the same day.
-  @Cron('0 0 * * *')
+  // Runs once/day at 04:00 KST. A stored lastDailyBatchDate guards against
+  // duplicate runs if the process restarts and the cron re-fires the same day.
+  @Cron('0 4 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCron(): Promise<void> {
     const state = await this.config.getState();
     if (state.lastDailyBatchDate === todayDateString()) return;
@@ -70,39 +69,37 @@ export class WebzineSchedulerService {
         const target = counts.get(category.slug) ?? 0;
         if (target === 0) continue;
 
-        try {
-          const headlines = await this.collector.collect(category.searchQuery, target);
-          for (const headline of headlines) {
-            attempted += 1;
-            try {
-              const written = await this.writer.write(category, [headline]);
-              if (written?.title && written.content) {
-                const coverImage = await this.images.generateCoverImage(written.title);
-                await this.blog.create({
-                  title: written.title,
-                  excerpt: written.excerpt,
-                  content: written.content,
-                  tags: written.tags,
-                  category: category.slug,
-                  keyPoints: written.keyPoints,
-                  sources: written.sources,
-                  coverImage: coverImage ?? undefined,
-                  aiGenerated: true,
-                  published: true,
-                });
-                created += 1;
-              }
-            } catch (err) {
-              this.logger.warn(
-                `Article write failed for ${category.slug} ("${headline.title}"): ${err instanceof Error ? err.message : String(err)}`,
-              );
+        const rankedKeywords = await this.keywords.rankKeywords(category, target);
+
+        for (const keyword of rankedKeywords) {
+          attempted += 1;
+          try {
+            const headlines = await this.collector.collect(keyword, 1);
+            if (headlines.length === 0) continue;
+
+            const written = await this.writer.write(category, headlines);
+            if (written?.title && written.content) {
+              const coverImage = await this.images.generateCoverImage(written.title);
+              await this.blog.create({
+                title: written.title,
+                excerpt: written.excerpt,
+                content: written.content,
+                tags: written.tags,
+                category: category.slug,
+                keyPoints: written.keyPoints,
+                sources: written.sources,
+                coverImage: coverImage ?? undefined,
+                aiGenerated: true,
+                published: true,
+              });
+              created += 1;
             }
-            await sleep(DELAY_BETWEEN_CALLS_MS);
+          } catch (err) {
+            this.logger.warn(
+              `Article write failed for ${category.slug} ("${keyword}"): ${err instanceof Error ? err.message : String(err)}`,
+            );
           }
-        } catch (err) {
-          this.logger.error(
-            `Collection failed for ${category.slug}: ${err instanceof Error ? err.message : String(err)}`,
-          );
+          await sleep(DELAY_BETWEEN_CALLS_MS);
         }
 
         await this.config.markRun(category.slug);
