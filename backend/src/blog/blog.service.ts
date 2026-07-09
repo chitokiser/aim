@@ -1,8 +1,8 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FieldValue } from 'firebase-admin/firestore';
-import Anthropic from '@anthropic-ai/sdk';
 import { FirebaseService } from '../firebase/firebase.service';
+import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
 
 export interface BlogSource {
   title: string;
@@ -76,17 +76,16 @@ function slugify(title: string): string {
 
 @Injectable()
 export class BlogService {
-  private anthropic: Anthropic | null = null;
-  private readonly model = 'claude-opus-4-8';
+  private readonly aiKeys: AiKeys;
 
   constructor(
     private readonly firebase: FirebaseService,
     private readonly config: ConfigService,
   ) {
-    const anthropicKey = this.config.get<string>('ANTHROPIC_API_KEY');
-    if (anthropicKey && anthropicKey !== 'your-anthropic-api-key') {
-      this.anthropic = new Anthropic({ apiKey: anthropicKey });
-    }
+    this.aiKeys = {
+      geminiKey: this.config.get<string>('GEMINI_API_KEY'),
+      anthropicKey: this.config.get<string>('ANTHROPIC_API_KEY'),
+    };
   }
 
   private get collection() {
@@ -101,13 +100,8 @@ export class BlogService {
     return this.firebase.collection('blog_comments');
   }
 
-  private extractJSON(text: string): string {
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    return match ? match[1].trim() : text.trim();
-  }
-
   async suggestKeywords(): Promise<string[]> {
-    if (!this.anthropic) throw new BadRequestException('AI keyword suggestions are not configured');
+    if (!hasAiProvider(this.aiKeys)) throw new BadRequestException('AI keyword suggestions are not configured');
 
     const prompt = `${PLATFORM_CONTEXT}
 
@@ -117,13 +111,8 @@ Return ONLY a valid JSON array of 8 strings, no markdown, no explanation:
 ["keyword 1", "keyword 2", ...]`;
 
     try {
-      const resp = await this.anthropic.messages.create({
-        model: this.model,
-        max_tokens: 1024,
-        messages: [{ role: 'user', content: prompt }],
-      });
-      const text = resp.content[0].type === 'text' ? resp.content[0].text : '[]';
-      const keywords: unknown = JSON.parse(this.extractJSON(text));
+      const text = await generateText(this.aiKeys, prompt, 1024);
+      const keywords: unknown = JSON.parse(extractJSON(text));
       if (!Array.isArray(keywords)) return [];
       return keywords.map((k) => String(k)).slice(0, 8);
     } catch {
@@ -132,7 +121,7 @@ Return ONLY a valid JSON array of 8 strings, no markdown, no explanation:
   }
 
   async generateDraft(keyword: string): Promise<BlogDraft> {
-    if (!this.anthropic) throw new BadRequestException('AI draft generation is not configured');
+    if (!hasAiProvider(this.aiKeys)) throw new BadRequestException('AI draft generation is not configured');
     if (!keyword?.trim()) throw new BadRequestException('Keyword is required');
 
     const prompt = `${PLATFORM_CONTEXT}
@@ -148,13 +137,8 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
 {"title": "...", "excerpt": "1-2 sentence summary, under 160 characters", "content": "<h2>...</h2><p>...</p>...", "tags": ["tag1", "tag2", "tag3"]}`;
 
     try {
-      const resp = await this.anthropic.messages.create({
-        model: this.model,
-        max_tokens: 4096,
-        messages: [{ role: 'user', content: prompt }],
-      });
-      const text = resp.content[0].type === 'text' ? resp.content[0].text : '{}';
-      const draft = JSON.parse(this.extractJSON(text)) as Record<string, unknown>;
+      const text = await generateText(this.aiKeys, prompt, 4096);
+      const draft = JSON.parse(extractJSON(text)) as Record<string, unknown>;
       return {
         title: String(draft.title ?? keyword),
         excerpt: String(draft.excerpt ?? ''),

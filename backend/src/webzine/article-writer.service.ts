@@ -1,9 +1,9 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
 import type { CollectedArticle } from './news-collector.service';
 import type { CategoryDef } from './webzine.constants';
 import type { BlogSource } from '../blog/blog.service';
+import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
 
 export interface WrittenArticle {
   title: string;
@@ -16,23 +16,17 @@ export interface WrittenArticle {
 
 @Injectable()
 export class ArticleWriterService {
-  private anthropic: Anthropic | null = null;
-  private readonly model = 'claude-opus-4-8';
+  private readonly aiKeys: AiKeys;
 
   constructor(private readonly config: ConfigService) {
-    const key = this.config.get<string>('ANTHROPIC_API_KEY');
-    if (key && key !== 'your-anthropic-api-key') {
-      this.anthropic = new Anthropic({ apiKey: key });
-    }
-  }
-
-  private extractJSON(text: string): string {
-    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-    return match ? match[1].trim() : text.trim();
+    this.aiKeys = {
+      geminiKey: this.config.get<string>('GEMINI_API_KEY'),
+      anthropicKey: this.config.get<string>('ANTHROPIC_API_KEY'),
+    };
   }
 
   async write(category: CategoryDef, articles: CollectedArticle[]): Promise<WrittenArticle | null> {
-    if (!this.anthropic) throw new BadRequestException('AI writer is not configured');
+    if (!hasAiProvider(this.aiKeys)) throw new BadRequestException('AI writer is not configured');
     if (articles.length === 0) return null;
 
     const sourceList = articles
@@ -56,13 +50,8 @@ Return ONLY valid JSON, no markdown fences:
 {"title": "...", "excerpt": "...", "content": "<h2>...</h2><p>...</p>", "keyPoints": ["...", "..."], "tags": ["...", "..."], "usedSourceIndexes": [1, 3]}`;
 
     try {
-      const resp = await this.anthropic.messages.create({
-        model: this.model,
-        max_tokens: 4096,
-        messages: [{ role: 'user', content: prompt }],
-      });
-      const text = resp.content[0].type === 'text' ? resp.content[0].text : '{}';
-      const draft = JSON.parse(this.extractJSON(text)) as Record<string, unknown>;
+      const text = await generateText(this.aiKeys, prompt, 4096);
+      const draft = JSON.parse(extractJSON(text)) as Record<string, unknown>;
 
       const usedIndexes = Array.isArray(draft.usedSourceIndexes)
         ? (draft.usedSourceIndexes as unknown[]).map((n) => Number(n))
