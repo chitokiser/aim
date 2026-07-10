@@ -61,26 +61,33 @@ async def check_connection() -> bool:
 
 
 async def post_blogger(title: str, content: str, *, is_html: bool = False) -> bool:
-    """Post to Google Blogger. content is Telegram Markdown unless is_html=True."""
-    if not BLOGGER_BLOG_ID:
-        logger.warning("BLOGGER_BLOG_ID not set — skipping Blogger post")
-        return False
+    """Post to Google Blogger. content is Telegram Markdown unless is_html=True.
 
-    access_token = await _get_access_token()
-    if not access_token:
-        return False
+    Disabled: the Blogger account was suspended (auto-posting flagged as abuse).
+    Re-enable by restoring the body below once the account/blog is reinstated.
+    """
+    logger.warning("Blogger posting is disabled (account suspended) — skipping: %s", title)
+    return False
 
-    html_body = content if is_html else _md_to_html(content)
-    url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts/"
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(
-            url,
-            headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
-            json={"kind": "blogger#post", "title": title, "content": html_body},
-        ) as resp:
-            if resp.status in (200, 201):
-                logger.info("Blogger post published: %s", title)
-                return True
-            logger.error("Blogger post failed (%s): %s", resp.status, await resp.text())
-            return False
+    # if not BLOGGER_BLOG_ID:
+    #     logger.warning("BLOGGER_BLOG_ID not set — skipping Blogger post")
+    #     return False
+    #
+    # access_token = await _get_access_token()
+    # if not access_token:
+    #     return False
+    #
+    # html_body = content if is_html else _md_to_html(content)
+    # url = f"https://www.googleapis.com/blogger/v3/blogs/{BLOGGER_BLOG_ID}/posts/"
+    #
+    # async with aiohttp.ClientSession() as session:
+    #     async with session.post(
+    #         url,
+    #         headers={"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"},
+    #         json={"kind": "blogger#post", "title": title, "content": html_body},
+    #     ) as resp:
+    #         if resp.status in (200, 201):
+    #             logger.info("Blogger post published: %s", title)
+    #             return True
+    #         logger.error("Blogger post failed (%s): %s", resp.status, await resp.text())
+    #         return False
