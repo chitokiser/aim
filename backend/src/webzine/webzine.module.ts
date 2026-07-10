@@ -15,6 +15,7 @@ import { TrendingKeywordsService } from './trending-keywords.service';
 import { TrendingKeywordsController } from './trending-keywords.controller';
 import { TrendingArticleService } from './trending-article.service';
 import { ClassicsAutoSeedService } from './classics-auto-seed.service';
+import { WordPressTrendingWidgetService } from './wordpress-trending-widget.service';
 
 @Module({
   imports: [BlogModule, AuthModule, UsersModule],
@@ -31,6 +32,7 @@ import { ClassicsAutoSeedService } from './classics-auto-seed.service';
     TrendingKeywordsService,
     TrendingArticleService,
     ClassicsAutoSeedService,
+    WordPressTrendingWidgetService,
   ],
 })
 export class WebzineModule {}
