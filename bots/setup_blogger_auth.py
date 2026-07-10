@@ -90,7 +90,7 @@ def main() -> None:
         "response_type": "code",
         "scope": SCOPE,
         "access_type": "offline",
-        "prompt": "consent",
+        "prompt": "select_account consent",
     })
 
     print("\nOpening browser for Google authorization...")

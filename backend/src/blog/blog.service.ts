@@ -5,6 +5,7 @@ import { FirebaseService } from '../firebase/firebase.service';
 import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
 import { RouletteService } from '../roulette/roulette.service';
 import { IndexNowService } from './indexnow.service';
+import { BloggerService, type BloggerTarget } from './blogger.service';
 
 export interface BlogSource {
   title: string;
@@ -100,6 +101,23 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+// Categories cross-posted to Blogger, each to its own dedicated blog/OAuth
+// project (frontend/src/lib/webzine-categories.ts: "trending" = 실시간 이슈,
+// "classics" = 고전읽기). Any category not listed here is never cross-posted.
+const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
+  trending: 'trending',
+  classics: 'classics',
+};
+
+// Blogger favors substantial, edited-looking posts over thin/bulk content —
+// a likely factor in the write-blocks hit during backfill testing. Only
+// articles at least this long (plain text, tags stripped) are candidates.
+const MIN_BLOGGER_CONTENT_LENGTH = 800;
+
+function stripHtml(html: string): string {
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
 function slugify(title: string): string {
   return title
     .toLowerCase()
@@ -113,17 +131,20 @@ function slugify(title: string): string {
 @Injectable()
 export class BlogService {
   private readonly aiKeys: AiKeys;
+  private readonly siteUrl: string;
 
   constructor(
     private readonly firebase: FirebaseService,
     private readonly config: ConfigService,
     private readonly roulette: RouletteService,
     private readonly indexNow: IndexNowService,
+    private readonly blogger: BloggerService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
       anthropicKey: this.config.get<string>('ANTHROPIC_API_KEY'),
     };
+    this.siteUrl = (this.config.get<string>('FRONTEND_URL') || 'https://ai119.netlify.app').replace(/\/+$/, '');
   }
 
   private get collection() {
@@ -136,6 +157,10 @@ export class BlogService {
 
   private get commentsCollection() {
     return this.firebase.collection('blog_comments');
+  }
+
+  private get bloggerPostsCollection() {
+    return this.firebase.collection('blog_blogger_posts');
   }
 
   async suggestKeywords(): Promise<string[]> {
@@ -265,7 +290,68 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     const commentCount = await this.seedComments(ref.id, now);
     if (commentCount > 0) await this.collection.doc(ref.id).update({ commentCount });
     if (doc.published) void this.indexNow.submitUrl(`/blog/${slug}`);
+    // Not cross-posted to Blogger here — BloggerSchedulerService handles that on
+    // its own daily cron, capped and paced to avoid tripping Blogger's write-abuse
+    // detection (see blogger.service.ts).
     return { id: ref.id, ...doc, commentCount };
+  }
+
+  // Cross-posts an article to its category's dedicated Blogger blog, once per
+  // post. Tracked via blog_blogger_posts so re-running the backfill script
+  // never double-posts. Fire-and-forget: BloggerService itself never throws.
+  private async crossPostToBlogger(
+    target: BloggerTarget,
+    postId: string,
+    title: string,
+    content: string,
+    slug: string,
+    coverImage: string | null,
+  ): Promise<void> {
+    if (!this.blogger.isConfigured(target)) return;
+    const existing = await this.bloggerPostsCollection.doc(postId).get();
+    if (existing.exists) return;
+    const image = coverImage ? `<p><img src="${coverImage}" alt="${title}" /></p>` : '';
+    const html = `${image}${content}<p><a href="${this.siteUrl}/blog/${slug}">${this.siteUrl}/blog/${slug}</a></p>`;
+    const url = await this.blogger.publish(target, title, html);
+    if (url) {
+      await this.bloggerPostsCollection.doc(postId).set({ postId, bloggerUrl: url, createdAt: new Date().toISOString() });
+    }
+  }
+
+  // Used by the backfill scripts to cross-post pre-existing articles that
+  // predate the Blogger integration. Distinguishes "already posted" from
+  // "publish failed" so a script can tell a dedup skip from a real error
+  // (e.g. Blogger rate-limiting/blocking writes after a burst of posts).
+  async backfillBloggerPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
+    const post = await this.getById(id);
+    const target = BLOGGER_CATEGORY_TARGETS[post.category];
+    if (!target) return { status: 'not-applicable' };
+    const before = await this.bloggerPostsCollection.doc(id).get();
+    if (before.exists) return { status: 'already-posted', url: before.data()?.bloggerUrl as string | undefined };
+    await this.crossPostToBlogger(target, post.id, post.title, post.content, post.slug, post.coverImage);
+    const after = await this.bloggerPostsCollection.doc(id).get();
+    const url = after.data()?.bloggerUrl as string | undefined;
+    return url ? { status: 'posted', url } : { status: 'failed' };
+  }
+
+  // Used by BloggerSchedulerService's daily cron to pick that target's next
+  // batch: published, long enough to read as substantial (not thin content),
+  // and not yet cross-posted. Oldest first so the backlog clears in order.
+  async listBloggerCandidates(target: BloggerTarget, limit: number): Promise<BlogPost[]> {
+    const category = Object.keys(BLOGGER_CATEGORY_TARGETS).find((c) => BLOGGER_CATEGORY_TARGETS[c] === target);
+    if (!category) return [];
+
+    const posts = (await this.listAll())
+      .filter((p) => p.published && p.category === category && stripHtml(p.content).length >= MIN_BLOGGER_CONTENT_LENGTH)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const eligible: BlogPost[] = [];
+    for (const post of posts) {
+      if (eligible.length >= limit) break;
+      const already = await this.bloggerPostsCollection.doc(post.id).get();
+      if (!already.exists) eligible.push(post);
+    }
+    return eligible;
   }
 
   // Seeds a handful of generic filler comments so a newly published article
@@ -344,7 +430,10 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
 
     await this.collection.doc(id).update(update);
     const merged = { ...existing, ...update };
-    if (input.published === true && !existing.published) void this.indexNow.submitUrl(`/blog/${merged.slug}`);
+    if (input.published === true && !existing.published) {
+      void this.indexNow.submitUrl(`/blog/${merged.slug}`);
+      // Not cross-posted to Blogger here — see create() above.
+    }
     return merged;
   }
 
