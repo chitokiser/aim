@@ -7,6 +7,7 @@ import { RouletteService } from '../roulette/roulette.service';
 import { IndexNowService } from './indexnow.service';
 import { BloggerService, type BloggerTarget } from './blogger.service';
 import { WordPressService, type WordPressTarget } from './wordpress.service';
+import { TumblrService } from './tumblr.service';
 
 export interface BlogSource {
   title: string;
@@ -157,6 +158,7 @@ export class BlogService {
     private readonly indexNow: IndexNowService,
     private readonly blogger: BloggerService,
     private readonly wordpress: WordPressService,
+    private readonly tumblr: TumblrService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -183,6 +185,10 @@ export class BlogService {
 
   private get wordpressPostsCollection() {
     return this.firebase.collection('blog_wordpress_posts');
+  }
+
+  private get tumblrPostsCollection() {
+    return this.firebase.collection('blog_tumblr_posts');
   }
 
   async suggestKeywords(): Promise<string[]> {
@@ -331,6 +337,11 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       if (wpTarget) {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
+      // Tumblr only mirrors the "trending" (실시간 이슈) category, at the user's
+      // explicit request — same immediate/real-time cadence as WordPress trending.
+      if (doc.category === 'trending') {
+        void this.crossPostToTumblr(ref.id, doc.title, doc.content, slug, doc.coverImage);
+      }
     }
     return { id: ref.id, ...doc, commentCount };
   }
@@ -423,6 +434,42 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (url) {
       await this.wordpressPostsCollection.doc(postId).set({ postId, wordpressUrl: url, createdAt: new Date().toISOString() });
     }
+  }
+
+  // Cross-posts an article to Tumblr (trending category only), once per post.
+  // Tracked via blog_tumblr_posts so re-running any backfill never double-posts.
+  // Fire-and-forget: TumblrService itself never throws.
+  private async crossPostToTumblr(
+    postId: string,
+    title: string,
+    content: string,
+    slug: string,
+    coverImage: string | null,
+  ): Promise<void> {
+    if (!this.tumblr.isConfigured()) return;
+    const existing = await this.tumblrPostsCollection.doc(postId).get();
+    if (existing.exists) return;
+    const image = coverImage ? `<p><img src="${coverImage}" alt="${title}" /></p>` : '';
+    const html = `${image}${content}<p><a href="${this.siteUrl}/blog/${slug}">${this.siteUrl}/blog/${slug}</a></p>`;
+    const url = await this.tumblr.publish(title, html);
+    this.logger.log(`crossPostToTumblr: "${title}" -> url=${url ?? 'FAILED'}`);
+    if (url) {
+      await this.tumblrPostsCollection.doc(postId).set({ postId, tumblrUrl: url, createdAt: new Date().toISOString() });
+    }
+  }
+
+  // Used by backfill scripts to cross-post pre-existing "trending" articles to
+  // Tumblr. Distinguishes "already posted" from "publish failed" so a caller
+  // can tell a dedup skip from a real error.
+  async backfillTumblrPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
+    const post = await this.getById(id);
+    if (post.category !== 'trending') return { status: 'not-applicable' };
+    const before = await this.tumblrPostsCollection.doc(id).get();
+    if (before.exists) return { status: 'already-posted', url: before.data()?.tumblrUrl as string | undefined };
+    await this.crossPostToTumblr(post.id, post.title, post.content, post.slug, post.coverImage);
+    const after = await this.tumblrPostsCollection.doc(id).get();
+    const url = after.data()?.tumblrUrl as string | undefined;
+    return url ? { status: 'posted', url } : { status: 'failed' };
   }
 
   // Used by the backfill/scheduler to cross-post pre-existing articles.
