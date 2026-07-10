@@ -67,14 +67,19 @@ export class TumblrService {
         body: new URLSearchParams(data),
       });
 
-      const json = (await res.json().catch(() => null)) as { response?: { id?: number }; meta?: { status?: number; msg?: string } } | null;
+      // Tumblr post IDs exceed JS's safe-integer range, so the numeric `id`
+      // field loses precision through JSON parsing — `id_string` is the same
+      // ID as a string and must be used instead when building URLs/records.
+      const json = (await res.json().catch(() => null)) as
+        | { response?: { id?: number; id_string?: string }; meta?: { status?: number; msg?: string } }
+        | null;
 
-      if (!res.ok || !json?.response?.id) {
+      if (!res.ok || !json?.response?.id_string) {
         this.logger.warn(`Tumblr publish failed for "${title}" (${res.status}): ${JSON.stringify(json)}`);
         return null;
       }
 
-      return `https://${this.creds.blogName}/post/${json.response.id}`;
+      return `https://${this.creds.blogName}/post/${json.response.id_string}`;
     } catch (err) {
       this.logger.warn(`Tumblr publish error for "${title}": ${err instanceof Error ? err.message : err}`);
       return null;
