@@ -14,6 +14,7 @@ import { WebzineController } from './webzine.controller';
 import { TrendingKeywordsService } from './trending-keywords.service';
 import { TrendingKeywordsController } from './trending-keywords.controller';
 import { TrendingArticleService } from './trending-article.service';
+import { ClassicsAutoSeedService } from './classics-auto-seed.service';
 
 @Module({
   imports: [BlogModule, AuthModule, UsersModule],
@@ -29,6 +30,7 @@ import { TrendingArticleService } from './trending-article.service';
     WebzineSchedulerService,
     TrendingKeywordsService,
     TrendingArticleService,
+    ClassicsAutoSeedService,
   ],
 })
 export class WebzineModule {}
