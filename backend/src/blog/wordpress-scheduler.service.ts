@@ -10,7 +10,7 @@ import { WordPressService, type WordPressTarget } from './wordpress.service';
 const DAILY_CAP = 10;
 const DELAY_BETWEEN_POSTS_MS = 90_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
-const TARGETS: WordPressTarget[] = ['trending', 'classics'];
+const TARGETS: WordPressTarget[] = ['trending', 'classics', 'buddhist'];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

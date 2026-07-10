@@ -1,10 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-// Each target is a separate WordPress.com site with its own OAuth app, so a
-// write-block on one site never affects the other. Maps 1:1 to blog_posts.category
-// values that get cross-posted (mirrors BloggerTarget in blogger.service.ts).
-export type WordPressTarget = 'trending' | 'classics';
+// Each target is a separate WordPress.com site. "buddhist" is a sub-slice of
+// the "classics" category (posts tagged 불교철학) routed to its own dedicated
+// site instead of the general classics site — see resolveWordPressTarget in
+// blog.service.ts. A write-block on one site never affects the others.
+export type WordPressTarget = 'trending' | 'classics' | 'buddhist';
 
 interface WordPressCredentials {
   site?: string;
@@ -20,6 +21,7 @@ export class WordPressService {
     this.targets = {
       trending: this.loadCredentials('WORDPRESS_TRENDING'),
       classics: this.loadCredentials('WORDPRESS_CLASSICS'),
+      buddhist: this.loadCredentials('WORDPRESS_BUDDHIST'),
     };
   }
 

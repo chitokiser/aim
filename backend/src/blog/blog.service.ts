@@ -110,13 +110,20 @@ const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
   classics: 'classics',
 };
 
-// Categories cross-posted to WordPress.com, independent of the Blogger targets
-// above (separate collection, separate daily cap/schedule) so the two
-// integrations never compete for the same rate-limit budget.
-const WORDPRESS_CATEGORY_TARGETS: Partial<Record<string, WordPressTarget>> = {
-  trending: 'trending',
-  classics: 'classics',
-};
+// WordPress.com routing, independent of the Blogger targets above (separate
+// collection, separate daily cap/schedule) so the two integrations never
+// compete for the same rate-limit budget. "classics" posts tagged 불교철학
+// (see seed-buddhist-philosophy.ts) are sliced off to their own dedicated
+// site rather than the general classics site — everything else in a category
+// follows the flat 1:1 mapping.
+const BUDDHIST_PHILOSOPHY_TAG = '불교철학';
+
+function resolveWordPressTarget(post: Pick<BlogPost, 'category' | 'tags'>): WordPressTarget | null {
+  if (post.category === 'classics' && post.tags?.includes(BUDDHIST_PHILOSOPHY_TAG)) return 'buddhist';
+  if (post.category === 'trending') return 'trending';
+  if (post.category === 'classics') return 'classics';
+  return null;
+}
 
 // Blogger favors substantial, edited-looking posts over thin/bulk content —
 // a likely factor in the write-blocks hit during backfill testing. Only
@@ -398,7 +405,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
   // a dedup skip from a real error (e.g. WordPress rate-limiting).
   async backfillWordPressPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
     const post = await this.getById(id);
-    const target = WORDPRESS_CATEGORY_TARGETS[post.category];
+    const target = resolveWordPressTarget(post);
     if (!target) return { status: 'not-applicable' };
     const before = await this.wordpressPostsCollection.doc(id).get();
     if (before.exists) return { status: 'already-posted', url: before.data()?.wordpressUrl as string | undefined };
@@ -412,11 +419,8 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
   // batch: published, long enough to read as substantial, and not yet
   // cross-posted. Oldest first so the backlog clears in order.
   async listWordPressCandidates(target: WordPressTarget, limit: number): Promise<BlogPost[]> {
-    const category = Object.keys(WORDPRESS_CATEGORY_TARGETS).find((c) => WORDPRESS_CATEGORY_TARGETS[c] === target);
-    if (!category) return [];
-
     const posts = (await this.listAll())
-      .filter((p) => p.published && p.category === category && stripHtml(p.content).length >= MIN_BLOGGER_CONTENT_LENGTH)
+      .filter((p) => p.published && resolveWordPressTarget(p) === target && stripHtml(p.content).length >= MIN_BLOGGER_CONTENT_LENGTH)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
     const eligible: BlogPost[] = [];
