@@ -382,9 +382,12 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (!this.wordpress.isConfigured(target)) return;
     const existing = await this.wordpressPostsCollection.doc(postId).get();
     if (existing.exists) return;
-    const image = coverImage ? `<p><img src="${coverImage}" alt="${title}" /></p>` : '';
-    const html = `${image}${content}<p><a href="${this.siteUrl}/blog/${slug}">${this.siteUrl}/blog/${slug}</a></p>`;
-    const url = await this.wordpress.publish(target, title, html);
+    // coverImage is passed as the WordPress featured_image (see WordPressService.publish)
+    // rather than inlined into the body — that's what the theme uses for both the
+    // archive/listing-page thumbnail and the single-post hero image, and avoids
+    // showing the cover image twice at an uncontrolled native size.
+    const html = `${content}<p><a href="${this.siteUrl}/blog/${slug}">${this.siteUrl}/blog/${slug}</a></p>`;
+    const url = await this.wordpress.publish(target, title, html, coverImage);
     if (url) {
       await this.wordpressPostsCollection.doc(postId).set({ postId, wordpressUrl: url, createdAt: new Date().toISOString() });
     }

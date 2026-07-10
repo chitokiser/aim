@@ -35,12 +35,24 @@ export class WordPressService {
     return Boolean(c.site && c.accessToken);
   }
 
-  /** Publishes a post to the given target's WordPress.com site. Fire-and-forget from callers: never throws. Returns the published post URL, or null on failure/not configured. */
-  async publish(target: WordPressTarget, title: string, htmlContent: string): Promise<string | null> {
+  /**
+   * Publishes a post to the given target's WordPress.com site. Fire-and-forget
+   * from callers: never throws. Returns the published post URL, or null on
+   * failure/not configured.
+   *
+   * `featuredImage`, if given, is passed as a plain URL — WordPress.com side-loads
+   * it into the site's media library and sets it as the post's featured image,
+   * which is what themes use for archive/listing-page thumbnails (a post's inline
+   * <img> tags are not picked up for that). Confirmed via a live test post: passing
+   * an external image URL in `featured_image` returns a populated `post_thumbnail`.
+   */
+  async publish(target: WordPressTarget, title: string, htmlContent: string, featuredImage?: string | null): Promise<string | null> {
     if (!this.isConfigured(target)) return null;
     const c = this.targets[target];
 
     try {
+      const params = new URLSearchParams({ title, content: htmlContent, status: 'publish' });
+      if (featuredImage) params.set('featured_image', featuredImage);
       const res = await fetch(
         `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(c.site!)}/posts/new`,
         {
@@ -49,7 +61,7 @@ export class WordPressService {
             Authorization: `Bearer ${c.accessToken}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: new URLSearchParams({ title, content: htmlContent, status: 'publish' }),
+          body: params,
         },
       );
       if (!res.ok) {
