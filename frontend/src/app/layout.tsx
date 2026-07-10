@@ -35,6 +35,7 @@ export const metadata: Metadata = {
     google: "iSwGv7PBrGFOxh8LIKrKNegCUYW32fXo8EdbQby2Cg8",
     other: {
       "offerwall-verification": "c3c3afb250efdd9c",
+      "impact-site-verification": "60ec0825-0376-47d9-8e04-54fcbf6338f8",
     },
   },
   openGraph: {
