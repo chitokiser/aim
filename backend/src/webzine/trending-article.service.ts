@@ -7,6 +7,7 @@ import { ArticleWriterService } from './article-writer.service';
 import { ImageGeneratorService } from './image-generator.service';
 import { TrendingKeywordsService } from './trending-keywords.service';
 import { findCategory } from './webzine.constants';
+import { TREND_RANK1_TAG } from '../blog/blog.service';
 
 const TOP_N = 10;
 const DELAY_BETWEEN_CALLS_MS = 2500;
@@ -64,7 +65,9 @@ export class TrendingArticleService {
       const keywords = await this.trending.getTrending();
       const date = todayDateString();
 
-      for (const { title: keyword } of keywords.slice(0, TOP_N)) {
+      const topKeywords = keywords.slice(0, TOP_N);
+      for (let index = 0; index < topKeywords.length; index++) {
+        const keyword = topKeywords[index].title;
         if (!keyword) continue;
         checked += 1;
 
@@ -82,11 +85,12 @@ export class TrendingArticleService {
           const written = await this.writer.write(category, headlines);
           if (written?.title && written.content) {
             const coverImage = await this.images.generateCoverImage(written.title, written.imageQuery);
+            const tags = index === 0 ? [...written.tags, TREND_RANK1_TAG] : written.tags;
             await this.blog.create({
               title: written.title,
               excerpt: written.excerpt,
               content: written.content,
-              tags: written.tags,
+              tags,
               category: category.slug,
               keyPoints: written.keyPoints,
               sources: written.sources,

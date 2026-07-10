@@ -118,9 +118,17 @@ const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
 // follows the flat 1:1 mapping.
 const BUDDHIST_PHILOSOPHY_TAG = '불교철학';
 
+// Marks a "trending" article as written from that scan's #1 Google Trends KR
+// keyword (see TrendingArticleService) — set on at most one article per scan.
+// The WordPress trending site only gets these, one a day, unlike Blogger's
+// trending target which still takes the general daily batch (see
+// blogger-scheduler.service.ts) — Blogger has not shown the same write-block
+// sensitivity to volume that motivated capping this one to a single post.
+export const TREND_RANK1_TAG = '실시간검색1위';
+
 function resolveWordPressTarget(post: Pick<BlogPost, 'category' | 'tags'>): WordPressTarget | null {
   if (post.category === 'classics' && post.tags?.includes(BUDDHIST_PHILOSOPHY_TAG)) return 'buddhist';
-  if (post.category === 'trending') return 'trending';
+  if (post.category === 'trending') return post.tags?.includes(TREND_RANK1_TAG) ? 'trending' : null;
   if (post.category === 'classics') return 'classics';
   return null;
 }
