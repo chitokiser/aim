@@ -6,6 +6,7 @@ import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common
 import { RouletteService } from '../roulette/roulette.service';
 import { IndexNowService } from './indexnow.service';
 import { BloggerService, type BloggerTarget } from './blogger.service';
+import { WordPressService, type WordPressTarget } from './wordpress.service';
 
 export interface BlogSource {
   title: string;
@@ -109,6 +110,14 @@ const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
   classics: 'classics',
 };
 
+// Categories cross-posted to WordPress.com, independent of the Blogger targets
+// above (separate collection, separate daily cap/schedule) so the two
+// integrations never compete for the same rate-limit budget.
+const WORDPRESS_CATEGORY_TARGETS: Partial<Record<string, WordPressTarget>> = {
+  trending: 'trending',
+  classics: 'classics',
+};
+
 // Blogger favors substantial, edited-looking posts over thin/bulk content —
 // a likely factor in the write-blocks hit during backfill testing. Only
 // articles at least this long (plain text, tags stripped) are candidates.
@@ -139,6 +148,7 @@ export class BlogService {
     private readonly roulette: RouletteService,
     private readonly indexNow: IndexNowService,
     private readonly blogger: BloggerService,
+    private readonly wordpress: WordPressService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -161,6 +171,10 @@ export class BlogService {
 
   private get bloggerPostsCollection() {
     return this.firebase.collection('blog_blogger_posts');
+  }
+
+  private get wordpressPostsCollection() {
+    return this.firebase.collection('blog_wordpress_posts');
   }
 
   async suggestKeywords(): Promise<string[]> {
@@ -349,6 +363,63 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     for (const post of posts) {
       if (eligible.length >= limit) break;
       const already = await this.bloggerPostsCollection.doc(post.id).get();
+      if (!already.exists) eligible.push(post);
+    }
+    return eligible;
+  }
+
+  // Cross-posts an article to its category's dedicated WordPress.com site, once
+  // per post. Tracked via blog_wordpress_posts so re-running the backfill never
+  // double-posts. Fire-and-forget: WordPressService itself never throws.
+  private async crossPostToWordPress(
+    target: WordPressTarget,
+    postId: string,
+    title: string,
+    content: string,
+    slug: string,
+    coverImage: string | null,
+  ): Promise<void> {
+    if (!this.wordpress.isConfigured(target)) return;
+    const existing = await this.wordpressPostsCollection.doc(postId).get();
+    if (existing.exists) return;
+    const image = coverImage ? `<p><img src="${coverImage}" alt="${title}" /></p>` : '';
+    const html = `${image}${content}<p><a href="${this.siteUrl}/blog/${slug}">${this.siteUrl}/blog/${slug}</a></p>`;
+    const url = await this.wordpress.publish(target, title, html);
+    if (url) {
+      await this.wordpressPostsCollection.doc(postId).set({ postId, wordpressUrl: url, createdAt: new Date().toISOString() });
+    }
+  }
+
+  // Used by the backfill/scheduler to cross-post pre-existing articles.
+  // Distinguishes "already posted" from "publish failed" so a caller can tell
+  // a dedup skip from a real error (e.g. WordPress rate-limiting).
+  async backfillWordPressPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
+    const post = await this.getById(id);
+    const target = WORDPRESS_CATEGORY_TARGETS[post.category];
+    if (!target) return { status: 'not-applicable' };
+    const before = await this.wordpressPostsCollection.doc(id).get();
+    if (before.exists) return { status: 'already-posted', url: before.data()?.wordpressUrl as string | undefined };
+    await this.crossPostToWordPress(target, post.id, post.title, post.content, post.slug, post.coverImage);
+    const after = await this.wordpressPostsCollection.doc(id).get();
+    const url = after.data()?.wordpressUrl as string | undefined;
+    return url ? { status: 'posted', url } : { status: 'failed' };
+  }
+
+  // Used by WordPressSchedulerService's daily cron to pick that target's next
+  // batch: published, long enough to read as substantial, and not yet
+  // cross-posted. Oldest first so the backlog clears in order.
+  async listWordPressCandidates(target: WordPressTarget, limit: number): Promise<BlogPost[]> {
+    const category = Object.keys(WORDPRESS_CATEGORY_TARGETS).find((c) => WORDPRESS_CATEGORY_TARGETS[c] === target);
+    if (!category) return [];
+
+    const posts = (await this.listAll())
+      .filter((p) => p.published && p.category === category && stripHtml(p.content).length >= MIN_BLOGGER_CONTENT_LENGTH)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const eligible: BlogPost[] = [];
+    for (const post of posts) {
+      if (eligible.length >= limit) break;
+      const already = await this.wordpressPostsCollection.doc(post.id).get();
       if (!already.exists) eligible.push(post);
     }
     return eligible;
