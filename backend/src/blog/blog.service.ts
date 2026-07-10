@@ -118,17 +118,9 @@ const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
 // follows the flat 1:1 mapping.
 const BUDDHIST_PHILOSOPHY_TAG = '불교철학';
 
-// Marks a "trending" article as written from that scan's #1 Google Trends KR
-// keyword (see TrendingArticleService) — set on at most one article per scan.
-// The WordPress trending site only gets these, one a day, unlike Blogger's
-// trending target which still takes the general daily batch (see
-// blogger-scheduler.service.ts) — Blogger has not shown the same write-block
-// sensitivity to volume that motivated capping this one to a single post.
-export const TREND_RANK1_TAG = '실시간검색1위';
-
 function resolveWordPressTarget(post: Pick<BlogPost, 'category' | 'tags'>): WordPressTarget | null {
   if (post.category === 'classics' && post.tags?.includes(BUDDHIST_PHILOSOPHY_TAG)) return 'buddhist';
-  if (post.category === 'trending') return post.tags?.includes(TREND_RANK1_TAG) ? 'trending' : null;
+  if (post.category === 'trending') return 'trending';
   if (post.category === 'classics') return 'classics';
   return null;
 }
@@ -321,17 +313,20 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (doc.published) void this.indexNow.submitUrl(`/blog/${slug}`);
     // Not cross-posted to Blogger here — BloggerSchedulerService handles that on
     // its own daily cron, capped and paced to avoid tripping Blogger's write-abuse
-    // detection (see blogger.service.ts).
+    // detection (see blogger.service.ts). Blogger has previously had its write
+    // access blocked (403) from a burst of posts, so its trending target is
+    // deliberately kept off the immediate-publish path.
     //
-    // WordPress is different for "classics"/"buddhist": those sites only receive a
-    // handful of posts a week (seed batches + the weekly auto-seed top-up), so
-    // publishing immediately carries none of the burst risk that keeps "trending"
-    // on WordPressSchedulerService's paced daily batch instead — trending alone
-    // can produce dozens of articles a day. crossPostToWordPress no-ops if the
-    // target isn't configured, so this is safe even before WORDPRESS_*_SITE is set.
+    // WordPress cross-posts immediately for every target instead, at the user's
+    // request to mirror this site's own publishing cadence exactly (an article
+    // appears on ai119.netlify.app/blog the moment it's created — WordPress should
+    // show the same one right away, not wait for a batch). crossPostToWordPress
+    // no-ops if the target isn't configured, so this is safe even before
+    // WORDPRESS_*_SITE is set. WordPressSchedulerService's daily cron remains as a
+    // retry net for anything that failed here.
     if (doc.published) {
       const wpTarget = resolveWordPressTarget(doc);
-      if (wpTarget && wpTarget !== 'trending') {
+      if (wpTarget) {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
     }
