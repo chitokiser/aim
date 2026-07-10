@@ -29,15 +29,23 @@ export class BloggerSchedulerService {
   // Once/day, after the 04:00 KST webzine batch so there's fresh content to pick from.
   @Cron('0 6 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCron(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
-    try {
-      for (const target of TARGETS) {
-        await this.runTarget(target);
-      }
-    } finally {
-      this.running = false;
-    }
+    // Disabled: both "trending" and "classics" Blogger blogs are returning 403
+    // PERMISSION_DENIED on write (confirmed via a live test post) — the account
+    // appears to be write-blocked/suspended, same symptom hit on the football/
+    // treasure-hunt bots' Blogger accounts. Re-enable once access is confirmed
+    // restored; retrying while blocked only wastes calls against a dead account.
+    this.logger.warn('Blogger cross-posting is disabled (account write-blocked, 403) — skipping daily cron.');
+    return;
+
+    // if (this.running) return;
+    // this.running = true;
+    // try {
+    //   for (const target of TARGETS) {
+    //     await this.runTarget(target);
+    //   }
+    // } finally {
+    //   this.running = false;
+    // }
   }
 
   async runTarget(target: BloggerTarget): Promise<{ posted: number }> {
