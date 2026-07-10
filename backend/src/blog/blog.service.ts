@@ -314,6 +314,19 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     // Not cross-posted to Blogger here — BloggerSchedulerService handles that on
     // its own daily cron, capped and paced to avoid tripping Blogger's write-abuse
     // detection (see blogger.service.ts).
+    //
+    // WordPress is different for "classics"/"buddhist": those sites only receive a
+    // handful of posts a week (seed batches + the weekly auto-seed top-up), so
+    // publishing immediately carries none of the burst risk that keeps "trending"
+    // on WordPressSchedulerService's paced daily batch instead — trending alone
+    // can produce dozens of articles a day. crossPostToWordPress no-ops if the
+    // target isn't configured, so this is safe even before WORDPRESS_*_SITE is set.
+    if (doc.published) {
+      const wpTarget = resolveWordPressTarget(doc);
+      if (wpTarget && wpTarget !== 'trending') {
+        void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
+      }
+    }
     return { id: ref.id, ...doc, commentCount };
   }
 
