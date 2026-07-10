@@ -77,6 +77,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
+        <span style={{ display: "none" }}>Impact-Site-Verification: 60ec0825-0376-47d9-8e04-54fcbf6338f8</span>
         <Providers>
           <Suspense>
             <TelegramAutoLogin />
