@@ -321,6 +321,9 @@ export default function AdminPage() {
   const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
   const [suggestingKeywords, setSuggestingKeywords] = useState(false);
   const [generatingDraftFor, setGeneratingDraftFor] = useState<string | null>(null);
+  const [blogCategoryFilter, setBlogCategoryFilter] = useState("all");
+  const [blogTagFilter, setBlogTagFilter] = useState("all");
+  const [blogSearch, setBlogSearch] = useState("");
 
   // Webzine (AI auto-collection) state
   interface WebzineCategoryState {
@@ -1453,6 +1456,24 @@ export default function AdminPage() {
       toast.error(t.admin.blogCopyFail);
     }
   };
+
+  // Category + tag drill-down for the (potentially large) post list — e.g.
+  // 카테고리=고전읽기, 시리즈=삼십육계 narrows straight to those 36 posts
+  // instead of scrolling the full list.
+  const blogCategoriesPresent = Array.from(new Set(blogPosts.map((p) => p.category || "general"))).sort();
+  const blogTagsInCategory =
+    blogCategoryFilter === "all"
+      ? []
+      : Array.from(
+          new Set(blogPosts.filter((p) => (p.category || "general") === blogCategoryFilter).flatMap((p) => p.tags || [])),
+        ).sort();
+  const filteredBlogPosts = blogPosts.filter((post) => {
+    const category = post.category || "general";
+    if (blogCategoryFilter !== "all" && category !== blogCategoryFilter) return false;
+    if (blogCategoryFilter !== "all" && blogTagFilter !== "all" && !post.tags?.includes(blogTagFilter)) return false;
+    if (blogSearch.trim() && !post.title.toLowerCase().includes(blogSearch.trim().toLowerCase())) return false;
+    return true;
+  });
 
   const loadWebzineCategories = useCallback(async () => {
     if (!token) return;
@@ -3619,6 +3640,48 @@ export default function AdminPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t.admin.blogPostsTitle}</CardTitle>
+                <div className="flex flex-wrap items-center gap-2 pt-2">
+                  <Select
+                    value={blogCategoryFilter}
+                    onValueChange={(v) => {
+                      setBlogCategoryFilter(v);
+                      setBlogTagFilter("all");
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-xs w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t.admin.blogFilterAllCategories}</SelectItem>
+                      {blogCategoriesPresent.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {webzineCategoryLabel(c, lang)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {blogCategoryFilter !== "all" && blogTagsInCategory.length > 0 && (
+                    <Select value={blogTagFilter} onValueChange={setBlogTagFilter}>
+                      <SelectTrigger className="h-8 text-xs w-40">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">{t.admin.blogFilterAllSeries}</SelectItem>
+                        {blogTagsInCategory.map((tag) => (
+                          <SelectItem key={tag} value={tag}>
+                            {tag}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <Input
+                    className="h-8 text-xs w-48"
+                    placeholder={t.admin.blogFilterSearchPlaceholder}
+                    value={blogSearch}
+                    onChange={(e) => setBlogSearch(e.target.value)}
+                  />
+                </div>
               </CardHeader>
               <CardContent>
                 {blogLoading ? (
@@ -3626,11 +3689,11 @@ export default function AdminPage() {
                     <Loader2 className="h-4 w-4 animate-spin" />
                     <span className="text-sm">Loading...</span>
                   </div>
-                ) : blogPosts.length === 0 ? (
+                ) : filteredBlogPosts.length === 0 ? (
                   <p className="text-center text-sm text-muted-foreground py-6">{t.admin.noBlogPosts}</p>
                 ) : (
                   <div className="space-y-2">
-                    {blogPosts.map((post) => (
+                    {filteredBlogPosts.map((post) => (
                       <div key={post.id} className="flex items-center justify-between gap-3 rounded-lg border p-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2">
