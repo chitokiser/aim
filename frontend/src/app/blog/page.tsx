@@ -25,6 +25,7 @@ const CLASSICS_SERIES: { tag: string; ko: string; en: string; vi: string }[] = [
   { tag: "철학", ko: "철학", en: "Philosophy", vi: "Triết học" },
   { tag: "문학", ko: "문학", en: "Literature", vi: "Văn học" },
   { tag: "동양고전", ko: "동양고전", en: "Eastern Classics", vi: "Kinh điển phương Đông" },
+  { tag: "불교철학", ko: "불교철학", en: "Buddhist Philosophy", vi: "Triết học Phật giáo" },
   { tag: "역사·정치·경제", ko: "역사·정치·경제", en: "History, Politics & Economics", vi: "Lịch sử, Chính trị & Kinh tế" },
   { tag: "자기계발·처세", ko: "자기계발·처세", en: "Self-Improvement & Wisdom", vi: "Tự hoàn thiện & Xử thế" },
 ];

@@ -87,7 +87,7 @@ async function main() {
       if (post.coverImage) params.set('featured_image', post.coverImage);
 
       const editRes = await fetch(
-        `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(site)}/posts/${wpId}/edit`,
+        `https://public-api.wordpress.com/rest/v1.1/sites/${encodeURIComponent(site)}/posts/${wpId}`,
         {
           method: 'POST',
           headers: {
