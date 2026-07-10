@@ -16,12 +16,17 @@ import { cn } from "@/lib/utils";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// Sub-series within the "classics" (고전읽기) category — surfaced as a filter
+// Sub-groups within the "classics" (고전읽기) category — surfaced as a filter
 // row of tag badges rather than a real sub-category field, since every post
-// in a series already shares a consistent tag (see backend seed scripts).
+// (chaptered series or single-work article) already shares a consistent
+// group tag (see backend/src/scripts/seed-classics-works.ts and the
+// 손자병법/삼십육계 series scripts, which are retagged into "동양고전").
 const CLASSICS_SERIES: { tag: string; ko: string; en: string; vi: string }[] = [
-  { tag: "삼십육계", ko: "36계", en: "36 Stratagems", vi: "36 Kế" },
-  { tag: "손자병법", ko: "손자병법", en: "The Art of War", vi: "Binh Pháp Tôn Tử" },
+  { tag: "철학", ko: "철학", en: "Philosophy", vi: "Triết học" },
+  { tag: "문학", ko: "문학", en: "Literature", vi: "Văn học" },
+  { tag: "동양고전", ko: "동양고전", en: "Eastern Classics", vi: "Kinh điển phương Đông" },
+  { tag: "역사·정치·경제", ko: "역사·정치·경제", en: "History, Politics & Economics", vi: "Lịch sử, Chính trị & Kinh tế" },
+  { tag: "자기계발·처세", ko: "자기계발·처세", en: "Self-Improvement & Wisdom", vi: "Tự hoàn thiện & Xử thế" },
 ];
 
 interface BlogPost {

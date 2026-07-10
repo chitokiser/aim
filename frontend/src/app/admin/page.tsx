@@ -1436,6 +1436,24 @@ export default function AdminPage() {
     }
   };
 
+  // Manual "copy for Blogger" fallback while the automated cross-post
+  // pipeline (BloggerService) is blocked — matches the exact HTML shape
+  // backend/src/blog/blog.service.ts's crossPostToBlogger() sends, so a
+  // manually pasted post looks identical to one the API would have created.
+  const [bloggerCopyTarget, setBloggerCopyTarget] = useState<BlogPostItem | null>(null);
+  const bloggerCopyHtml = bloggerCopyTarget
+    ? `${bloggerCopyTarget.coverImage ? `<p><img src="${bloggerCopyTarget.coverImage}" alt="${bloggerCopyTarget.title}" /></p>` : ""}${bloggerCopyTarget.content}<p><a href="${SITE_URL}/blog/${bloggerCopyTarget.slug}">${SITE_URL}/blog/${bloggerCopyTarget.slug}</a></p>`
+    : "";
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t.admin.blogCopied);
+    } catch {
+      toast.error(t.admin.blogCopyFail);
+    }
+  };
+
   const loadWebzineCategories = useCallback(async () => {
     if (!token) return;
     setWebzineLoading(true);
@@ -3645,6 +3663,10 @@ export default function AdminPage() {
                             <Eye className="h-3.5 w-3.5 mr-1" />
                             {t.admin.blogPreview}
                           </a>
+                          <Button size="sm" variant="outline" onClick={() => setBloggerCopyTarget(post)}>
+                            <Copy className="h-3.5 w-3.5 mr-1" />
+                            {t.admin.blogCopyForBlogger}
+                          </Button>
                           <Button size="sm" variant="outline" onClick={() => void toggleBlogPublished(post)}>
                             {post.published ? t.admin.unpublish : t.admin.publish}
                           </Button>
@@ -3661,6 +3683,46 @@ export default function AdminPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Copy for Blogger Dialog */}
+      <Dialog open={!!bloggerCopyTarget} onOpenChange={(o) => !o && setBloggerCopyTarget(null)}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Copy className="h-5 w-5" />
+              {t.admin.blogCopyDialogTitle}
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t.admin.blogCopyDialogDesc}</p>
+          <div className="space-y-4 overflow-y-auto pr-1">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>{t.admin.blogCopyTitleLabel}</Label>
+                <Button size="sm" variant="outline" onClick={() => void copyToClipboard(bloggerCopyTarget?.title ?? "")}>
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  {t.admin.blogCopyBtn}
+                </Button>
+              </div>
+              <Input readOnly value={bloggerCopyTarget?.title ?? ""} onFocus={(e) => e.currentTarget.select()} />
+            </div>
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label>{t.admin.blogCopyContentLabel}</Label>
+                <Button size="sm" variant="outline" onClick={() => void copyToClipboard(bloggerCopyHtml)}>
+                  <Copy className="h-3.5 w-3.5 mr-1" />
+                  {t.admin.blogCopyBtn}
+                </Button>
+              </div>
+              <textarea
+                readOnly
+                className="w-full min-h-64 rounded-md border bg-background px-3 py-2 text-sm font-mono resize-y focus:outline-none focus:ring-2 focus:ring-ring"
+                value={bloggerCopyHtml}
+                onFocus={(e) => e.currentTarget.select()}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Approve Withdrawal Dialog */}
       <Dialog open={!!approveTargetId} onOpenChange={(o) => !o && setApproveTargetId(null)}>
