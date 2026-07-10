@@ -28,6 +28,9 @@ async function bootstrap() {
     'https://ai119.netlify.app',
     'https://web.telegram.org',
     'https://telegram.org',
+    'https://jung1922a-jrzuy.wordpress.com',
+    'https://ai1190.wordpress.com',
+    'https://abuddhistphilosophy.wordpress.com',
   ];
 
   app.enableCors({
