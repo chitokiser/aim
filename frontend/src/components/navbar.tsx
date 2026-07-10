@@ -21,7 +21,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Coins, Trophy, Target, Home, LayoutDashboard, Megaphone,
   Menu, X, Send, LogOut, Zap, Store, Sparkles, Gavel, ChevronDown, Mic, Bot, Film, Music,
-  ArrowLeftRight, ShoppingBag, Package, Star, FileText, ShoppingCart,
+  ArrowLeftRight, ShoppingBag, Package, Star, FileText, ShoppingCart, Tag,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -70,6 +70,7 @@ export function Navbar() {
     { href: "/creative-market", label: t.nav.creativeMarket, icon: Sparkles },
     { href: "/auction", label: t.nav.auction, icon: Gavel },
     { href: "/coupang", label: "트렌드픽", icon: ShoppingBag },
+    { href: "/affiliate", label: t.nav.affiliate, icon: Tag },
     { href: "/blog", label: t.nav.blog, icon: FileText },
   ];
 

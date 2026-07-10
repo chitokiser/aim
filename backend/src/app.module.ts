@@ -27,6 +27,7 @@ import { OfferwallModule } from './offerwall/offerwall.module';
 import { PaymentwallModule } from './paymentwall/paymentwall.module';
 import { EarnwallModule } from './earnwall/earnwall.module';
 import { CoupangModule } from './coupang/coupang.module';
+import { LinkpriceModule } from './linkprice/linkprice.module';
 import { CjShopModule } from './cj-shop/cj-shop.module';
 import { LevelModule } from './level/level.module';
 import { RouletteModule } from './roulette/roulette.module';
@@ -61,6 +62,7 @@ import { WebzineModule } from './webzine/webzine.module';
     PaymentwallModule,
     EarnwallModule,
     CoupangModule,
+    LinkpriceModule,
     CjShopModule,
     LevelModule,
     RouletteModule,

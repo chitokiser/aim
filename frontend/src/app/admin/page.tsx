@@ -16,7 +16,7 @@ import {
   Users, Target, Coins, ShieldAlert, CheckCircle, XCircle,
   Search, Bell, Loader2, History, Zap, Bot, LayoutTemplate, Clock, Gavel,
   ShoppingBag, Play, Trash2, ToggleLeft, ToggleRight, Pencil,
-  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText, Sparkles, Eye,
+  Package, RefreshCw, Star, Sun, Dices, Copy, Download, FileText, Sparkles, Eye, Tag,
 } from "lucide-react";
 import { useLanguage } from "@/lib/i18n";
 import { WEBZINE_CATEGORIES, webzineCategoryLabel } from "@/lib/webzine-categories";
@@ -201,6 +201,33 @@ export default function AdminPage() {
   const [editCoupangName, setEditCoupangName] = useState("");
   const [editCoupangVideo, setEditCoupangVideo] = useState("");
   const [editCoupangIframe, setEditCoupangIframe] = useState("");
+
+  // Linkprice affiliate products state
+  interface LinkpriceProduct {
+    id: string;
+    name: string;
+    category: string;
+    embedCode: string;
+    linkUrl?: string | null;
+    width: number;
+    height: number;
+    active: boolean;
+    clicks?: number;
+    createdAt: string;
+  }
+  const LINKPRICE_CATEGORIES = ["beauty", "fashion", "electronics", "household", "food", "travel", "finance", "other"] as const;
+  const [linkpriceProducts, setLinkpriceProducts] = useState<LinkpriceProduct[]>([]);
+  const [linkpriceLoading, setLinkpriceLoading] = useState(false);
+  const [linkpriceName, setLinkpriceName] = useState("");
+  const [linkpriceCategory, setLinkpriceCategory] = useState<string>("beauty");
+  const [linkpriceEmbedCode, setLinkpriceEmbedCode] = useState("");
+  const [linkpriceLinkUrl, setLinkpriceLinkUrl] = useState("");
+  const [linkpriceSaving, setLinkpriceSaving] = useState(false);
+  const [editingLinkpriceId, setEditingLinkpriceId] = useState<string | null>(null);
+  const [editLinkpriceName, setEditLinkpriceName] = useState("");
+  const [editLinkpriceCategory, setEditLinkpriceCategory] = useState("beauty");
+  const [editLinkpriceEmbedCode, setEditLinkpriceEmbedCode] = useState("");
+  const [editLinkpriceLinkUrl, setEditLinkpriceLinkUrl] = useState("");
 
   // CJ Shop state
   interface CjSearchResult { id: string; nameEn: string; sku?: string; bigImage?: string; sellPrice?: string }
@@ -909,6 +936,120 @@ export default function AdminPage() {
       );
       toast.success("수정되었습니다");
       setEditingCoupangId(null);
+    } catch {
+      toast.error("수정에 실패했습니다");
+    }
+  };
+
+  // ── Linkprice Affiliate Products ─────────────────────────────────────
+
+  const loadLinkpriceProducts = useCallback(async () => {
+    if (!token) return;
+    setLinkpriceLoading(true);
+    try {
+      const res = await fetch(`${API}/api/linkprice/products/all`, { headers: authHeader() });
+      if (!res.ok) throw new Error();
+      setLinkpriceProducts(await res.json());
+    } catch {
+      toast.error("Failed to load affiliate products");
+    } finally {
+      setLinkpriceLoading(false);
+    }
+  }, [token, authHeader]);
+
+  const handleLinkpriceCreate = async () => {
+    if (!linkpriceName.trim() || !linkpriceEmbedCode.trim()) return;
+    setLinkpriceSaving(true);
+    try {
+      const res = await fetch(`${API}/api/linkprice/products`, {
+        method: "POST",
+        headers: authHeader(),
+        body: JSON.stringify({
+          name: linkpriceName.trim(),
+          category: linkpriceCategory,
+          embedCode: linkpriceEmbedCode.trim(),
+          linkUrl: linkpriceLinkUrl.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("상품이 등록되었습니다");
+      setLinkpriceName("");
+      setLinkpriceEmbedCode("");
+      setLinkpriceLinkUrl("");
+      void loadLinkpriceProducts();
+    } catch {
+      toast.error("상품 등록에 실패했습니다");
+    } finally {
+      setLinkpriceSaving(false);
+    }
+  };
+
+  const handleLinkpriceDelete = async (id: string) => {
+    if (!confirm("이 상품을 삭제하시겠습니까?")) return;
+    try {
+      const res = await fetch(`${API}/api/linkprice/products/${id}`, {
+        method: "DELETE",
+        headers: authHeader(),
+      });
+      if (!res.ok) throw new Error();
+      toast.success("삭제되었습니다");
+      setLinkpriceProducts((prev) => prev.filter((p) => p.id !== id));
+    } catch {
+      toast.error("삭제에 실패했습니다");
+    }
+  };
+
+  const handleLinkpriceToggle = async (p: { id: string; active: boolean }) => {
+    try {
+      const res = await fetch(`${API}/api/linkprice/products/${p.id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify({ active: !p.active }),
+      });
+      if (!res.ok) throw new Error();
+      setLinkpriceProducts((prev) =>
+        prev.map((item) => item.id === p.id ? { ...item, active: !item.active } : item),
+      );
+    } catch {
+      toast.error("상태 변경에 실패했습니다");
+    }
+  };
+
+  const startEditLinkprice = (p: LinkpriceProduct) => {
+    setEditingLinkpriceId(p.id);
+    setEditLinkpriceName(p.name);
+    setEditLinkpriceCategory(p.category);
+    setEditLinkpriceEmbedCode(p.embedCode ?? "");
+    setEditLinkpriceLinkUrl(p.linkUrl ?? "");
+  };
+
+  const handleLinkpriceUpdate = async (id: string) => {
+    try {
+      const body: Record<string, unknown> = {
+        name: editLinkpriceName.trim(),
+        category: editLinkpriceCategory,
+        linkUrl: editLinkpriceLinkUrl.trim() || null,
+      };
+      if (editLinkpriceEmbedCode.trim()) body.embedCode = editLinkpriceEmbedCode.trim();
+      const res = await fetch(`${API}/api/linkprice/products/${id}`, {
+        method: "PATCH",
+        headers: authHeader(),
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error();
+      setLinkpriceProducts((prev) =>
+        prev.map((item) => item.id === id
+          ? {
+              ...item,
+              name: editLinkpriceName.trim(),
+              category: editLinkpriceCategory,
+              linkUrl: editLinkpriceLinkUrl.trim() || null,
+              ...(editLinkpriceEmbedCode.trim() && { embedCode: editLinkpriceEmbedCode.trim() }),
+            }
+          : item),
+      );
+      toast.success("수정되었습니다");
+      setEditingLinkpriceId(null);
     } catch {
       toast.error("수정에 실패했습니다");
     }
@@ -1653,6 +1794,10 @@ export default function AdminPage() {
           <TabsTrigger value="coupang" onClick={loadCoupangProducts}>
             <ShoppingBag className="h-3.5 w-3.5 mr-1" />
             쿠팡 상품
+          </TabsTrigger>
+          <TabsTrigger value="linkprice" onClick={loadLinkpriceProducts}>
+            <Tag className="h-3.5 w-3.5 mr-1" />
+            제휴 상품
           </TabsTrigger>
           <TabsTrigger value="cjshop" onClick={loadCjShopData}>
             <Package className="h-3.5 w-3.5 mr-1" />
@@ -2886,6 +3031,221 @@ export default function AdminPage() {
                             <div className="flex gap-2">
                               <Button size="sm" onClick={() => void handleCoupangUpdate(p.id)}>저장</Button>
                               <Button size="sm" variant="ghost" onClick={() => setEditingCoupangId(null)}>취소</Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Linkprice Affiliate Products */}
+        <TabsContent value="linkprice">
+          <div className="space-y-6">
+            {/* Add form */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Tag className="h-4 w-4 text-violet-500" />
+                  제휴 상품 등록 (LinkPrice 애드박스)
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  LinkPrice 애드박스 생성 화면에서 받은 embed 코드(스크립트 또는 iframe)를 붙여넣으세요.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <Label>상품명 *</Label>
+                  <Input
+                    placeholder="예: 여름 뷰티 특가전"
+                    value={linkpriceName}
+                    onChange={(e) => setLinkpriceName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>카테고리</Label>
+                  <Select value={linkpriceCategory} onValueChange={setLinkpriceCategory}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {LINKPRICE_CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c}>{t.affiliate[`cat${c.charAt(0).toUpperCase()}${c.slice(1)}` as keyof typeof t.affiliate]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Embed 코드 * (스크립트 또는 iframe)</Label>
+                  <textarea
+                    className="w-full min-h-24 rounded-md border bg-background px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder='<iframe src="https://ac.linkprice.net/..." width="300" height="250" frameborder="0" scrolling="no"></iframe>'
+                    value={linkpriceEmbedCode}
+                    onChange={(e) => setLinkpriceEmbedCode(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>딜 링크 URL (선택 — &quot;딜 보러가기&quot; 버튼에 사용)</Label>
+                  <Input
+                    placeholder="https://..."
+                    value={linkpriceLinkUrl}
+                    onChange={(e) => setLinkpriceLinkUrl(e.target.value)}
+                  />
+                </div>
+                <Button
+                  className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
+                  disabled={linkpriceSaving || !linkpriceName.trim() || !linkpriceEmbedCode.trim()}
+                  onClick={handleLinkpriceCreate}
+                >
+                  {linkpriceSaving ? (
+                    <><Loader2 className="h-4 w-4 mr-2 animate-spin" />등록 중...</>
+                  ) : (
+                    <><Tag className="h-4 w-4 mr-2" />상품 등록</>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Product list */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">
+                    등록된 제휴 상품 {linkpriceProducts.length > 0 && `(${linkpriceProducts.length})`}
+                  </CardTitle>
+                  <Button size="sm" variant="outline" onClick={loadLinkpriceProducts}>
+                    새로고침
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {linkpriceLoading ? (
+                  <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">불러오는 중...</span>
+                  </div>
+                ) : linkpriceProducts.length === 0 ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">
+                    등록된 제휴 상품이 없습니다.
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {linkpriceProducts.map((p) => (
+                      <div key={p.id} className="p-4 border-b last:border-b-0">
+                        <div className="flex items-start gap-4 flex-wrap">
+                          {/* Preview iframe — sandboxed, matches public page rendering */}
+                          <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center overflow-hidden" style={{ width: 140, height: 120 }}>
+                            <iframe
+                              loading="lazy"
+                              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;transform:scale(0.4);transform-origin:top left;}</style></head><body>${p.embedCode}</body></html>`}
+                              width={p.width || 300}
+                              height={p.height || 250}
+                              frameBorder="0"
+                              scrolling="no"
+                              title={p.name}
+                            />
+                          </div>
+
+                          {/* Info */}
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <Badge variant="outline" className="text-xs capitalize">{p.category}</Badge>
+                              {!p.active && <Badge variant="secondary" className="text-xs">비활성</Badge>}
+                              <Badge variant="outline" className="text-xs">클릭 {p.clicks ?? 0}회</Badge>
+                            </div>
+                            <p className="font-semibold text-sm">{p.name}</p>
+                            {p.linkUrl && (
+                              <a href={p.linkUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-violet-600 hover:underline truncate block max-w-xs">
+                                {p.linkUrl}
+                              </a>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              {p.createdAt?.slice(0, 10)}
+                            </p>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-2 shrink-0">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => editingLinkpriceId === p.id ? setEditingLinkpriceId(null) : startEditLinkprice(p)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              title={p.active ? "비활성화" : "활성화"}
+                              onClick={() => void handleLinkpriceToggle(p)}
+                            >
+                              {p.active ? (
+                                <ToggleRight className="h-4 w-4 text-green-500" />
+                              ) : (
+                                <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              onClick={() => void handleLinkpriceDelete(p.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Inline edit form */}
+                        {editingLinkpriceId === p.id && (
+                          <div className="mt-3 ml-24 space-y-2 p-3 bg-muted/30 rounded-lg border">
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">상품명</label>
+                              <Input
+                                value={editLinkpriceName}
+                                onChange={(e) => setEditLinkpriceName(e.target.value)}
+                                className="h-8 text-sm"
+                                placeholder="상품명"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">카테고리</label>
+                              <Select value={editLinkpriceCategory} onValueChange={setEditLinkpriceCategory}>
+                                <SelectTrigger className="h-8 text-sm">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {LINKPRICE_CATEGORIES.map((c) => (
+                                    <SelectItem key={c} value={c}>{t.affiliate[`cat${c.charAt(0).toUpperCase()}${c.slice(1)}` as keyof typeof t.affiliate]}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">Embed 코드 (수정 시 입력)</label>
+                              <textarea
+                                className="w-full min-h-20 rounded-md border bg-background px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+                                placeholder='<iframe src="https://ac.linkprice.net/..." width="300" height="250" ...></iframe>'
+                                value={editLinkpriceEmbedCode}
+                                onChange={(e) => setEditLinkpriceEmbedCode(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">딜 링크 URL (선택)</label>
+                              <Input
+                                value={editLinkpriceLinkUrl}
+                                onChange={(e) => setEditLinkpriceLinkUrl(e.target.value)}
+                                className="h-8 text-sm"
+                                placeholder="https://..."
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Button size="sm" onClick={() => void handleLinkpriceUpdate(p.id)}>저장</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setEditingLinkpriceId(null)}>취소</Button>
                             </div>
                           </div>
                         )}
