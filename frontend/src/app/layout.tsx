@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     google: "iSwGv7PBrGFOxh8LIKrKNegCUYW32fXo8EdbQby2Cg8",
     other: {
       "offerwall-verification": "c3c3afb250efdd9c",
-      "impact-site-verification": "60ec0825-0376-47d9-8e04-54fcbf6338f8",
+      "impact-site-verification": "28973f66-d00c-4b8d-8d33-7bf702ef31dc",
     },
   },
   openGraph: {
@@ -77,7 +77,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
-        <span style={{ display: "none" }}>Impact-Site-Verification: 60ec0825-0376-47d9-8e04-54fcbf6338f8</span>
+        <span style={{ display: "none" }}>Impact-Site-Verification: 28973f66-d00c-4b8d-8d33-7bf702ef31dc</span>
         <Providers>
           <Suspense>
             <TelegramAutoLogin />
