@@ -4,10 +4,10 @@ import { BlogService } from './blog.service';
 import { BloggerService, type BloggerTarget } from './blogger.service';
 
 // Keeps each Blogger blog in the "quality, not volume" range the account
-// requested (5–20 posts/day) rather than cross-posting every article the
+// requested (5 posts/day) rather than cross-posting every article the
 // webzine pipeline generates — the burst from the initial backfill got a
 // blog's write access blocked (403) almost immediately.
-const DAILY_CAP = 10;
+const DAILY_CAP = 5;
 const DELAY_BETWEEN_POSTS_MS = 90_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 const TARGETS: BloggerTarget[] = ['trending', 'classics'];

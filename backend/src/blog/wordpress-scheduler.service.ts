@@ -7,7 +7,7 @@ import { WordPressService, type WordPressTarget } from './wordpress.service';
 // site's write API and tripping abuse detection. Runs an hour after the
 // Blogger cron (06:00 KST) so the two integrations never compete for the
 // same Firestore read pass.
-const DAILY_CAP = 10;
+const DAILY_CAP = 5;
 const DELAY_BETWEEN_POSTS_MS = 90_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 const TARGETS: WordPressTarget[] = ['trending', 'classics', 'buddhist'];
