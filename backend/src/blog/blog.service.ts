@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
@@ -146,6 +146,7 @@ function slugify(title: string): string {
 
 @Injectable()
 export class BlogService {
+  private readonly logger = new Logger(BlogService.name);
   private readonly aiKeys: AiKeys;
   private readonly siteUrl: string;
 
@@ -326,6 +327,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     // retry net for anything that failed here.
     if (doc.published) {
       const wpTarget = resolveWordPressTarget(doc);
+      this.logger.log(`create(): category=${doc.category} wpTarget=${wpTarget ?? 'none'} configured=${wpTarget ? this.wordpress.isConfigured(wpTarget) : 'n/a'} title="${doc.title}"`);
       if (wpTarget) {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
@@ -402,15 +404,22 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     slug: string,
     coverImage: string | null,
   ): Promise<void> {
-    if (!this.wordpress.isConfigured(target)) return;
+    if (!this.wordpress.isConfigured(target)) {
+      this.logger.warn(`crossPostToWordPress: target "${target}" not configured, skipping "${title}"`);
+      return;
+    }
     const existing = await this.wordpressPostsCollection.doc(postId).get();
-    if (existing.exists) return;
+    if (existing.exists) {
+      this.logger.log(`crossPostToWordPress: "${title}" already posted to "${target}", skipping`);
+      return;
+    }
     // coverImage is passed as the WordPress featured_image (see WordPressService.publish)
     // rather than inlined into the body — that's what the theme uses for both the
     // archive/listing-page thumbnail and the single-post hero image, and avoids
     // showing the cover image twice at an uncontrolled native size.
     const html = `${content}<p><a href="${this.siteUrl}/blog/${slug}">${this.siteUrl}/blog/${slug}</a></p>`;
     const url = await this.wordpress.publish(target, title, html, coverImage);
+    this.logger.log(`crossPostToWordPress: "${title}" -> target=${target} url=${url ?? 'FAILED'}`);
     if (url) {
       await this.wordpressPostsCollection.doc(postId).set({ postId, wordpressUrl: url, createdAt: new Date().toISOString() });
     }
