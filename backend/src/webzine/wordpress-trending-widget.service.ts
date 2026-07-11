@@ -34,6 +34,12 @@ export class WordPressTrendingWidgetService {
 
   @Cron('3,18,33,48 * * * *')
   async handleCron(): Promise<void> {
+    // Disabled: jung1922a-jrzuy.wordpress.com has been suspended by
+    // WordPress.com (confirmed: the live site returns HTTP 410 to visitors,
+    // and the API returns "This site has been suspended") — not just a
+    // write-endpoint block. Re-enable once the site is confirmed restored.
+    return;
+    // eslint-disable-next-line no-unreachable
     if (!this.site || !this.token) return;
     try {
       await this.refresh();
