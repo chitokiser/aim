@@ -36,6 +36,23 @@ function extractDimensions(embedCode: string): { width: number; height: number }
   };
 }
 
+// Some ad networks (e.g. LinkPrice deep-link banners) hand out a plain
+// `<a href="click.php?...">` wrapping an `<img>`, plus a separate 1x1
+// tracking-pixel `<img>` — not a real ad-box embed like an <iframe>/<script>
+// snippet. That pair renders fine as a plain <a><img></a>, so instead of
+// making the admin split it into separate image/link inputs, pull the banner
+// image + click link out of it automatically when the pasted code has no
+// <iframe>/<script> (i.e. it isn't a real embeddable widget).
+function parseDeepLinkEmbed(embedCode: string): { imageUrl: string; linkUrl: string } | null {
+  if (/<iframe\b/i.test(embedCode) || /<script\b/i.test(embedCode)) return null;
+  const anchorMatch = embedCode.match(/<a\b[^>]*\bhref\s*=\s*"([^"]+)"[^>]*>([\s\S]*?)<\/a>/i);
+  if (!anchorMatch) return null;
+  const [, href, innerHtml] = anchorMatch;
+  const imgMatch = innerHtml.match(/<img\b[^>]*\bsrc\s*=\s*"([^"]+)"/i);
+  if (!imgMatch) return null;
+  return { imageUrl: imgMatch[1], linkUrl: href };
+}
+
 @Controller('linkprice')
 export class LinkpriceController {
   constructor(
@@ -74,9 +91,22 @@ export class LinkpriceController {
   ) {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
 
-    const embedCode = body.embedCode?.trim() || null;
-    const imageUrl = body.imageUrl?.trim() || null;
-    const linkUrl = body.linkUrl?.trim() || null;
+    let embedCode = body.embedCode?.trim() || null;
+    let imageUrl = body.imageUrl?.trim() || null;
+    let linkUrl = body.linkUrl?.trim() || null;
+
+    // Admin pasted a raw <a><img> deep-link snippet into the embed field
+    // instead of a real ad-box widget — auto-split it into image + link so
+    // it doesn't need to go through the sandboxed-iframe rendering path.
+    if (embedCode && !(imageUrl && linkUrl)) {
+      const parsed = parseDeepLinkEmbed(embedCode);
+      if (parsed) {
+        imageUrl = parsed.imageUrl;
+        linkUrl = parsed.linkUrl;
+        embedCode = null;
+      }
+    }
+
     if (!embedCode && !(imageUrl && linkUrl)) {
       throw new BadRequestException('Provide either an embed code, or both an image URL and a link URL.');
     }
@@ -125,10 +155,19 @@ export class LinkpriceController {
     if (body.imageUrl !== undefined) update['imageUrl'] = body.imageUrl?.trim() || null;
     if (body.embedCode?.trim()) {
       const code = body.embedCode.trim();
-      const { width, height } = extractDimensions(code);
-      update['embedCode'] = code;
-      update['width'] = width;
-      update['height'] = height;
+      const parsed = body.imageUrl === undefined && body.linkUrl === undefined ? parseDeepLinkEmbed(code) : null;
+      if (parsed) {
+        update['embedCode'] = null;
+        update['imageUrl'] = parsed.imageUrl;
+        update['linkUrl'] = parsed.linkUrl;
+        update['width'] = extractDimensions(code).width;
+        update['height'] = extractDimensions(code).height;
+      } else {
+        const { width, height } = extractDimensions(code);
+        update['embedCode'] = code;
+        update['width'] = width;
+        update['height'] = height;
+      }
     }
 
     await this.firebase.collection('linkprice_products').doc(id).update(update);
