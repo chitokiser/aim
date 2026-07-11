@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import DOMPurify from "isomorphic-dompurify";
@@ -49,10 +49,14 @@ export default function ShopDetailClient({ id }: { id: string }) {
   const addToCart = useCartStore((s) => s.addItem);
   // When this page is served from the static-export fallback (id="_", e.g. via
   // a Netlify _redirects rewrite for a product created after the last build),
-  // useParams() still reflects the real browser URL — prefer it over the
-  // build-time prop so newly registered products work without a redeploy.
-  const routeParams = useParams();
-  const productId = (routeParams?.id as string) || id;
+  // useParams() only returns the param baked into that shell at build time
+  // ("_"), never the real browser URL — reading the pathname directly is the
+  // only way to get the actual id for newly registered products without a
+  // redeploy.
+  const productId =
+    typeof window !== "undefined"
+      ? decodeURIComponent(window.location.pathname.split("/").filter(Boolean).pop() || id)
+      : id;
 
   const [product, setProduct] = useState<CjProduct | null>(null);
   const [loading, setLoading] = useState(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import DOMPurify from "isomorphic-dompurify";
@@ -81,10 +81,14 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
   const { user, token } = useAuthStore();
   // When this page is served from the static-export fallback (slug="_", e.g.
   // via a Netlify _redirects rewrite for a post published after the last
-  // build), useParams() still reflects the real browser URL — prefer it over
-  // the build-time prop so newly published posts work without a redeploy.
-  const routeParams = useParams();
-  const postSlug = (routeParams?.slug as string) || slug;
+  // build), useParams() only returns the param baked into that shell at
+  // build time ("_"), never the real browser URL — reading the pathname
+  // directly is the only way to get the actual slug for newly published
+  // posts without a redeploy.
+  const postSlug =
+    typeof window !== "undefined"
+      ? decodeURIComponent(window.location.pathname.split("/").filter(Boolean).pop() || slug)
+      : slug;
   const searchParams = useSearchParams();
   const previewId = searchParams.get("preview");
 
