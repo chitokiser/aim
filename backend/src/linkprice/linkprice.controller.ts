@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Delete, Patch, Param, Body, Query,
-  UseGuards, Request, ForbiddenException,
+  UseGuards, Request, ForbiddenException, BadRequestException,
 } from '@nestjs/common';
 import { FieldValue } from 'firebase-admin/firestore';
 import { JwtAuthGuard } from '../auth/jwt.guard';
@@ -10,7 +10,11 @@ import { UsersService } from '../users/users.service';
 interface LinkpriceCreateDto {
   name: string;
   category: string;
-  embedCode: string;
+  // Either an ad-network embed snippet (rendered in a sandboxed iframe), or
+  // a plain thumbnail + deep-link (imageUrl + linkUrl) — at least one of the
+  // two forms is required.
+  embedCode?: string;
+  imageUrl?: string;
   linkUrl?: string;
 }
 
@@ -19,6 +23,7 @@ interface LinkpriceUpdateDto {
   name?: string;
   category?: string;
   embedCode?: string;
+  imageUrl?: string;
   linkUrl?: string;
 }
 
@@ -69,14 +74,21 @@ export class LinkpriceController {
   ) {
     if (!(await this.usersService.isAdminUser(req.user.sub))) throw new ForbiddenException();
 
-    const { width, height } = extractDimensions(body.embedCode);
+    const embedCode = body.embedCode?.trim() || null;
+    const imageUrl = body.imageUrl?.trim() || null;
+    const linkUrl = body.linkUrl?.trim() || null;
+    if (!embedCode && !(imageUrl && linkUrl)) {
+      throw new BadRequestException('Provide either an embed code, or both an image URL and a link URL.');
+    }
+    const { width, height } = embedCode ? extractDimensions(embedCode) : { width: 300, height: 250 };
     const now = new Date();
 
     const doc = {
       name: body.name.trim(),
       category: body.category,
-      embedCode: body.embedCode,
-      linkUrl: body.linkUrl?.trim() || null,
+      embedCode,
+      imageUrl,
+      linkUrl,
       width,
       height,
       active: true,
@@ -110,6 +122,7 @@ export class LinkpriceController {
     if (body.name?.trim()) update['name'] = body.name.trim();
     if (body.category?.trim()) update['category'] = body.category.trim();
     if (body.linkUrl !== undefined) update['linkUrl'] = body.linkUrl?.trim() || null;
+    if (body.imageUrl !== undefined) update['imageUrl'] = body.imageUrl?.trim() || null;
     if (body.embedCode?.trim()) {
       const code = body.embedCode.trim();
       const { width, height } = extractDimensions(code);

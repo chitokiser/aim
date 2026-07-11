@@ -207,7 +207,8 @@ export default function AdminPage() {
     id: string;
     name: string;
     category: string;
-    embedCode: string;
+    embedCode: string | null;
+    imageUrl?: string | null;
     linkUrl?: string | null;
     width: number;
     height: number;
@@ -221,12 +222,14 @@ export default function AdminPage() {
   const [linkpriceName, setLinkpriceName] = useState("");
   const [linkpriceCategory, setLinkpriceCategory] = useState<string>("beauty");
   const [linkpriceEmbedCode, setLinkpriceEmbedCode] = useState("");
+  const [linkpriceImageUrl, setLinkpriceImageUrl] = useState("");
   const [linkpriceLinkUrl, setLinkpriceLinkUrl] = useState("");
   const [linkpriceSaving, setLinkpriceSaving] = useState(false);
   const [editingLinkpriceId, setEditingLinkpriceId] = useState<string | null>(null);
   const [editLinkpriceName, setEditLinkpriceName] = useState("");
   const [editLinkpriceCategory, setEditLinkpriceCategory] = useState("beauty");
   const [editLinkpriceEmbedCode, setEditLinkpriceEmbedCode] = useState("");
+  const [editLinkpriceImageUrl, setEditLinkpriceImageUrl] = useState("");
   const [editLinkpriceLinkUrl, setEditLinkpriceLinkUrl] = useState("");
 
   // CJ Shop state
@@ -958,7 +961,9 @@ export default function AdminPage() {
   }, [token, authHeader]);
 
   const handleLinkpriceCreate = async () => {
-    if (!linkpriceName.trim() || !linkpriceEmbedCode.trim()) return;
+    const hasEmbed = Boolean(linkpriceEmbedCode.trim());
+    const hasImageLink = Boolean(linkpriceImageUrl.trim() && linkpriceLinkUrl.trim());
+    if (!linkpriceName.trim() || (!hasEmbed && !hasImageLink)) return;
     setLinkpriceSaving(true);
     try {
       const res = await fetch(`${API}/api/linkprice/products`, {
@@ -967,7 +972,8 @@ export default function AdminPage() {
         body: JSON.stringify({
           name: linkpriceName.trim(),
           category: linkpriceCategory,
-          embedCode: linkpriceEmbedCode.trim(),
+          embedCode: linkpriceEmbedCode.trim() || undefined,
+          imageUrl: linkpriceImageUrl.trim() || undefined,
           linkUrl: linkpriceLinkUrl.trim() || undefined,
         }),
       });
@@ -975,6 +981,7 @@ export default function AdminPage() {
       toast.success("상품이 등록되었습니다");
       setLinkpriceName("");
       setLinkpriceEmbedCode("");
+      setLinkpriceImageUrl("");
       setLinkpriceLinkUrl("");
       void loadLinkpriceProducts();
     } catch {
@@ -1020,6 +1027,7 @@ export default function AdminPage() {
     setEditLinkpriceName(p.name);
     setEditLinkpriceCategory(p.category);
     setEditLinkpriceEmbedCode(p.embedCode ?? "");
+    setEditLinkpriceImageUrl(p.imageUrl ?? "");
     setEditLinkpriceLinkUrl(p.linkUrl ?? "");
   };
 
@@ -1029,6 +1037,7 @@ export default function AdminPage() {
         name: editLinkpriceName.trim(),
         category: editLinkpriceCategory,
         linkUrl: editLinkpriceLinkUrl.trim() || null,
+        imageUrl: editLinkpriceImageUrl.trim() || null,
       };
       if (editLinkpriceEmbedCode.trim()) body.embedCode = editLinkpriceEmbedCode.trim();
       const res = await fetch(`${API}/api/linkprice/products/${id}`, {
@@ -1044,6 +1053,7 @@ export default function AdminPage() {
               name: editLinkpriceName.trim(),
               category: editLinkpriceCategory,
               linkUrl: editLinkpriceLinkUrl.trim() || null,
+              imageUrl: editLinkpriceImageUrl.trim() || null,
               ...(editLinkpriceEmbedCode.trim() && { embedCode: editLinkpriceEmbedCode.trim() }),
             }
           : item),
@@ -3054,7 +3064,8 @@ export default function AdminPage() {
                   제휴 상품 등록 (LinkPrice 애드박스)
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  LinkPrice 애드박스 생성 화면에서 받은 embed 코드(스크립트 또는 iframe)를 붙여넣으세요.
+                  LinkPrice 애드박스 embed 코드를 붙여넣거나, 딥링크 URL(예: lase.kr/click.php?... 형식)을 받는 경우
+                  이미지 URL과 딜 링크 URL을 함께 입력하세요. 둘 중 하나만 채우면 됩니다.
                 </p>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -3080,7 +3091,7 @@ export default function AdminPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Embed 코드 * (스크립트 또는 iframe)</Label>
+                  <Label>Embed 코드 (스크립트 또는 iframe — 애드박스 방식)</Label>
                   <textarea
                     className="w-full min-h-24 rounded-md border bg-background px-3 py-2 text-sm font-mono resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                     placeholder='<iframe src="https://ac.linkprice.net/..." width="300" height="250" frameborder="0" scrolling="no"></iframe>'
@@ -3088,8 +3099,17 @@ export default function AdminPage() {
                     onChange={(e) => setLinkpriceEmbedCode(e.target.value)}
                   />
                 </div>
+                <div className="text-xs text-muted-foreground text-center">— 또는 —</div>
                 <div className="space-y-1.5">
-                  <Label>딜 링크 URL (선택 — &quot;딜 보러가기&quot; 버튼에 사용)</Label>
+                  <Label>상품 이미지 URL (딥링크 방식일 때)</Label>
+                  <Input
+                    placeholder="https://... (상품 썸네일 이미지)"
+                    value={linkpriceImageUrl}
+                    onChange={(e) => setLinkpriceImageUrl(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>딜 링크 URL {linkpriceEmbedCode.trim() ? "(선택 — “딜 보러가기” 버튼에 사용)" : "* (딥링크 방식일 때 필수, 예: lase.kr/click.php?...)"}</Label>
                   <Input
                     placeholder="https://..."
                     value={linkpriceLinkUrl}
@@ -3098,7 +3118,11 @@ export default function AdminPage() {
                 </div>
                 <Button
                   className="bg-gradient-to-r from-violet-600 to-cyan-500 text-white hover:opacity-90"
-                  disabled={linkpriceSaving || !linkpriceName.trim() || !linkpriceEmbedCode.trim()}
+                  disabled={
+                    linkpriceSaving ||
+                    !linkpriceName.trim() ||
+                    !(linkpriceEmbedCode.trim() || (linkpriceImageUrl.trim() && linkpriceLinkUrl.trim()))
+                  }
                   onClick={handleLinkpriceCreate}
                 >
                   {linkpriceSaving ? (
@@ -3137,18 +3161,26 @@ export default function AdminPage() {
                     {linkpriceProducts.map((p) => (
                       <div key={p.id} className="p-4 border-b last:border-b-0">
                         <div className="flex items-start gap-4 flex-wrap">
-                          {/* Preview iframe — sandboxed, matches public page rendering */}
+                          {/* Preview — sandboxed iframe for embed-code products, matches public
+                              page rendering; plain <img> for deep-link products (no embed code). */}
                           <div className="shrink-0 bg-muted/30 rounded p-1 flex items-center justify-center overflow-hidden" style={{ width: 140, height: 120 }}>
-                            <iframe
-                              loading="lazy"
-                              sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
-                              srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;transform:scale(0.4);transform-origin:top left;}</style></head><body>${p.embedCode}</body></html>`}
-                              width={p.width || 300}
-                              height={p.height || 250}
-                              frameBorder="0"
-                              scrolling="no"
-                              title={p.name}
-                            />
+                            {p.embedCode ? (
+                              <iframe
+                                loading="lazy"
+                                sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+                                srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;transform:scale(0.4);transform-origin:top left;}</style></head><body>${p.embedCode}</body></html>`}
+                                width={p.width || 300}
+                                height={p.height || 250}
+                                frameBorder="0"
+                                scrolling="no"
+                                title={p.name}
+                              />
+                            ) : p.imageUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={p.imageUrl} alt={p.name} className="max-w-full max-h-full object-contain" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">이미지 없음</span>
+                            )}
                           </div>
 
                           {/* Info */}
@@ -3232,6 +3264,15 @@ export default function AdminPage() {
                                 placeholder='<iframe src="https://ac.linkprice.net/..." width="300" height="250" ...></iframe>'
                                 value={editLinkpriceEmbedCode}
                                 onChange={(e) => setEditLinkpriceEmbedCode(e.target.value)}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs text-muted-foreground mb-1 block">상품 이미지 URL (딥링크 방식일 때)</label>
+                              <Input
+                                value={editLinkpriceImageUrl}
+                                onChange={(e) => setEditLinkpriceImageUrl(e.target.value)}
+                                className="h-8 text-sm"
+                                placeholder="https://..."
                               />
                             </div>
                             <div>

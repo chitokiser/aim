@@ -13,7 +13,8 @@ interface AffiliateProduct {
   id: string;
   name: string;
   category: string;
-  embedCode: string;
+  embedCode: string | null;
+  imageUrl?: string | null;
   linkUrl?: string | null;
   width: number;
   height: number;
@@ -146,20 +147,26 @@ export default function AffiliatePage() {
               key={product.id}
               className="rounded-xl border bg-card overflow-hidden flex flex-col hover:shadow-lg transition-shadow"
             >
-              {/* Embed area — rendered inside a sandboxed srcDoc iframe so ad-network
-                  script/iframe embed codes can never touch the host page's DOM. */}
+              {/* Embed area — ad-box products render inside a sandboxed srcDoc iframe so
+                  ad-network script/iframe embed codes can never touch the host page's
+                  DOM; deep-link products (no embed code) just show their thumbnail. */}
               <div className="flex items-center justify-center bg-muted/30 p-3 min-h-[180px] overflow-hidden">
-                <iframe
-                  loading="lazy"
-                  sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
-                  srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;display:flex;align-items:center;justify-content:center;}</style></head><body>${product.embedCode}</body></html>`}
-                  width={product.width || 300}
-                  height={product.height || 250}
-                  frameBorder="0"
-                  scrolling="no"
-                  title={product.name}
-                  style={{ maxWidth: "100%" }}
-                />
+                {product.embedCode ? (
+                  <iframe
+                    loading="lazy"
+                    sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+                    srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><style>*{margin:0;padding:0;}body{overflow:hidden;display:flex;align-items:center;justify-content:center;}</style></head><body>${product.embedCode}</body></html>`}
+                    width={product.width || 300}
+                    height={product.height || 250}
+                    frameBorder="0"
+                    scrolling="no"
+                    title={product.name}
+                    style={{ maxWidth: "100%" }}
+                  />
+                ) : product.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={product.imageUrl} alt={product.name} className="max-w-full max-h-[180px] object-contain" />
+                ) : null}
               </div>
 
               <div className="p-3 flex flex-col gap-2 flex-1">
