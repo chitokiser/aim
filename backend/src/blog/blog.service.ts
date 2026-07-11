@@ -343,11 +343,14 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       if (wpTarget) {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
-      // Tumblr and Facebook only mirror the "trending" (실시간 이슈) category, at
-      // the user's explicit request — same immediate/real-time cadence as
-      // WordPress trending.
+      // Tumblr mirrors the "trending" (실시간 이슈) category, at the user's
+      // explicit request — same immediate/real-time cadence as WordPress
+      // trending. Facebook instead mirrors "silver-ai-bootcamp" (실버
+      // AI부트캠프), per a later request to point the Page at that content.
       if (doc.category === 'trending') {
         void this.crossPostToTumblr(ref.id, doc.title, doc.content, slug, doc.coverImage);
+      }
+      if (doc.category === 'silver-ai-bootcamp') {
         void this.crossPostToFacebook(ref.id, doc.title, doc.content, slug);
       }
     }
@@ -480,10 +483,10 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     return url ? { status: 'posted', url } : { status: 'failed' };
   }
 
-  // Cross-posts an article to the Facebook Page as a link post (trending
-  // category only), once per post. Tracked via blog_facebook_posts so
-  // re-running any backfill never double-posts. Fire-and-forget:
-  // FacebookService itself never throws.
+  // Cross-posts an article to the Facebook Page as a link post
+  // (silver-ai-bootcamp category only), once per post. Tracked via
+  // blog_facebook_posts so re-running any backfill never double-posts.
+  // Fire-and-forget: FacebookService itself never throws.
   private async crossPostToFacebook(postId: string, title: string, content: string, slug: string): Promise<void> {
     if (!this.facebook.isConfigured()) return;
     const existing = await this.facebookPostsCollection.doc(postId).get();
@@ -498,12 +501,12 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     }
   }
 
-  // Used by backfill scripts to cross-post pre-existing "trending" articles to
-  // the Facebook Page. Distinguishes "already posted" from "publish failed" so
-  // a caller can tell a dedup skip from a real error.
+  // Used by backfill scripts to cross-post pre-existing "silver-ai-bootcamp"
+  // articles to the Facebook Page. Distinguishes "already posted" from
+  // "publish failed" so a caller can tell a dedup skip from a real error.
   async backfillFacebookPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
     const post = await this.getById(id);
-    if (post.category !== 'trending') return { status: 'not-applicable' };
+    if (post.category !== 'silver-ai-bootcamp') return { status: 'not-applicable' };
     const before = await this.facebookPostsCollection.doc(id).get();
     if (before.exists) return { status: 'already-posted', url: before.data()?.facebookUrl as string | undefined };
     await this.crossPostToFacebook(post.id, post.title, post.content, post.slug);
