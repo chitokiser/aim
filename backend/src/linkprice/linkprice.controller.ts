@@ -53,6 +53,13 @@ function parseDeepLinkEmbed(embedCode: string): { imageUrl: string; linkUrl: str
   return { imageUrl: imgMatch[1], linkUrl: href };
 }
 
+// The raw <a><img> snippet also frequently gets pasted into the "image URL"
+// input by mistake (it's the field that visually maps to "the picture"), not
+// just the embed-code field — same parser applies to either.
+function looksLikeHtml(value: string): boolean {
+  return /<a\b/i.test(value) || /<img\b/i.test(value);
+}
+
 @Controller('linkprice')
 export class LinkpriceController {
   constructor(
@@ -107,6 +114,17 @@ export class LinkpriceController {
       }
     }
 
+    // Same snippet, pasted into the image-URL field instead — the parsed
+    // pair (image + its own link) overrides whatever was in either field,
+    // since the snippet is self-consistent and takes priority over stray data.
+    if (imageUrl && looksLikeHtml(imageUrl)) {
+      const parsed = parseDeepLinkEmbed(imageUrl);
+      if (parsed) {
+        imageUrl = parsed.imageUrl;
+        linkUrl = parsed.linkUrl;
+      }
+    }
+
     if (!embedCode && !(imageUrl && linkUrl)) {
       throw new BadRequestException('Provide either an embed code, or both an image URL and a link URL.');
     }
@@ -153,6 +171,18 @@ export class LinkpriceController {
     if (body.category?.trim()) update['category'] = body.category.trim();
     if (body.linkUrl !== undefined) update['linkUrl'] = body.linkUrl?.trim() || null;
     if (body.imageUrl !== undefined) update['imageUrl'] = body.imageUrl?.trim() || null;
+
+    // Same fix as create(): a raw <a><img> snippet pasted into the image-URL
+    // field gets auto-split into its real image + link, overriding whatever
+    // was submitted for either field.
+    if (typeof update['imageUrl'] === 'string' && looksLikeHtml(update['imageUrl'])) {
+      const parsed = parseDeepLinkEmbed(update['imageUrl']);
+      if (parsed) {
+        update['imageUrl'] = parsed.imageUrl;
+        update['linkUrl'] = parsed.linkUrl;
+      }
+    }
+
     if (body.embedCode?.trim()) {
       const code = body.embedCode.trim();
       const parsed = body.imageUrl === undefined && body.linkUrl === undefined ? parseDeepLinkEmbed(code) : null;
