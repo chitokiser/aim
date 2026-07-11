@@ -23,6 +23,11 @@ import { FirebaseService } from '../firebase/firebase.service';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.m4v', '.webm', '.avi', '.mkv']);
+// Anything this large is impractical for social posting anyway (well past
+// Tumblr's 100MB cap, and a poor fit for a short-form post) — skip outright
+// rather than spend minutes uploading a multi-hundred-MB file that will
+// never actually get posted anywhere.
+const MAX_SIZE_BYTES = 500 * 1024 * 1024;
 
 function findVideoFiles(root: string): string[] {
   const results: string[] = [];
@@ -74,6 +79,8 @@ async function main() {
 
     let synced = 0;
     let skipped = 0;
+    let tooLarge = 0;
+    let failed = 0;
 
     for (const file of files) {
       const relativePath = path.relative(root, file);
@@ -83,34 +90,45 @@ async function main() {
       }
 
       const stat = fs.statSync(file);
+      if (stat.size > MAX_SIZE_BYTES) {
+        console.log(`Skipping: ${relativePath} (${(stat.size / 1024 / 1024).toFixed(0)}MB > 500MB cap)`);
+        tooLarge += 1;
+        continue;
+      }
+
       process.stdout.write(`Uploading: ${relativePath} (${(stat.size / 1024 / 1024).toFixed(1)}MB) ... `);
 
-      const buffer = fs.readFileSync(file);
-      const ext = path.extname(file).slice(1).toLowerCase();
-      const storageFilename = `sns-videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const storageFile = bucket.file(storageFilename);
-      await storageFile.save(buffer, { metadata: { contentType: `video/${ext === 'mov' ? 'quicktime' : ext}` } });
-      await storageFile.makePublic();
-      const videoUrl = `https://storage.googleapis.com/${bucket.name}/${storageFilename}`;
+      try {
+        const buffer = fs.readFileSync(file);
+        const ext = path.extname(file).slice(1).toLowerCase();
+        const storageFilename = `sns-videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const storageFile = bucket.file(storageFilename);
+        await storageFile.save(buffer, { metadata: { contentType: `video/${ext === 'mov' ? 'quicktime' : ext}` } });
+        await storageFile.makePublic();
+        const videoUrl = `https://storage.googleapis.com/${bucket.name}/${storageFilename}`;
 
-      await collection.add({
-        relativePath,
-        title: titleFromFilename(file),
-        videoUrl,
-        sizeBytes: stat.size,
-        createdAt: new Date().toISOString(),
-        bloggerUrl: null,
-        tumblrUrl: null,
-        tumblrSkipReason: null,
-        facebookUrl: null,
-        wordpressUrl: null,
-      });
+        await collection.add({
+          relativePath,
+          title: titleFromFilename(file),
+          videoUrl,
+          sizeBytes: stat.size,
+          createdAt: new Date().toISOString(),
+          bloggerUrl: null,
+          tumblrUrl: null,
+          tumblrSkipReason: null,
+          facebookUrl: null,
+          wordpressUrl: null,
+        });
 
-      console.log('[OK]');
-      synced += 1;
+        console.log('[OK]');
+        synced += 1;
+      } catch (err) {
+        console.log(`[FAIL] ${err instanceof Error ? err.message : String(err)}`);
+        failed += 1;
+      }
     }
 
-    console.log(`\nDone. Synced ${synced}, already synced ${skipped}.`);
+    console.log(`\nDone. Synced ${synced}, already synced ${skipped}, too large ${tooLarge}, failed ${failed}.`);
   } finally {
     await app.close();
   }
