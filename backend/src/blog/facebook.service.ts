@@ -29,28 +29,41 @@ export class FacebookService {
   }
 
   /**
-   * Publishes a plain text post (the full article body, not a link preview
-   * card) to the configured Facebook Page. Fire-and-forget from callers:
-   * never throws. Returns the published post URL, or null on failure/not
-   * configured.
+   * Publishes a plain text post (no photo) to the configured Facebook Page.
+   * Fire-and-forget from callers: never throws. Returns the published post
+   * URL, or null on failure/not configured.
    */
   async publish(message: string): Promise<string | null> {
     if (!this.isConfigured()) return null;
+    return this.post(`${this.creds.pageId}/feed`, { message });
+  }
 
-    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${this.creds.pageId}/feed`;
+  /**
+   * Publishes a photo post: the given image URL is fetched by Facebook and
+   * attached natively, with `caption` as the post text. Unlike a /feed post
+   * with a `link` param, this never depends on Facebook's OG-tag scraper —
+   * which is unreliable here since the site is a static export and a freshly
+   * published post's per-article OG image doesn't exist until the next
+   * Netlify rebuild. Fire-and-forget: never throws. Returns the published
+   * post URL, or null on failure/not configured.
+   */
+  async publishPhoto(imageUrl: string, caption: string): Promise<string | null> {
+    if (!this.isConfigured()) return null;
+    return this.post(`${this.creds.pageId}/photos`, { url: imageUrl, caption });
+  }
+
+  private async post(path: string, params: Record<string, string>): Promise<string | null> {
+    const url = `https://graph.facebook.com/${GRAPH_VERSION}/${path}`;
 
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          message,
-          access_token: this.creds.pageAccessToken!,
-        }),
+        body: new URLSearchParams({ ...params, access_token: this.creds.pageAccessToken! }),
       });
 
       const json = (await res.json().catch(() => null)) as
-        | { id?: string; error?: { message?: string } }
+        | { id?: string; post_id?: string; error?: { message?: string } }
         | null;
 
       if (!res.ok || !json?.id) {
@@ -58,8 +71,10 @@ export class FacebookService {
         return null;
       }
 
-      // Facebook returns "{page-id}_{post-id}" as the combined id.
-      const postId = json.id.split('_')[1] ?? json.id;
+      // Photo posts return {id: "<photo-id>", post_id: "<page-id>_<post-id>"};
+      // feed posts return {id: "<page-id>_<post-id>"} directly.
+      const combinedId = json.post_id ?? json.id;
+      const postId = combinedId.split('_')[1] ?? combinedId;
       return `https://www.facebook.com/${this.creds.pageId}/posts/${postId}`;
     } catch (err) {
       this.logger.warn(`Facebook publish error: ${err instanceof Error ? err.message : err}`);
