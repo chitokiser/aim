@@ -11,7 +11,13 @@ import { WordPressService, type WordPressTarget } from './wordpress.service';
 const DAILY_CAP = 5;
 const DELAY_BETWEEN_POSTS_MS = 90_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
-const TARGETS: WordPressTarget[] = ['trending', 'classics', 'buddhist'];
+// "trending" and "classics" both started returning 403 "API calls to this
+// endpoint have been disabled" (confirmed via a live draft-post test) —
+// WordPress.com has disabled REST API writes for those two sites, likely
+// from the posting volume before the trending-cadence fix. "buddhist" still
+// works fine, so it stays enabled; the other two are excluded here to stop
+// wasting calls against dead endpoints until access is confirmed restored.
+const TARGETS: WordPressTarget[] = ['buddhist'];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

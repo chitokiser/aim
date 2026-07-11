@@ -121,10 +121,12 @@ const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
 // follows the flat 1:1 mapping.
 const BUDDHIST_PHILOSOPHY_TAG = '불교철학';
 
+// "trending" and "classics" both return 403 "API calls to this endpoint have
+// been disabled" (WordPress.com disabled REST API writes for those two
+// sites — confirmed via a live draft-post test). "buddhist" still works, so
+// it's the only target left enabled below until access is restored.
 function resolveWordPressTarget(post: Pick<BlogPost, 'category' | 'tags'>): WordPressTarget | null {
   if (post.category === 'classics' && post.tags?.includes(BUDDHIST_PHILOSOPHY_TAG)) return 'buddhist';
-  if (post.category === 'trending') return 'trending';
-  if (post.category === 'classics') return 'classics';
   return null;
 }
 
