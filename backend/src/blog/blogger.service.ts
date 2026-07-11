@@ -6,7 +6,7 @@ const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 // Each target is a separate Blogger blog with its own OAuth client, so a
 // quota/write-block on one blog's Google Cloud project never affects the
 // other. Maps 1:1 to blog_posts.category values that get cross-posted.
-export type BloggerTarget = 'trending' | 'classics';
+export type BloggerTarget = 'trending' | 'classics' | 'silver-ai-bootcamp';
 
 interface BloggerCredentials {
   clientId?: string;
@@ -24,6 +24,7 @@ export class BloggerService {
     this.targets = {
       trending: this.loadCredentials('BLOGGER_TRENDING'),
       classics: this.loadCredentials('BLOGGER_CLASSICS'),
+      'silver-ai-bootcamp': this.loadCredentials('BLOGGER_SILVER'),
     };
   }
 

@@ -110,6 +110,7 @@ function randomInt(min: number, max: number): number {
 const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
   trending: 'trending',
   classics: 'classics',
+  'silver-ai-bootcamp': 'silver-ai-bootcamp',
 };
 
 // WordPress.com routing, independent of the Blogger targets above (separate

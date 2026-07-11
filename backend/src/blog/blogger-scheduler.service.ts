@@ -10,7 +10,11 @@ import { BloggerService, type BloggerTarget } from './blogger.service';
 const DAILY_CAP = 5;
 const DELAY_BETWEEN_POSTS_MS = 90_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
-const TARGETS: BloggerTarget[] = ['trending', 'classics'];
+// "trending" and "classics" run on the original (write-blocked) account and
+// stay disabled below. "silver-ai-bootcamp" runs on a separate, freshly
+// created Google account/Cloud project, so a block on the old account can't
+// affect it.
+const TARGETS: BloggerTarget[] = ['silver-ai-bootcamp'];
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -27,25 +31,21 @@ export class BloggerSchedulerService {
   ) {}
 
   // Once/day, after the 04:00 KST webzine batch so there's fresh content to pick from.
+  // Only runs for TARGETS above (currently just "silver-ai-bootcamp") — the
+  // original "trending"/"classics" account is still write-blocked (403
+  // PERMISSION_DENIED, confirmed via a live test post) and stays excluded
+  // until access is confirmed restored.
   @Cron('0 6 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyCron(): Promise<void> {
-    // Disabled: both "trending" and "classics" Blogger blogs are returning 403
-    // PERMISSION_DENIED on write (confirmed via a live test post) — the account
-    // appears to be write-blocked/suspended, same symptom hit on the football/
-    // treasure-hunt bots' Blogger accounts. Re-enable once access is confirmed
-    // restored; retrying while blocked only wastes calls against a dead account.
-    this.logger.warn('Blogger cross-posting is disabled (account write-blocked, 403) — skipping daily cron.');
-    return;
-
-    // if (this.running) return;
-    // this.running = true;
-    // try {
-    //   for (const target of TARGETS) {
-    //     await this.runTarget(target);
-    //   }
-    // } finally {
-    //   this.running = false;
-    // }
+    if (this.running) return;
+    this.running = true;
+    try {
+      for (const target of TARGETS) {
+        await this.runTarget(target);
+      }
+    } finally {
+      this.running = false;
+    }
   }
 
   async runTarget(target: BloggerTarget): Promise<{ posted: number }> {
