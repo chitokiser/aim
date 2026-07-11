@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, Interval } from '@nestjs/schedule';
 import { BlogService } from './blog.service';
 import { BloggerService, type BloggerTarget } from './blogger.service';
 
@@ -11,10 +11,16 @@ const DAILY_CAP = 5;
 const DELAY_BETWEEN_POSTS_MS = 90_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 // "trending" and "classics" run on the original (write-blocked) account and
-// stay disabled below. "silver-ai-bootcamp" runs on a separate, freshly
-// created Google account/Cloud project, so a block on the old account can't
-// affect it.
-const TARGETS: BloggerTarget[] = ['silver-ai-bootcamp'];
+// stay disabled below until access is confirmed restored.
+const TARGETS: BloggerTarget[] = [];
+
+// "silver-ai-bootcamp" runs on a separate, freshly created Google account/
+// Cloud project, so a block on the old account can't affect it. Posts one
+// article every 1.5 hours (rather than a daily batch), per request, to keep
+// a slow, steady pace on the fresh account.
+const SILVER_TARGET: BloggerTarget = 'silver-ai-bootcamp';
+const SILVER_INTERVAL_MS = 90 * 60 * 1000;
+const SILVER_CAP_PER_TICK = 1;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -24,15 +30,16 @@ function sleep(ms: number): Promise<void> {
 export class BloggerSchedulerService {
   private readonly logger = new Logger(BloggerSchedulerService.name);
   private running = false;
+  private silverRunning = false;
 
   constructor(
     private readonly blog: BlogService,
     private readonly blogger: BloggerService,
   ) {}
 
-  // Once/day, after the 04:00 KST webzine batch so there's fresh content to pick from.
-  // Only runs for TARGETS above (currently just "silver-ai-bootcamp") — the
-  // original "trending"/"classics" account is still write-blocked (403
+  // Once/day, after the 04:00 KST webzine batch so there's fresh content to
+  // pick from. Only runs for TARGETS above (currently empty) — the original
+  // "trending"/"classics" account is still write-blocked (403
   // PERMISSION_DENIED, confirmed via a live test post) and stays excluded
   // until access is confirmed restored.
   @Cron('0 6 * * *', { timeZone: 'Asia/Seoul' })
@@ -41,17 +48,28 @@ export class BloggerSchedulerService {
     this.running = true;
     try {
       for (const target of TARGETS) {
-        await this.runTarget(target);
+        await this.runTarget(target, DAILY_CAP);
       }
     } finally {
       this.running = false;
     }
   }
 
-  async runTarget(target: BloggerTarget): Promise<{ posted: number }> {
+  @Interval(SILVER_INTERVAL_MS)
+  async handleSilverInterval(): Promise<void> {
+    if (this.silverRunning) return;
+    this.silverRunning = true;
+    try {
+      await this.runTarget(SILVER_TARGET, SILVER_CAP_PER_TICK);
+    } finally {
+      this.silverRunning = false;
+    }
+  }
+
+  async runTarget(target: BloggerTarget, cap: number): Promise<{ posted: number }> {
     if (!this.blogger.isConfigured(target)) return { posted: 0 };
 
-    const candidates = await this.blog.listBloggerCandidates(target, DAILY_CAP);
+    const candidates = await this.blog.listBloggerCandidates(target, cap);
     let posted = 0;
     let consecutiveFailures = 0;
 
