@@ -16,6 +16,7 @@ import { TrendingKeywordsController } from './trending-keywords.controller';
 import { TrendingArticleService } from './trending-article.service';
 import { ClassicsAutoSeedService } from './classics-auto-seed.service';
 import { WordPressTrendingWidgetService } from './wordpress-trending-widget.service';
+import { SilverAiBootcampService } from './silver-ai-bootcamp.service';
 
 @Module({
   imports: [BlogModule, AuthModule, UsersModule],
@@ -33,6 +34,7 @@ import { WordPressTrendingWidgetService } from './wordpress-trending-widget.serv
     TrendingArticleService,
     ClassicsAutoSeedService,
     WordPressTrendingWidgetService,
+    SilverAiBootcampService,
   ],
 })
 export class WebzineModule {}

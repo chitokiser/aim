@@ -32,13 +32,10 @@ function distributeCounts(categories: CategoryDef[], total: number): Map<string,
   return counts;
 }
 
-const SILVER_AI_BOOTCAMP_CATEGORY = 'silver-ai-bootcamp';
-
 @Injectable()
 export class WebzineSchedulerService {
   private readonly logger = new Logger(WebzineSchedulerService.name);
   private running = false;
-  private silverAiBootcampRunning = false;
 
   constructor(
     private readonly blog: BlogService,
@@ -113,22 +110,6 @@ export class WebzineSchedulerService {
       return { created, attempted };
     } finally {
       this.running = false;
-    }
-  }
-
-  // Auto-publishes the latest "실버 AI부트캠프" (Silver AI Bootcamp) article once
-  // per hour, at the user's explicit request — reuses the same single-article
-  // pipeline as the admin "지금 수집" button (runCategory), just on a cron.
-  @Cron('20 * * * *')
-  async handleSilverAiBootcampHourlyCron(): Promise<void> {
-    if (this.silverAiBootcampRunning) return;
-    this.silverAiBootcampRunning = true;
-    try {
-      await this.runCategory(SILVER_AI_BOOTCAMP_CATEGORY);
-    } catch (err) {
-      this.logger.warn(`Silver AI Bootcamp hourly run failed: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      this.silverAiBootcampRunning = false;
     }
   }
 
