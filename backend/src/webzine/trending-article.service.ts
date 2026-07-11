@@ -26,9 +26,12 @@ function docIdFor(date: string, keyword: string): string {
 }
 
 // Watches the real-time trending-keywords feed and writes an article for
-// any of the current top 10 that hasn't already been covered today — runs
-// on its own frequent cadence, independent of the once-daily 4am KST batch
-// in WebzineSchedulerService.
+// the highest-ranked of the current top 10 that hasn't already been covered
+// today — runs once per hour, capped at one article per run (per the user's
+// explicit request to slow the trending category down to one post/hour),
+// independent of the once-daily 4am KST batch in WebzineSchedulerService.
+const MAX_ARTICLES_PER_RUN = 1;
+
 @Injectable()
 export class TrendingArticleService {
   private readonly logger = new Logger(TrendingArticleService.name);
@@ -47,7 +50,7 @@ export class TrendingArticleService {
     return this.firebase.collection('trending_keyword_log');
   }
 
-  @Cron('*/15 * * * *')
+  @Cron('0 * * * *')
   async handleCron(): Promise<void> {
     await this.checkAndWrite();
   }
@@ -65,6 +68,7 @@ export class TrendingArticleService {
       const date = todayDateString();
 
       for (const { title: keyword } of keywords.slice(0, TOP_N)) {
+        if (created >= MAX_ARTICLES_PER_RUN) break;
         if (!keyword) continue;
         checked += 1;
 
