@@ -25,14 +25,24 @@ export class ImageGeneratorService {
     return Boolean(this.geminiKey) && this.geminiKey !== 'your-gemini-api-key';
   }
 
-  // Cover image for an article. Tries real, freely-licensed stock photos
-  // first (via imageQuery, an English keyword phrase) — no daily quota,
-  // and often more accurate/credible than an AI illustration for factual
-  // reference topics (real factories, equipment, etc). Pexels is tried
-  // before Pixabay since it's the currently-approved key; Imagen is only
-  // a last-resort fallback if neither stock source has a match.
+  // Cover image for an article. Mixes real stock photos (via imageQuery, an
+  // English keyword phrase — no daily quota, and often more accurate for
+  // factual reference topics like real factories/equipment) with Imagen
+  // illustrations, instead of only generating a stock photo every time —
+  // stock searches for similar/generic queries otherwise keep converging on
+  // near-identical images across articles. Rolls the dice first: about a
+  // third of covers go straight to AI generation for variety; the rest try
+  // stock photos first (Pexels, then Pixabay) and fall back to AI generation
+  // if neither has a match.
   async generateCoverImage(title: string, imageQuery?: string): Promise<string | null> {
     const query = imageQuery || '';
+    const preferAiFirst = Math.random() < 0.35;
+
+    if (preferAiFirst && this.isConfigured()) {
+      const aiUrl = await this.generateAiImage(title);
+      if (aiUrl) return aiUrl;
+    }
+
     const stockUrl = (await this.pexels.searchPhoto(query)) ?? (await this.stockImages.searchPhoto(query));
     if (stockUrl) {
       const uploaded = await this.downloadAndUpload(stockUrl, 'jpg', 'image/jpeg');

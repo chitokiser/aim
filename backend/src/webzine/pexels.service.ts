@@ -34,7 +34,7 @@ export class PexelsService {
     try {
       const params = new URLSearchParams({
         query: query.trim().slice(0, 100),
-        per_page: '1',
+        per_page: '15',
         orientation: 'landscape',
       });
       const res = await fetch(`https://api.pexels.com/v1/search?${params.toString()}`, {
@@ -45,7 +45,11 @@ export class PexelsService {
         return null;
       }
       const data = (await res.json()) as PexelsResponse;
-      const photo = data.photos?.[0];
+      if (!data.photos?.length) return null;
+      // Picking randomly among the top matches (rather than always the #1
+      // result) avoids every article with a similar imageQuery landing on
+      // the exact same photo.
+      const photo = data.photos[Math.floor(Math.random() * data.photos.length)];
       return photo?.src?.large2x ?? photo?.src?.large ?? photo?.src?.original ?? null;
     } catch (err) {
       this.logger.warn(`Pexels search error for "${query}": ${err instanceof Error ? err.message : String(err)}`);

@@ -39,7 +39,7 @@ export class StockImageService {
         image_type: 'photo',
         orientation: 'horizontal',
         safesearch: 'true',
-        per_page: '5',
+        per_page: '15',
       });
       const res = await fetch(`https://pixabay.com/api/?${params.toString()}`);
       if (!res.ok) {
@@ -47,7 +47,11 @@ export class StockImageService {
         return null;
       }
       const data = (await res.json()) as PixabayResponse;
-      const hit = data.hits?.[0];
+      if (!data.hits?.length) return null;
+      // Picking randomly among the top matches (rather than always the #1
+      // result) avoids every article with a similar imageQuery landing on
+      // the exact same photo.
+      const hit = data.hits[Math.floor(Math.random() * data.hits.length)];
       return hit?.largeImageURL ?? hit?.webformatURL ?? null;
     } catch (err) {
       this.logger.warn(`Pixabay search error for "${query}": ${err instanceof Error ? err.message : String(err)}`);
