@@ -32,10 +32,13 @@ function distributeCounts(categories: CategoryDef[], total: number): Map<string,
   return counts;
 }
 
+const DIGITAL_NOMAD_CATEGORY = 'digital-nomad';
+
 @Injectable()
 export class WebzineSchedulerService {
   private readonly logger = new Logger(WebzineSchedulerService.name);
   private running = false;
+  private digitalNomadRunning = false;
 
   constructor(
     private readonly blog: BlogService,
@@ -110,6 +113,22 @@ export class WebzineSchedulerService {
       return { created, attempted };
     } finally {
       this.running = false;
+    }
+  }
+
+  // Auto-publishes the latest "디지털노마드" (digital nomad) article once per
+  // hour, at the user's explicit request — reuses the same single-article
+  // pipeline as the admin "지금 수집" button (runCategory), just on a cron.
+  @Cron('20 * * * *')
+  async handleDigitalNomadHourlyCron(): Promise<void> {
+    if (this.digitalNomadRunning) return;
+    this.digitalNomadRunning = true;
+    try {
+      await this.runCategory(DIGITAL_NOMAD_CATEGORY);
+    } catch (err) {
+      this.logger.warn(`Digital nomad hourly run failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      this.digitalNomadRunning = false;
     }
   }
 

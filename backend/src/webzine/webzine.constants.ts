@@ -40,6 +40,7 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'pets', ko: '반려동물', en: 'Pets', vi: 'Thú cưng', searchQuery: '반려동물' },
   { slug: 'fitness', ko: '운동·피트니스', en: 'Fitness', vi: 'Thể hình', searchQuery: '운동 피트니스' },
   { slug: 'classics', ko: '고전읽기', en: 'Classic Reading', vi: 'Đọc kinh điển', searchQuery: '고전 명언 동양철학' },
+  { slug: 'digital-nomad', ko: '디지털노마드', en: 'Digital Nomad', vi: 'Du mục kỹ thuật số', searchQuery: '디지털노마드 원격근무 해외취업 노마드비자' },
 ];
 
 export function findCategory(slug: string): CategoryDef | undefined {
