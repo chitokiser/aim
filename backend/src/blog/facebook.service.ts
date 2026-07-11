@@ -29,12 +29,12 @@ export class FacebookService {
   }
 
   /**
-   * Publishes a link post to the configured Facebook Page. Facebook scrapes
-   * the linked page's Open Graph tags for the preview card, so no separate
-   * image upload is needed. Fire-and-forget from callers: never throws.
-   * Returns the published post URL, or null on failure/not configured.
+   * Publishes a plain text post (the full article body, not a link preview
+   * card) to the configured Facebook Page. Fire-and-forget from callers:
+   * never throws. Returns the published post URL, or null on failure/not
+   * configured.
    */
-  async publish(message: string, link: string): Promise<string | null> {
+  async publish(message: string): Promise<string | null> {
     if (!this.isConfigured()) return null;
 
     const url = `https://graph.facebook.com/${GRAPH_VERSION}/${this.creds.pageId}/feed`;
@@ -45,7 +45,6 @@ export class FacebookService {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
           message,
-          link,
           access_token: this.creds.pageAccessToken!,
         }),
       });

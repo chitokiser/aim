@@ -352,7 +352,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
         void this.crossPostToTumblr(ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
       if (doc.category === 'silver-ai-bootcamp') {
-        void this.crossPostToFacebook(ref.id, doc.title, doc.content, slug);
+        void this.crossPostToFacebook(ref.id, doc.title, doc.content);
       }
     }
     return { id: ref.id, ...doc, commentCount };
@@ -484,18 +484,18 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     return url ? { status: 'posted', url } : { status: 'failed' };
   }
 
-  // Cross-posts an article to the Facebook Page as a link post
-  // (silver-ai-bootcamp category only), once per post. Tracked via
+  // Cross-posts an article to the Facebook Page as a plain text post with
+  // the full article body (not a link-preview card), at the user's explicit
+  // request — (silver-ai-bootcamp category only), once per post. Tracked via
   // blog_facebook_posts so re-running any backfill never double-posts.
   // Fire-and-forget: FacebookService itself never throws.
-  private async crossPostToFacebook(postId: string, title: string, content: string, slug: string): Promise<void> {
+  private async crossPostToFacebook(postId: string, title: string, content: string): Promise<void> {
     if (!this.facebook.isConfigured()) return;
     const existing = await this.facebookPostsCollection.doc(postId).get();
     if (existing.exists) return;
-    const excerpt = stripHtml(content).slice(0, 300);
-    const message = `${title}\n\n${excerpt}`;
-    const link = `${this.siteUrl}/blog/${slug}`;
-    const url = await this.facebook.publish(message, link);
+    const body = stripHtml(content);
+    const message = `${title}\n\n${body}`;
+    const url = await this.facebook.publish(message);
     this.logger.log(`crossPostToFacebook: "${title}" -> url=${url ?? 'FAILED'}`);
     if (url) {
       await this.facebookPostsCollection.doc(postId).set({ postId, facebookUrl: url, createdAt: new Date().toISOString() });
@@ -510,7 +510,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (post.category !== 'silver-ai-bootcamp') return { status: 'not-applicable' };
     const before = await this.facebookPostsCollection.doc(id).get();
     if (before.exists) return { status: 'already-posted', url: before.data()?.facebookUrl as string | undefined };
-    await this.crossPostToFacebook(post.id, post.title, post.content, post.slug);
+    await this.crossPostToFacebook(post.id, post.title, post.content);
     const after = await this.facebookPostsCollection.doc(id).get();
     const url = after.data()?.facebookUrl as string | undefined;
     return url ? { status: 'posted', url } : { status: 'failed' };
