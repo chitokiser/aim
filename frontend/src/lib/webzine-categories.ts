@@ -41,7 +41,7 @@ export const WEBZINE_CATEGORIES: WebzineCategory[] = [
   { slug: "pets", ko: "반려동물", en: "Pets", vi: "Thú cưng" },
   { slug: "fitness", ko: "운동·피트니스", en: "Fitness", vi: "Thể hình" },
   { slug: "classics", ko: "고전읽기", en: "Classic Reading", vi: "Đọc kinh điển" },
-  { slug: "digital-nomad", ko: "디지털노마드", en: "Digital Nomad", vi: "Du mục kỹ thuật số" },
+  { slug: "silver-ai-bootcamp", ko: "실버 AI부트캠프", en: "Silver AI Bootcamp", vi: "Trại huấn luyện AI cho người cao tuổi" },
   { slug: "general", ko: "일반", en: "General", vi: "Chung" },
 ];
 

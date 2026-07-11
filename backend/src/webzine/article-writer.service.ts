@@ -34,7 +34,9 @@ export class ArticleWriterService {
       .map((a, i) => `${i + 1}. ${a.title}\n   ${a.snippet}\n   URL: ${a.link}`)
       .join('\n\n');
 
-    const prompt = `You are a professional Korean news editor writing for the "${category.ko}" (${category.en}) section of AI119, a Korean AI commerce web magazine.
+    const audienceNote = category.audienceNote ? `\n\nSection guidance (follow this closely): ${category.audienceNote}` : '';
+
+    const prompt = `You are a professional Korean news editor writing for the "${category.ko}" (${category.en}) section of AI119, a Korean AI commerce web magazine.${audienceNote}
 
 Below are today's raw headlines and snippets collected from public RSS feeds:
 

@@ -4,6 +4,10 @@ export interface CategoryDef {
   en: string;
   vi: string;
   searchQuery: string;
+  // Optional extra framing injected into the article-writer prompt (audience,
+  // tone, angle) for categories that need a specific voice beyond what the
+  // ko/en category name alone conveys.
+  audienceNote?: string;
 }
 
 export const CATEGORIES: CategoryDef[] = [
@@ -40,7 +44,18 @@ export const CATEGORIES: CategoryDef[] = [
   { slug: 'pets', ko: '반려동물', en: 'Pets', vi: 'Thú cưng', searchQuery: '반려동물' },
   { slug: 'fitness', ko: '운동·피트니스', en: 'Fitness', vi: 'Thể hình', searchQuery: '운동 피트니스' },
   { slug: 'classics', ko: '고전읽기', en: 'Classic Reading', vi: 'Đọc kinh điển', searchQuery: '고전 명언 동양철학' },
-  { slug: 'digital-nomad', ko: '디지털노마드', en: 'Digital Nomad', vi: 'Du mục kỹ thuật số', searchQuery: '디지털노마드 원격근무 해외취업 노마드비자' },
+  {
+    slug: 'silver-ai-bootcamp',
+    ko: '실버 AI부트캠프',
+    en: 'Silver AI Bootcamp',
+    vi: 'Trại huấn luyện AI cho người cao tuổi',
+    searchQuery: '시니어 AI 활용법 50대 60대 70대 챗GPT',
+    audienceNote:
+      'AI는 젊은 사람들만의 기술이 아닙니다. 이 섹션은 50대, 60대, 70대 이상 독자도 쉽게 따라 할 수 있는 AI 활용법을 소개합니다. ' +
+      'ChatGPT, Gemini 등 다양한 AI 도구를 활용해 글쓰기, 이미지 제작, 유튜브, 블로그, 업무 자동화, 온라인 부업까지 실생활에 도움이 되는 정보를 ' +
+      '쉽고 친절한 말투로 전달하세요. 전문 용어는 풀어서 설명하고, 컴퓨터/스마트폰 조작에 익숙하지 않은 독자도 그대로 따라 할 수 있도록 단계별로 안내하세요. ' +
+      '나이에 상관없이 AI와 함께 배우고 성장하며 새로운 삶을 시작할 수 있다는 응원의 톤을 유지하세요.',
+  },
 ];
 
 export function findCategory(slug: string): CategoryDef | undefined {
