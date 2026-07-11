@@ -1,18 +1,26 @@
 /**
  * Local-only sync: recursively scans a local video folder, uploads every
- * not-yet-synced video to Firebase Storage, and creates a Firestore doc
- * (collection `sns_videos`) so SnsVideoSchedulerService can cross-post it to
- * Blogger/Tumblr (and later Facebook/WordPress) at a slow 2h/video cadence.
+ * not-yet-synced video to Firebase Storage (plus a thumbnail frame extracted
+ * via ffmpeg), and creates a Firestore doc (collection `sns_videos`) so
+ * SnsVideoSchedulerService can cross-post it to Blogger/Tumblr (and later
+ * Facebook/WordPress) at a slow 2h/video cadence.
  *
  * This MUST run locally — Railway has no access to the user's local
- * filesystem — but only needs to run once per new batch of videos dropped
- * into the folder; safe to re-run (already-synced files are skipped via
- * their relativePath already existing in Firestore).
+ * filesystem, and ffmpeg isn't part of the deployed backend — but only needs
+ * to run once per new batch of videos dropped into the folder; safe to
+ * re-run (already-synced files are skipped via their relativePath already
+ * existing in Firestore). Also backfills thumbnailUrl for any doc that was
+ * synced before thumbnails were added, as long as its source file still
+ * exists at the same relativePath under `root`.
+ *
+ * Requires ffmpeg on PATH (used to grab a single frame as the thumbnail).
  *
  * Run: npx ts-node -r dotenv/config src/scripts/sync-sns-videos-to-firebase.ts "<folder path>"
  */
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { NestFactory } from '@nestjs/core';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
@@ -49,6 +57,38 @@ function titleFromFilename(filePath: string): string {
   return path.basename(filePath, path.extname(filePath)).replace(/[_-]+/g, ' ').trim();
 }
 
+// Grabs the frame at 1s in (falls back to the very first frame for clips
+// shorter than that) and scales it down — this is just a list/preview
+// thumbnail, not the video itself.
+function extractThumbnail(videoPath: string): Buffer | null {
+  const outPath = path.join(os.tmpdir(), `sns-thumb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`);
+  try {
+    execFileSync('ffmpeg', [
+      '-y', '-ss', '00:00:01', '-i', videoPath,
+      '-frames:v', '1', '-vf', 'scale=480:-1',
+      outPath,
+    ], { stdio: 'pipe' });
+    if (!fs.existsSync(outPath)) return null;
+    const buffer = fs.readFileSync(outPath);
+    return buffer;
+  } catch {
+    // Clip may be shorter than 1s — retry from the very start.
+    try {
+      execFileSync('ffmpeg', [
+        '-y', '-i', videoPath,
+        '-frames:v', '1', '-vf', 'scale=480:-1',
+        outPath,
+      ], { stdio: 'pipe' });
+      if (!fs.existsSync(outPath)) return null;
+      return fs.readFileSync(outPath);
+    } catch {
+      return null;
+    }
+  } finally {
+    if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
+  }
+}
+
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true }), FirebaseModule],
 })
@@ -71,21 +111,45 @@ async function main() {
     const collection = firebase.collection('sns_videos');
     const bucket = firebase.getBucket();
 
+    async function uploadThumbnail(videoPath: string): Promise<string | null> {
+      const thumbBuffer = extractThumbnail(videoPath);
+      if (!thumbBuffer) return null;
+      const thumbFilename = `sns-videos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-thumb.jpg`;
+      const thumbFile = bucket.file(thumbFilename);
+      await thumbFile.save(thumbBuffer, { metadata: { contentType: 'image/jpeg' } });
+      await thumbFile.makePublic();
+      return `https://storage.googleapis.com/${bucket.name}/${thumbFilename}`;
+    }
+
     const files = findVideoFiles(root);
     console.log(`Found ${files.length} video file(s) under ${root}.`);
 
     const existingSnap = await collection.get();
-    const existingPaths = new Set(existingSnap.docs.map((d) => d.data().relativePath as string));
+    const existingByPath = new Map(existingSnap.docs.map((d) => [d.data().relativePath as string, d]));
 
     let synced = 0;
     let skipped = 0;
     let tooLarge = 0;
     let failed = 0;
+    let thumbsBackfilled = 0;
 
     for (const file of files) {
       const relativePath = path.relative(root, file);
-      if (existingPaths.has(relativePath)) {
+      const existingDoc = existingByPath.get(relativePath);
+
+      if (existingDoc) {
         skipped += 1;
+        if (!existingDoc.data().thumbnailUrl) {
+          process.stdout.write(`Backfilling thumbnail: ${relativePath} ... `);
+          const thumbnailUrl = await uploadThumbnail(file);
+          if (thumbnailUrl) {
+            await existingDoc.ref.update({ thumbnailUrl });
+            console.log('[OK]');
+            thumbsBackfilled += 1;
+          } else {
+            console.log('[FAIL — could not extract frame]');
+          }
+        }
         continue;
       }
 
@@ -107,10 +171,13 @@ async function main() {
         await storageFile.makePublic();
         const videoUrl = `https://storage.googleapis.com/${bucket.name}/${storageFilename}`;
 
+        const thumbnailUrl = await uploadThumbnail(file);
+
         await collection.add({
           relativePath,
           title: titleFromFilename(file),
           videoUrl,
+          thumbnailUrl,
           sizeBytes: stat.size,
           createdAt: new Date().toISOString(),
           bloggerUrl: null,
@@ -120,7 +187,7 @@ async function main() {
           wordpressUrl: null,
         });
 
-        console.log('[OK]');
+        console.log(thumbnailUrl ? '[OK]' : '[OK, no thumbnail]');
         synced += 1;
       } catch (err) {
         console.log(`[FAIL] ${err instanceof Error ? err.message : String(err)}`);
@@ -128,7 +195,7 @@ async function main() {
       }
     }
 
-    console.log(`\nDone. Synced ${synced}, already synced ${skipped}, too large ${tooLarge}, failed ${failed}.`);
+    console.log(`\nDone. Synced ${synced}, already synced ${skipped} (${thumbsBackfilled} thumbnails backfilled), too large ${tooLarge}, failed ${failed}.`);
   } finally {
     await app.close();
   }

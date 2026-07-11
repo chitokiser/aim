@@ -8,6 +8,7 @@ export interface SnsVideoDoc {
   relativePath: string;
   title: string;
   videoUrl: string;
+  thumbnailUrl: string | null;
   sizeBytes: number;
   createdAt: string;
   bloggerUrl: string | null;
@@ -56,7 +57,17 @@ export class SnsVideoService {
     const update: Partial<SnsVideoDoc> = {};
 
     if (!video.bloggerUrl && this.blogger.isConfigured(BLOGGER_TARGET)) {
-      const html = `<p><video controls width="100%" src="${video.videoUrl}"></video></p>`;
+      // Blogger's homepage/list view generates its preview snippet from the
+      // post's leading text/image — a post that's just a bare <video> tag
+      // gets no snippet at all, so it looks blank in the feed next to posts
+      // with a text+image preview (the video itself still plays fine once
+      // you open the post). The thumbnail <img> gives the list view a real
+      // picture to show, and doubles as the video's poster frame.
+      const thumbnail = video.thumbnailUrl
+        ? `<p><img src="${video.thumbnailUrl}" alt="${video.title}" /></p>`
+        : '';
+      const posterAttr = video.thumbnailUrl ? ` poster="${video.thumbnailUrl}"` : '';
+      const html = `${thumbnail}<p><video controls width="100%" src="${video.videoUrl}"${posterAttr}></video></p>`;
       const url = await this.blogger.publish(BLOGGER_TARGET, video.title, html);
       this.logger.log(`SNS video -> Blogger: "${video.title}" url=${url ?? 'FAILED'}`);
       if (url) update.bloggerUrl = url;
