@@ -10,6 +10,8 @@ import { TumblrService } from './tumblr.service';
 import { TumblrSchedulerService } from './tumblr-scheduler.service';
 import { FacebookService } from './facebook.service';
 import { FacebookSchedulerService } from './facebook-scheduler.service';
+import { SnsVideoService } from './sns-video.service';
+import { SnsVideoSchedulerService } from './sns-video-scheduler.service';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { RouletteModule } from '../roulette/roulette.module';
@@ -28,6 +30,8 @@ import { RouletteModule } from '../roulette/roulette.module';
     TumblrSchedulerService,
     FacebookService,
     FacebookSchedulerService,
+    SnsVideoService,
+    SnsVideoSchedulerService,
   ],
   exports: [
     BlogService,
@@ -40,6 +44,8 @@ import { RouletteModule } from '../roulette/roulette.module';
     TumblrSchedulerService,
     FacebookService,
     FacebookSchedulerService,
+    SnsVideoService,
+    SnsVideoSchedulerService,
   ],
 })
 export class BlogModule {}

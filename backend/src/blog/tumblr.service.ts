@@ -85,4 +85,43 @@ export class TumblrService {
       return null;
     }
   }
+
+  /**
+   * Publishes a video post to the configured Tumblr blog. Tumblr's video post
+   * type needs the actual file bytes — a bare external URL via the `embed`
+   * field was tested and rejected ("Posting failed") — so callers must fetch
+   * the file themselves and pass the buffer here. Fire-and-forget: never
+   * throws. Returns the published post URL, or null on failure/not configured.
+   */
+  async publishVideo(caption: string, videoBuffer: Buffer): Promise<string | null> {
+    if (!this.isConfigured()) return null;
+
+    const url = `https://api.tumblr.com/v2/blog/${encodeURIComponent(this.creds.blogName!)}/post`;
+    const token = { key: this.creds.accessToken!, secret: this.creds.accessTokenSecret! };
+    const signedParams = { type: 'video', caption, state: 'published' };
+    const authHeader = this.oauth.toHeader(this.oauth.authorize({ url, method: 'POST', data: signedParams }, token));
+
+    const form = new FormData();
+    form.append('type', 'video');
+    form.append('caption', caption);
+    form.append('state', 'published');
+    form.append('data', new Blob([new Uint8Array(videoBuffer)]), 'video.mp4');
+
+    try {
+      const res = await fetch(url, { method: 'POST', headers: { ...authHeader }, body: form });
+      const json = (await res.json().catch(() => null)) as
+        | { response?: { id?: number; id_string?: string }; meta?: { status?: number; msg?: string } }
+        | null;
+
+      if (!res.ok || !json?.response?.id_string) {
+        this.logger.warn(`Tumblr video publish failed for "${caption}" (${res.status}): ${JSON.stringify(json)}`);
+        return null;
+      }
+
+      return `https://${this.creds.blogName}/post/${json.response.id_string}`;
+    } catch (err) {
+      this.logger.warn(`Tumblr video publish error for "${caption}": ${err instanceof Error ? err.message : err}`);
+      return null;
+    }
+  }
 }
