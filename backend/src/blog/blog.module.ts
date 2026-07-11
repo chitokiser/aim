@@ -8,6 +8,7 @@ import { WordPressService } from './wordpress.service';
 import { WordPressSchedulerService } from './wordpress-scheduler.service';
 import { TumblrService } from './tumblr.service';
 import { FacebookService } from './facebook.service';
+import { FacebookSchedulerService } from './facebook-scheduler.service';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { RouletteModule } from '../roulette/roulette.module';
@@ -24,6 +25,7 @@ import { RouletteModule } from '../roulette/roulette.module';
     WordPressSchedulerService,
     TumblrService,
     FacebookService,
+    FacebookSchedulerService,
   ],
   exports: [
     BlogService,
@@ -34,6 +36,7 @@ import { RouletteModule } from '../roulette/roulette.module';
     WordPressSchedulerService,
     TumblrService,
     FacebookService,
+    FacebookSchedulerService,
   ],
 })
 export class BlogModule {}

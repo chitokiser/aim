@@ -516,6 +516,23 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     return url ? { status: 'posted', url } : { status: 'failed' };
   }
 
+  // Used by FacebookSchedulerService's interval to pick the next backlog
+  // candidates: published "silver-ai-bootcamp" posts, long enough, not yet
+  // cross-posted. Oldest first so the backlog clears in order.
+  async listFacebookCandidates(limit: number): Promise<BlogPost[]> {
+    const posts = (await this.listAll())
+      .filter((p) => p.published && p.category === 'silver-ai-bootcamp' && stripHtml(p.content).length >= MIN_BLOGGER_CONTENT_LENGTH)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const eligible: BlogPost[] = [];
+    for (const post of posts) {
+      if (eligible.length >= limit) break;
+      const already = await this.facebookPostsCollection.doc(post.id).get();
+      if (!already.exists) eligible.push(post);
+    }
+    return eligible;
+  }
+
   // Used by the backfill/scheduler to cross-post pre-existing articles.
   // Distinguishes "already posted" from "publish failed" so a caller can tell
   // a dedup skip from a real error (e.g. WordPress rate-limiting).

@@ -19,7 +19,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const DELAY_MS = 30_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
-const LIMIT = 10;
+const LIMIT = 5;
 const MIN_CONTENT_LENGTH = 800;
 
 function stripHtml(html: string): string {
