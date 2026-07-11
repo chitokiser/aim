@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ForbiddenException 
 import { FirebaseService } from '../firebase/firebase.service';
 import { PointsService } from '../points/points.service';
 import { LevelService } from '../level/level.service';
+import { VideoThumbnailService } from './video-thumbnail.service';
 
 const COLLECTION = 'creative_listings';
 const LIKES_COLLECTION = 'creative_listing_likes';
@@ -20,12 +21,22 @@ const LIKE_ACTOR_EXP = 10;
 const COMMENT_OWNER_EXP = 10;
 const COMMENT_ACTOR_EXP = 100;
 
+// Mirrors extractYouTubeId in frontend/src/app/creative-market/page.tsx —
+// YouTube's own thumbnail image is instant and universal, so it's tried
+// before falling back to ffmpeg (which can't fetch a youtube.com/youtu.be
+// page URL directly; it needs an actual video file/stream URL).
+function extractYouTubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtube\.com\/shorts\/|youtube\.com\/embed\/|youtu\.be\/)([\w-]{11})/);
+  return match ? match[1] : null;
+}
+
 @Injectable()
 export class CreativeListingsService {
   constructor(
     private readonly firebase: FirebaseService,
     private readonly points: PointsService,
     private readonly level: LevelService,
+    private readonly videoThumbnail: VideoThumbnailService,
   ) {}
 
   async findAll(contentType?: string): Promise<unknown[]> {
@@ -58,14 +69,33 @@ export class CreativeListingsService {
       throw new BadRequestException('Content link is required');
     }
 
+    const link = dto.link as string;
+    let thumbnailUrl = ((dto.thumbnailUrl as string | undefined) ?? '').trim();
+    // The client only manages to capture a frame for directly-playable,
+    // CORS-enabled video files — for everything else (Facebook/Instagram/TikTok
+    // links, which don't set Access-Control-Allow-Origin) it silently fails,
+    // and a listing sometimes ends up with the raw video link pasted into the
+    // thumbnail field instead, which just renders as a broken image. Treat
+    // that as "no thumbnail" and fall back to server-side generation instead.
+    if (thumbnailUrl === link) thumbnailUrl = '';
+    if (!thumbnailUrl && contentType === 'video') {
+      const ytId = extractYouTubeId(link);
+      if (ytId) {
+        thumbnailUrl = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+      } else {
+        const generated = await this.videoThumbnail.generate(link);
+        if (generated) thumbnailUrl = generated;
+      }
+    }
+
     const listing = {
       sellerId: userId,
       sellerName: (user.firstName as string) || (user.username as string) || 'User',
       contentType,
       title: dto.title,
       description: dto.description ?? '',
-      link: dto.link,
-      thumbnailUrl: dto.thumbnailUrl ?? '',
+      link,
+      thumbnailUrl,
       price,
       tags: dto.tags ?? [],
       status: 'active',
