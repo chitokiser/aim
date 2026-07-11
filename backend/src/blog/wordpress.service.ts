@@ -5,7 +5,9 @@ import { ConfigService } from '@nestjs/config';
 // the "classics" category (posts tagged 불교철학) routed to its own dedicated
 // site instead of the general classics site — see resolveWordPressTarget in
 // blog.service.ts. A write-block on one site never affects the others.
-export type WordPressTarget = 'trending' | 'classics' | 'buddhist';
+// "silver" is silverbootcamp.wordpress.com, a separate site/OAuth app for the
+// "silver-ai-bootcamp" category.
+export type WordPressTarget = 'trending' | 'classics' | 'buddhist' | 'silver';
 
 interface WordPressCredentials {
   site?: string;
@@ -22,6 +24,7 @@ export class WordPressService {
       trending: this.loadCredentials('WORDPRESS_TRENDING'),
       classics: this.loadCredentials('WORDPRESS_CLASSICS'),
       buddhist: this.loadCredentials('WORDPRESS_BUDDHIST'),
+      silver: this.loadCredentials('WORDPRESS_SILVER'),
     };
   }
 

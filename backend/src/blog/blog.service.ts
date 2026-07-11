@@ -121,13 +121,20 @@ const BLOGGER_CATEGORY_TARGETS: Partial<Record<string, BloggerTarget>> = {
 // follows the flat 1:1 mapping.
 const BUDDHIST_PHILOSOPHY_TAG = '불교철학';
 
+// Flat category->target mapping for WordPress sites beyond the buddhist-tag
+// slice above. "silver" is silverbootcamp.wordpress.com, a fresh site/OAuth
+// app dedicated to "silver-ai-bootcamp".
+const WORDPRESS_CATEGORY_TARGETS: Partial<Record<string, WordPressTarget>> = {
+  'silver-ai-bootcamp': 'silver',
+};
+
 // "trending" and "classics" both return 403 "API calls to this endpoint have
 // been disabled" (WordPress.com disabled REST API writes for those two
 // sites — confirmed via a live draft-post test). "buddhist" still works, so
 // it's the only target left enabled below until access is restored.
 function resolveWordPressTarget(post: Pick<BlogPost, 'category' | 'tags'>): WordPressTarget | null {
   if (post.category === 'classics' && post.tags?.includes(BUDDHIST_PHILOSOPHY_TAG)) return 'buddhist';
-  return null;
+  return WORDPRESS_CATEGORY_TARGETS[post.category] ?? null;
 }
 
 // Blogger favors substantial, edited-looking posts over thin/bulk content —
@@ -343,7 +350,11 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (doc.published) {
       const wpTarget = resolveWordPressTarget(doc);
       this.logger.log(`create(): category=${doc.category} wpTarget=${wpTarget ?? 'none'} configured=${wpTarget ? this.wordpress.isConfigured(wpTarget) : 'n/a'} title="${doc.title}"`);
-      if (wpTarget) {
+      // "silver" is a brand-new WordPress.com site/account — kept off the
+      // immediate-publish path (like Blogger's silver-ai-bootcamp target) and
+      // cleared only by WordPressSchedulerService's 1.5h interval, so a burst
+      // of posts can't trip the fresh account's abuse detection.
+      if (wpTarget && wpTarget !== 'silver') {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
       // Tumblr mirrors the "trending" (실시간 이슈) category, at the user's

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, Interval } from '@nestjs/schedule';
 import { BlogService } from './blog.service';
 import { WordPressService, type WordPressTarget } from './wordpress.service';
 
@@ -19,6 +19,14 @@ const MAX_CONSECUTIVE_FAILURES = 3;
 // wasting calls against dead endpoints until access is confirmed restored.
 const TARGETS: WordPressTarget[] = ['buddhist'];
 
+// "silver" runs on a fresh WordPress.com site/account
+// (silverbootcamp.wordpress.com), so posts one article every 1.5 hours
+// instead of a daily batch, per request, to keep a slow, steady pace and
+// avoid tripping the new account's abuse detection.
+const SILVER_TARGET: WordPressTarget = 'silver';
+const SILVER_INTERVAL_MS = 90 * 60 * 1000;
+const SILVER_CAP_PER_TICK = 1;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -27,6 +35,7 @@ function sleep(ms: number): Promise<void> {
 export class WordPressSchedulerService {
   private readonly logger = new Logger(WordPressSchedulerService.name);
   private running = false;
+  private silverRunning = false;
 
   constructor(
     private readonly blog: BlogService,
@@ -39,17 +48,28 @@ export class WordPressSchedulerService {
     this.running = true;
     try {
       for (const target of TARGETS) {
-        await this.runTarget(target);
+        await this.runTarget(target, DAILY_CAP);
       }
     } finally {
       this.running = false;
     }
   }
 
-  async runTarget(target: WordPressTarget): Promise<{ posted: number }> {
+  @Interval(SILVER_INTERVAL_MS)
+  async handleSilverInterval(): Promise<void> {
+    if (this.silverRunning) return;
+    this.silverRunning = true;
+    try {
+      await this.runTarget(SILVER_TARGET, SILVER_CAP_PER_TICK);
+    } finally {
+      this.silverRunning = false;
+    }
+  }
+
+  async runTarget(target: WordPressTarget, cap: number): Promise<{ posted: number }> {
     if (!this.wordpress.isConfigured(target)) return { posted: 0 };
 
-    const candidates = await this.blog.listWordPressCandidates(target, DAILY_CAP);
+    const candidates = await this.blog.listWordPressCandidates(target, cap);
     let posted = 0;
     let consecutiveFailures = 0;
 
