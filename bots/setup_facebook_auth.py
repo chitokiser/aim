@@ -1,29 +1,39 @@
 """
 One-time OAuth2 setup to get a long-lived Facebook Page access token.
 
+This app only has "Facebook Login for Business" configured (Meta's newer
+setup), which requires a Login Configuration ID instead of a raw `scope`
+param -- passing `scope=pages_manage_posts,...` directly gets rejected with
+"Invalid Scopes" on these apps.
+
 Prerequisites (local only -- NOT needed on Railway):
   pip install requests
 
 Steps:
-  1. Go to https://developers.facebook.com/apps -> your app -> "Facebook Login"
-     product -> Settings, and add this to "Valid OAuth Redirect URIs":
-       http://localhost:8893/
-     (Add the "Facebook Login" product first if it isn't already added.)
-  2. Run: python setup_facebook_auth.py
-  3. Browser opens -> log in with the account that manages the target Page,
+  1. In the app dashboard -> "비즈니스용 Facebook 로그인" (Facebook Login for
+     Business) -> "구성" (Configurations) -> "구성 만들기", create a
+     configuration (Asset type: Pages, Access token: User Access Token) with
+     the pages_show_list / pages_manage_posts / pages_read_engagement
+     permissions checked. Copy the resulting Configuration ID.
+  2. If pages_manage_posts / pages_read_engagement aren't selectable yet, go
+     to "앱 검토" (App Review) -> "권한 및 기능" (Permissions and Features) and
+     enable them there first (no review needed for your own Page as the
+     app's admin/developer), then edit the configuration to add them.
+  3. localhost redirects are auto-allowed while the app is in Development
+     mode, so no separate "Valid OAuth Redirect URIs" entry is needed.
+  4. Run: python setup_facebook_auth.py
+  5. Browser opens -> log in with the account that manages the target Page,
      grant the requested permissions.
-  4. The script exchanges the short-lived user token for a long-lived one
+  6. The script exchanges the short-lived user token for a long-lived one
      (~60 days), then lists your Pages with their (effectively non-expiring)
      Page Access Tokens.
-  5. Copy the printed env vars to Railway / backend/.env.
+  7. Copy the printed env vars to Railway / backend/.env.
 
 Notes:
   - A Page Access Token derived from a long-lived User Access Token does not
     expire on its own as long as the user stays an admin of the Page and
     doesn't revoke the app's access. Still, re-run this script if posting
     ever starts failing with an auth error.
-  - No Meta App Review is needed to post to a Page you personally manage,
-    as long as you're using the app in Development mode as its admin/developer.
 """
 
 import http.server
@@ -44,7 +54,6 @@ REDIRECT_URI = f"http://localhost:{PORT}/"
 GRAPH_VERSION = "v21.0"
 AUTH_URL = "https://www.facebook.com/v21.0/dialog/oauth"
 GRAPH_BASE = f"https://graph.facebook.com/{GRAPH_VERSION}"
-SCOPES = "pages_show_list,pages_manage_posts,pages_read_engagement"
 
 
 class _CallbackHandler(http.server.BaseHTTPRequestHandler):
@@ -66,6 +75,7 @@ def main() -> None:
     print("\n=== Facebook Page Access Token Setup ===\n")
     app_id = input("App ID: ").strip()
     app_secret = input("App Secret: ").strip()
+    config_id = input("Login Configuration ID: ").strip()
 
     server = http.server.HTTPServer(("localhost", PORT), _CallbackHandler)
     server.auth_code = None
@@ -74,7 +84,7 @@ def main() -> None:
     auth_url = AUTH_URL + "?" + urllib.parse.urlencode({
         "client_id": app_id,
         "redirect_uri": REDIRECT_URI,
-        "scope": SCOPES,
+        "config_id": config_id,
         "response_type": "code",
     })
 
@@ -118,6 +128,18 @@ def main() -> None:
         print(f"\nLong-lived token exchange failed ({resp.status_code}): {resp.text}")
         sys.exit(1)
     long_token = resp.json().get("access_token")
+
+    # Diagnostic: show which permissions were actually granted in the dialog.
+    resp = requests.get(f"{GRAPH_BASE}/me/permissions", params={"access_token": long_token})
+    if resp.status_code == 200:
+        perms = resp.json().get("data", [])
+        print("\n[DEBUG] Granted permissions:")
+        for perm in perms:
+            print(f"  - {perm.get('permission')}: {perm.get('status')}")
+        if not any(p.get("permission") == "pages_show_list" and p.get("status") == "granted" for p in perms):
+            print("\n  ^ pages_show_list is NOT granted -- this is why no Pages were found.")
+            print("  Go back to the Login Configuration and make sure pages_show_list is")
+            print("  checked in its permissions list, then save and re-run this script.")
 
     # Step 3: list Pages this user manages, with their Page Access Tokens
     resp = requests.get(f"{GRAPH_BASE}/me/accounts", params={"access_token": long_token})

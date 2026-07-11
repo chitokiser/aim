@@ -8,6 +8,7 @@ import { IndexNowService } from './indexnow.service';
 import { BloggerService, type BloggerTarget } from './blogger.service';
 import { WordPressService, type WordPressTarget } from './wordpress.service';
 import { TumblrService } from './tumblr.service';
+import { FacebookService } from './facebook.service';
 
 export interface BlogSource {
   title: string;
@@ -159,6 +160,7 @@ export class BlogService {
     private readonly blogger: BloggerService,
     private readonly wordpress: WordPressService,
     private readonly tumblr: TumblrService,
+    private readonly facebook: FacebookService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -189,6 +191,10 @@ export class BlogService {
 
   private get tumblrPostsCollection() {
     return this.firebase.collection('blog_tumblr_posts');
+  }
+
+  private get facebookPostsCollection() {
+    return this.firebase.collection('blog_facebook_posts');
   }
 
   async suggestKeywords(): Promise<string[]> {
@@ -337,10 +343,12 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       if (wpTarget) {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
-      // Tumblr only mirrors the "trending" (실시간 이슈) category, at the user's
-      // explicit request — same immediate/real-time cadence as WordPress trending.
+      // Tumblr and Facebook only mirror the "trending" (실시간 이슈) category, at
+      // the user's explicit request — same immediate/real-time cadence as
+      // WordPress trending.
       if (doc.category === 'trending') {
         void this.crossPostToTumblr(ref.id, doc.title, doc.content, slug, doc.coverImage);
+        void this.crossPostToFacebook(ref.id, doc.title, doc.content, slug);
       }
     }
     return { id: ref.id, ...doc, commentCount };
@@ -469,6 +477,38 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     await this.crossPostToTumblr(post.id, post.title, post.content, post.slug, post.coverImage);
     const after = await this.tumblrPostsCollection.doc(id).get();
     const url = after.data()?.tumblrUrl as string | undefined;
+    return url ? { status: 'posted', url } : { status: 'failed' };
+  }
+
+  // Cross-posts an article to the Facebook Page as a link post (trending
+  // category only), once per post. Tracked via blog_facebook_posts so
+  // re-running any backfill never double-posts. Fire-and-forget:
+  // FacebookService itself never throws.
+  private async crossPostToFacebook(postId: string, title: string, content: string, slug: string): Promise<void> {
+    if (!this.facebook.isConfigured()) return;
+    const existing = await this.facebookPostsCollection.doc(postId).get();
+    if (existing.exists) return;
+    const excerpt = stripHtml(content).slice(0, 300);
+    const message = `${title}\n\n${excerpt}`;
+    const link = `${this.siteUrl}/blog/${slug}`;
+    const url = await this.facebook.publish(message, link);
+    this.logger.log(`crossPostToFacebook: "${title}" -> url=${url ?? 'FAILED'}`);
+    if (url) {
+      await this.facebookPostsCollection.doc(postId).set({ postId, facebookUrl: url, createdAt: new Date().toISOString() });
+    }
+  }
+
+  // Used by backfill scripts to cross-post pre-existing "trending" articles to
+  // the Facebook Page. Distinguishes "already posted" from "publish failed" so
+  // a caller can tell a dedup skip from a real error.
+  async backfillFacebookPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
+    const post = await this.getById(id);
+    if (post.category !== 'trending') return { status: 'not-applicable' };
+    const before = await this.facebookPostsCollection.doc(id).get();
+    if (before.exists) return { status: 'already-posted', url: before.data()?.facebookUrl as string | undefined };
+    await this.crossPostToFacebook(post.id, post.title, post.content, post.slug);
+    const after = await this.facebookPostsCollection.doc(id).get();
+    const url = after.data()?.facebookUrl as string | undefined;
     return url ? { status: 'posted', url } : { status: 'failed' };
   }
 
