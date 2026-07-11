@@ -357,13 +357,12 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       if (wpTarget && wpTarget !== 'silver') {
         void this.crossPostToWordPress(wpTarget, ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
-      // Tumblr mirrors the "trending" (실시간 이슈) category, at the user's
-      // explicit request — same immediate/real-time cadence as WordPress
-      // trending. Facebook instead mirrors "silver-ai-bootcamp" (실버
-      // AI부트캠프), per a later request to point the Page at that content.
-      if (doc.category === 'trending') {
-        void this.crossPostToTumblr(ref.id, doc.title, doc.content, slug, doc.coverImage);
-      }
+      // Tumblr now mirrors "silver-ai-bootcamp" too (it used to follow
+      // "trending", but the old Tumblr app got blocked and was replaced with
+      // a fresh one). Kept off the immediate-publish path like Blogger's and
+      // WordPress's silver targets — TumblrSchedulerService's 1.5h interval
+      // is the only publish path, so a burst of posts can't trip the new
+      // app's abuse detection.
       if (doc.category === 'silver-ai-bootcamp') {
         void this.crossPostToFacebook(ref.id, doc.title, doc.content, slug, doc.coverImage);
       }
@@ -461,9 +460,9 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     }
   }
 
-  // Cross-posts an article to Tumblr (trending category only), once per post.
-  // Tracked via blog_tumblr_posts so re-running any backfill never double-posts.
-  // Fire-and-forget: TumblrService itself never throws.
+  // Cross-posts an article to Tumblr (silver-ai-bootcamp category only), once
+  // per post. Tracked via blog_tumblr_posts so re-running any backfill never
+  // double-posts. Fire-and-forget: TumblrService itself never throws.
   private async crossPostToTumblr(
     postId: string,
     title: string,
@@ -483,18 +482,35 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     }
   }
 
-  // Used by backfill scripts to cross-post pre-existing "trending" articles to
-  // Tumblr. Distinguishes "already posted" from "publish failed" so a caller
-  // can tell a dedup skip from a real error.
+  // Used by backfill scripts to cross-post pre-existing "silver-ai-bootcamp"
+  // articles to Tumblr. Distinguishes "already posted" from "publish failed"
+  // so a caller can tell a dedup skip from a real error.
   async backfillTumblrPost(id: string): Promise<{ status: 'posted' | 'already-posted' | 'failed' | 'not-applicable'; url?: string }> {
     const post = await this.getById(id);
-    if (post.category !== 'trending') return { status: 'not-applicable' };
+    if (post.category !== 'silver-ai-bootcamp') return { status: 'not-applicable' };
     const before = await this.tumblrPostsCollection.doc(id).get();
     if (before.exists) return { status: 'already-posted', url: before.data()?.tumblrUrl as string | undefined };
     await this.crossPostToTumblr(post.id, post.title, post.content, post.slug, post.coverImage);
     const after = await this.tumblrPostsCollection.doc(id).get();
     const url = after.data()?.tumblrUrl as string | undefined;
     return url ? { status: 'posted', url } : { status: 'failed' };
+  }
+
+  // Used by TumblrSchedulerService's interval to pick the next backlog
+  // candidates: published "silver-ai-bootcamp" posts, long enough, not yet
+  // cross-posted. Oldest first so the backlog clears in order.
+  async listTumblrCandidates(limit: number): Promise<BlogPost[]> {
+    const posts = (await this.listAll())
+      .filter((p) => p.published && p.category === 'silver-ai-bootcamp' && stripHtml(p.content).length >= MIN_BLOGGER_CONTENT_LENGTH)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    const eligible: BlogPost[] = [];
+    for (const post of posts) {
+      if (eligible.length >= limit) break;
+      const already = await this.tumblrPostsCollection.doc(post.id).get();
+      if (!already.exists) eligible.push(post);
+    }
+    return eligible;
   }
 
   // Cross-posts an article to the Facebook Page (silver-ai-bootcamp category

@@ -7,6 +7,7 @@ import { BloggerSchedulerService } from './blogger-scheduler.service';
 import { WordPressService } from './wordpress.service';
 import { WordPressSchedulerService } from './wordpress-scheduler.service';
 import { TumblrService } from './tumblr.service';
+import { TumblrSchedulerService } from './tumblr-scheduler.service';
 import { FacebookService } from './facebook.service';
 import { FacebookSchedulerService } from './facebook-scheduler.service';
 import { AuthModule } from '../auth/auth.module';
@@ -24,6 +25,7 @@ import { RouletteModule } from '../roulette/roulette.module';
     WordPressService,
     WordPressSchedulerService,
     TumblrService,
+    TumblrSchedulerService,
     FacebookService,
     FacebookSchedulerService,
   ],
@@ -35,6 +37,7 @@ import { RouletteModule } from '../roulette/roulette.module';
     WordPressService,
     WordPressSchedulerService,
     TumblrService,
+    TumblrSchedulerService,
     FacebookService,
     FacebookSchedulerService,
   ],
