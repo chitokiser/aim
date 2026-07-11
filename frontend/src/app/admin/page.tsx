@@ -216,18 +216,18 @@ export default function AdminPage() {
     clicks?: number;
     createdAt: string;
   }
-  const LINKPRICE_CATEGORIES = ["beauty", "fashion", "electronics", "household", "food", "travel", "finance", "other"] as const;
+  const LINKPRICE_CATEGORIES = ["cps", "cpa", "cpl", "cpi", "cpc", "cpm", "cpv", "cpe", "revshare"] as const;
   const [linkpriceProducts, setLinkpriceProducts] = useState<LinkpriceProduct[]>([]);
   const [linkpriceLoading, setLinkpriceLoading] = useState(false);
   const [linkpriceName, setLinkpriceName] = useState("");
-  const [linkpriceCategory, setLinkpriceCategory] = useState<string>("beauty");
+  const [linkpriceCategory, setLinkpriceCategory] = useState<string>("cps");
   const [linkpriceEmbedCode, setLinkpriceEmbedCode] = useState("");
   const [linkpriceImageUrl, setLinkpriceImageUrl] = useState("");
   const [linkpriceLinkUrl, setLinkpriceLinkUrl] = useState("");
   const [linkpriceSaving, setLinkpriceSaving] = useState(false);
   const [editingLinkpriceId, setEditingLinkpriceId] = useState<string | null>(null);
   const [editLinkpriceName, setEditLinkpriceName] = useState("");
-  const [editLinkpriceCategory, setEditLinkpriceCategory] = useState("beauty");
+  const [editLinkpriceCategory, setEditLinkpriceCategory] = useState("cps");
   const [editLinkpriceEmbedCode, setEditLinkpriceEmbedCode] = useState("");
   const [editLinkpriceImageUrl, setEditLinkpriceImageUrl] = useState("");
   const [editLinkpriceLinkUrl, setEditLinkpriceLinkUrl] = useState("");

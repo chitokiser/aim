@@ -24,7 +24,7 @@ interface AffiliateProduct {
 }
 
 const CATEGORY_KEYS = [
-  "all", "beauty", "fashion", "electronics", "household", "food", "travel", "finance", "other",
+  "all", "cps", "cpa", "cpl", "cpi", "cpc", "cpm", "cpv", "cpe", "revshare",
 ] as const;
 
 export default function AffiliatePage() {
@@ -75,9 +75,9 @@ export default function AffiliatePage() {
 
   const categoryLabel = (key: string) => {
     const map: Record<string, string> = {
-      all: af.catAll, beauty: af.catBeauty, fashion: af.catFashion,
-      electronics: af.catElectronics, household: af.catHousehold, food: af.catFood,
-      travel: af.catTravel, finance: af.catFinance, other: af.catOther,
+      all: af.catAll, cps: af.catCps, cpa: af.catCpa, cpl: af.catCpl,
+      cpi: af.catCpi, cpc: af.catCpc, cpm: af.catCpm, cpv: af.catCpv,
+      cpe: af.catCpe, revshare: af.catRevshare,
     };
     return map[key] ?? key;
   };
