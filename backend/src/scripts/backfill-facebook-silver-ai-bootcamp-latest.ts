@@ -1,7 +1,8 @@
 /**
- * One-off backfill: cross-posts the most recent LIMIT published
- * "silver-ai-bootcamp" (실버 AI부트캠프) articles to the Facebook Page, newest
- * first. Safe to re-run: backfillFacebookPost skips anything already posted.
+ * One-off backfill: cross-posts the next LIMIT not-yet-posted, published
+ * "silver-ai-bootcamp" (실버 AI부트캠프) articles to the Facebook Page, oldest
+ * first. Safe to re-run: already cross-posted articles are skipped (via
+ * blog.listFacebookCandidates), so each run picks up the next unposted batch.
  *
  * Run: npx ts-node -r dotenv/config src/scripts/backfill-facebook-silver-ai-bootcamp-latest.ts
  */
@@ -20,11 +21,6 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 const DELAY_MS = 30_000;
 const MAX_CONSECUTIVE_FAILURES = 3;
 const LIMIT = 5;
-const MIN_CONTENT_LENGTH = 800;
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-}
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -47,12 +43,9 @@ async function main() {
       return;
     }
 
-    const all = await blog.listAll(); // already sorted newest-first by createdAt
-    const posts = all
-      .filter((p) => p.published && p.category === 'silver-ai-bootcamp' && stripHtml(p.content).length >= MIN_CONTENT_LENGTH)
-      .slice(0, LIMIT);
+    const posts = await blog.listFacebookCandidates(LIMIT);
 
-    console.log(`Found ${posts.length} recent "silver-ai-bootcamp" posts to attempt (newest first).`);
+    console.log(`Found ${posts.length} unposted "silver-ai-bootcamp" posts to attempt (oldest first).`);
 
     let posted = 0;
     let alreadyPosted = 0;
