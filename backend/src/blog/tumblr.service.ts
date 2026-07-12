@@ -124,4 +124,41 @@ export class TumblrService {
       return null;
     }
   }
+
+  /**
+   * Publishes a photo post to the configured Tumblr blog. Unlike video,
+   * Tumblr's photo post type accepts a `source` URL directly and fetches it
+   * server-side, so no local re-upload is needed here. Fire-and-forget: never
+   * throws. Returns the published post URL, or null on failure/not configured.
+   */
+  async publishPhoto(caption: string, imageUrl: string): Promise<string | null> {
+    if (!this.isConfigured()) return null;
+
+    const url = `https://api.tumblr.com/v2/blog/${encodeURIComponent(this.creds.blogName!)}/post`;
+    const data = { type: 'photo', caption, source: imageUrl, state: 'published' };
+
+    const token = { key: this.creds.accessToken!, secret: this.creds.accessTokenSecret! };
+    const authHeader = this.oauth.toHeader(this.oauth.authorize({ url, method: 'POST', data }, token));
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { ...authHeader, 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(data),
+      });
+      const json = (await res.json().catch(() => null)) as
+        | { response?: { id?: number; id_string?: string }; meta?: { status?: number; msg?: string } }
+        | null;
+
+      if (!res.ok || !json?.response?.id_string) {
+        this.logger.warn(`Tumblr photo publish failed for "${caption}" (${res.status}): ${JSON.stringify(json)}`);
+        return null;
+      }
+
+      return `https://${this.creds.blogName}/post/${json.response.id_string}`;
+    } catch (err) {
+      this.logger.warn(`Tumblr photo publish error for "${caption}": ${err instanceof Error ? err.message : err}`);
+      return null;
+    }
+  }
 }

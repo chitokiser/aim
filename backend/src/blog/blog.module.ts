@@ -12,6 +12,8 @@ import { FacebookService } from './facebook.service';
 import { FacebookSchedulerService } from './facebook-scheduler.service';
 import { SnsVideoService } from './sns-video.service';
 import { SnsVideoSchedulerService } from './sns-video-scheduler.service';
+import { ComicEpisodeService } from './comic-episode.service';
+import { ComicSchedulerService } from './comic-scheduler.service';
 import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from '../users/users.module';
 import { RouletteModule } from '../roulette/roulette.module';
@@ -32,6 +34,8 @@ import { RouletteModule } from '../roulette/roulette.module';
     FacebookSchedulerService,
     SnsVideoService,
     SnsVideoSchedulerService,
+    ComicEpisodeService,
+    ComicSchedulerService,
   ],
   exports: [
     BlogService,
@@ -46,6 +50,8 @@ import { RouletteModule } from '../roulette/roulette.module';
     FacebookSchedulerService,
     SnsVideoService,
     SnsVideoSchedulerService,
+    ComicEpisodeService,
+    ComicSchedulerService,
   ],
 })
 export class BlogModule {}
