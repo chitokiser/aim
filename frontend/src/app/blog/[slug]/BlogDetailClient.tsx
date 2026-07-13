@@ -307,6 +307,7 @@ export default function BlogDetailClient({ slug }: { slug: string }) {
         <img
           src={post.coverImage}
           alt={post.title}
+          referrerPolicy="no-referrer"
           className="mb-6 max-h-96 w-full rounded-lg object-cover"
         />
       )}

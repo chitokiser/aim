@@ -1,14 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
+import { generateText, extractJSON, hasAiProvider, estimateTextCostUsd, type AiKeys } from '../common/ai-text.util';
+import { AiBudgetService } from '../common/ai-budget.service';
 import type { CategoryDef } from './webzine.constants';
+
+const MAX_TOKENS = 1024;
 
 @Injectable()
 export class KeywordResearchService {
   private readonly logger = new Logger(KeywordResearchService.name);
   private readonly aiKeys: AiKeys;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly budget: AiBudgetService,
+  ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
       anthropicKey: this.config.get<string>('ANTHROPIC_API_KEY'),
@@ -18,10 +24,12 @@ export class KeywordResearchService {
   // Returns up to `count` ranked, currently-trending search keywords for a
   // category — run once per category per daily batch so that day's news
   // collection follows real trending topics instead of a single static
-  // category query. Falls back to the category's default query on failure.
+  // category query. Falls back to the category's default query on failure
+  // or once the monthly AI budget cap is reached.
   async rankKeywords(category: CategoryDef, count: number): Promise<string[]> {
     if (count <= 0) return [];
     if (!hasAiProvider(this.aiKeys)) return [category.searchQuery];
+    if (!(await this.budget.canSpend(estimateTextCostUsd(MAX_TOKENS)))) return [category.searchQuery];
 
     const prompt = `You are a news trend analyst for the "${category.ko}" (${category.en}) section of a Korean AI web magazine.
 
@@ -31,7 +39,8 @@ Return ONLY a valid JSON array of ${count} strings, ranked by importance, no mar
 ["keyword 1", "keyword 2", ...]`;
 
     try {
-      const text = await generateText(this.aiKeys, prompt, 1024);
+      const text = await generateText(this.aiKeys, prompt, MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(MAX_TOKENS));
       const keywords: unknown = JSON.parse(extractJSON(text));
       if (!Array.isArray(keywords) || keywords.length === 0) return [category.searchQuery];
       return keywords.map((k) => String(k)).slice(0, count);

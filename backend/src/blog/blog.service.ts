@@ -2,13 +2,49 @@ import { Injectable, Logger, NotFoundException, BadRequestException } from '@nes
 import { ConfigService } from '@nestjs/config';
 import { FieldValue } from 'firebase-admin/firestore';
 import { FirebaseService } from '../firebase/firebase.service';
-import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
+import { generateText, extractJSON, hasAiProvider, estimateTextCostUsd, type AiKeys } from '../common/ai-text.util';
+import { AiBudgetService } from '../common/ai-budget.service';
 import { RouletteService } from '../roulette/roulette.service';
 import { IndexNowService } from './indexnow.service';
 import { BloggerService, type BloggerTarget } from './blogger.service';
 import { WordPressService, type WordPressTarget } from './wordpress.service';
 import { TumblrService } from './tumblr.service';
 import { FacebookService } from './facebook.service';
+
+const SUGGEST_KEYWORDS_MAX_TOKENS = 1024;
+const GENERATE_DRAFT_MAX_TOKENS = 4096;
+
+// Converts a plain YouTube watch/share link into the /embed/ form required
+// for iframe embedding — youtube.com/watch, youtu.be, and /shorts/ links all
+// send X-Frame-Options: SAMEORIGIN and get silently blocked when framed as-is.
+function normalizeVideoUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (!/(^|\.)youtube\.com$/.test(u.hostname) && u.hostname !== 'youtu.be') return url;
+
+    let videoId: string | null = null;
+    if (u.hostname === 'youtu.be') {
+      videoId = u.pathname.slice(1);
+    } else if (u.pathname === '/watch') {
+      videoId = u.searchParams.get('v');
+    } else if (u.pathname.startsWith('/shorts/')) {
+      videoId = u.pathname.split('/')[2];
+    } else if (u.pathname.startsWith('/embed/')) {
+      return url;
+    }
+
+    return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+  } catch {
+    return url;
+  }
+}
+
+// Re-normalizes videoUrl on every read, not just at write time, so posts
+// saved before normalizeVideoUrl existed (or with a raw share link pasted
+// directly into Firestore) still render correctly without a manual backfill.
+function withNormalizedVideoUrl<T extends { videoUrl: string | null }>(post: T): T {
+  return post.videoUrl ? { ...post, videoUrl: normalizeVideoUrl(post.videoUrl) } : post;
+}
 
 export interface BlogSource {
   title: string;
@@ -171,6 +207,7 @@ export class BlogService {
     private readonly wordpress: WordPressService,
     private readonly tumblr: TumblrService,
     private readonly facebook: FacebookService,
+    private readonly budget: AiBudgetService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -209,6 +246,9 @@ export class BlogService {
 
   async suggestKeywords(): Promise<string[]> {
     if (!hasAiProvider(this.aiKeys)) throw new BadRequestException('AI keyword suggestions are not configured');
+    if (!(await this.budget.canSpend(estimateTextCostUsd(SUGGEST_KEYWORDS_MAX_TOKENS)))) {
+      throw new BadRequestException('Monthly AI budget cap reached — try again next month or raise AI_MONTHLY_BUDGET_USD');
+    }
 
     const prompt = `${PLATFORM_CONTEXT}
 
@@ -218,7 +258,8 @@ Return ONLY a valid JSON array of 8 strings, no markdown, no explanation:
 ["keyword 1", "keyword 2", ...]`;
 
     try {
-      const text = await generateText(this.aiKeys, prompt, 1024);
+      const text = await generateText(this.aiKeys, prompt, SUGGEST_KEYWORDS_MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(SUGGEST_KEYWORDS_MAX_TOKENS));
       const keywords: unknown = JSON.parse(extractJSON(text));
       if (!Array.isArray(keywords)) return [];
       return keywords.map((k) => String(k)).slice(0, 8);
@@ -230,6 +271,9 @@ Return ONLY a valid JSON array of 8 strings, no markdown, no explanation:
   async generateDraft(keyword: string): Promise<BlogDraft> {
     if (!hasAiProvider(this.aiKeys)) throw new BadRequestException('AI draft generation is not configured');
     if (!keyword?.trim()) throw new BadRequestException('Keyword is required');
+    if (!(await this.budget.canSpend(estimateTextCostUsd(GENERATE_DRAFT_MAX_TOKENS)))) {
+      throw new BadRequestException('Monthly AI budget cap reached — try again next month or raise AI_MONTHLY_BUDGET_USD');
+    }
 
     const prompt = `${PLATFORM_CONTEXT}
 
@@ -244,7 +288,8 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
 {"title": "...", "excerpt": "1-2 sentence summary, under 160 characters", "content": "<h2>...</h2><p>...</p>...", "tags": ["tag1", "tag2", "tag3"]}`;
 
     try {
-      const text = await generateText(this.aiKeys, prompt, 4096);
+      const text = await generateText(this.aiKeys, prompt, GENERATE_DRAFT_MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(GENERATE_DRAFT_MAX_TOKENS));
       const draft = JSON.parse(extractJSON(text)) as Record<string, unknown>;
       return {
         title: String(draft.title ?? keyword),
@@ -274,7 +319,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     // Sorted in-memory (not via Firestore .orderBy) to avoid requiring a
     // composite index for the published + createdAt combination.
     const snap = await this.collection.where('published', '==', true).get();
-    let posts = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
+    let posts = snap.docs.map((d) => withNormalizedVideoUrl({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
     if (category) posts = posts.filter((p) => p.category === category);
     return posts.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
@@ -284,13 +329,27 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }));
   }
 
+  // Oldest unpublished, non-AI post in a category — i.e. a draft the admin
+  // wrote by hand via the admin panel (published unchecked) and hasn't
+  // published yet. Used by auto-generation crons (e.g. SilverAiBootcampService)
+  // to give admin-authored content posting priority over AI-generated content:
+  // publish the admin's draft instead of spending AI budget on a new one.
+  async getOldestManualDraft(category: string): Promise<BlogPost | null> {
+    const snap = await this.collection.where('category', '==', category).get();
+    const drafts = snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as Omit<BlogPost, 'id'>) }))
+      .filter((p) => !p.published && !p.aiGenerated)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return drafts[0] ?? null;
+  }
+
   async getPublishedBySlug(slug: string): Promise<BlogPost> {
     const snap = await this.collection.where('slug', '==', slug).limit(1).get();
     if (snap.empty) throw new NotFoundException('Post not found');
     const doc = snap.docs[0];
     const data = doc.data() as Omit<BlogPost, 'id'>;
     if (!data.published) throw new NotFoundException('Post not found');
-    return { id: doc.id, ...data };
+    return withNormalizedVideoUrl({ id: doc.id, ...data });
   }
 
   async getById(id: string): Promise<BlogPost> {
@@ -316,7 +375,7 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
       excerpt: input.excerpt.trim(),
       content: input.content,
       coverImage: input.coverImage?.trim() || null,
-      videoUrl: input.videoUrl?.trim() || null,
+      videoUrl: input.videoUrl?.trim() ? normalizeVideoUrl(input.videoUrl.trim()) : null,
       tags: input.tags ?? [],
       published: input.published ?? true,
       category: input.category?.trim() || 'general',
@@ -674,7 +733,9 @@ Return ONLY valid JSON, no markdown fences, in this exact shape:
     if (input.excerpt !== undefined) update.excerpt = input.excerpt.trim();
     if (input.content !== undefined) update.content = input.content;
     if (input.coverImage !== undefined) update.coverImage = input.coverImage?.trim() || null;
-    if (input.videoUrl !== undefined) update.videoUrl = input.videoUrl?.trim() || null;
+    if (input.videoUrl !== undefined) {
+      update.videoUrl = input.videoUrl?.trim() ? normalizeVideoUrl(input.videoUrl.trim()) : null;
+    }
     if (input.tags !== undefined) update.tags = input.tags;
     if (input.published !== undefined) update.published = input.published;
     if (input.category !== undefined) update.category = input.category.trim() || 'general';

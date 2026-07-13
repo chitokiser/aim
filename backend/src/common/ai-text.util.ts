@@ -9,6 +9,20 @@ const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 let geminiModelIndex = 0;
 const ANTHROPIC_MODEL = 'claude-opus-4-8';
 
+// Worst-case per-call cost estimate used for budget checks, priced at the
+// more expensive of the two rotating models (gemini-2.5-flash: $2.50/1M
+// output tokens) and assuming the full maxTokens budget is used. Deliberately
+// conservative — actual spend is usually lower — so the monthly cap in
+// AiBudgetService is never exceeded even under worst-case usage.
+const GEMINI_OUTPUT_COST_PER_TOKEN_USD = 2.5 / 1_000_000;
+export function estimateTextCostUsd(maxTokens: number): number {
+  return maxTokens * GEMINI_OUTPUT_COST_PER_TOKEN_USD;
+}
+
+// Imagen 4 Standard (imagen-4.0-generate-001) is billed per image, not per
+// token, regardless of prompt length.
+export const IMAGE_GENERATION_COST_USD = 0.04;
+
 export interface AiKeys {
   geminiKey?: string;
   anthropicKey?: string;

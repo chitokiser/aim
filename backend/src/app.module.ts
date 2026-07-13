@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { FirebaseModule } from './firebase/firebase.module';
+import { AiBudgetModule } from './common/ai-budget.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MissionsModule } from './missions/missions.module';
@@ -39,6 +40,7 @@ import { WebzineModule } from './webzine/webzine.module';
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     FirebaseModule,
+    AiBudgetModule,
     AuthModule,
     UsersModule,
     MissionsModule,

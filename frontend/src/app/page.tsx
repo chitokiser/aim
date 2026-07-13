@@ -549,6 +549,7 @@ export default function HomePage() {
                     <img
                       src={post.coverImage}
                       alt={post.title}
+                      referrerPolicy="no-referrer"
                       className="mb-4 h-32 w-full rounded-lg object-cover"
                     />
                   )}

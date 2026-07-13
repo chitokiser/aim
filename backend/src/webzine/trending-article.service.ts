@@ -8,7 +8,7 @@ import { ImageGeneratorService } from './image-generator.service';
 import { TrendingKeywordsService } from './trending-keywords.service';
 import { findCategory } from './webzine.constants';
 
-const TOP_N = 10;
+const TOP_N = 1;
 const DELAY_BETWEEN_CALLS_MS = 2500;
 
 function sleep(ms: number): Promise<void> {
@@ -26,10 +26,10 @@ function docIdFor(date: string, keyword: string): string {
 }
 
 // Watches the real-time trending-keywords feed and writes an article for
-// the highest-ranked of the current top 10 that hasn't already been covered
-// today — runs once per hour, capped at one article per run (per the user's
-// explicit request to slow the trending category down to one post/hour),
-// independent of the once-daily 4am KST batch in WebzineSchedulerService.
+// the #1 trending keyword only, if it hasn't already been covered today —
+// runs once every 3 hours, capped at one article per run (per the user's
+// explicit request to slow the trending category down further), independent
+// of the once-daily 4am KST batch in WebzineSchedulerService.
 const MAX_ARTICLES_PER_RUN = 1;
 
 @Injectable()
@@ -50,7 +50,7 @@ export class TrendingArticleService {
     return this.firebase.collection('trending_keyword_log');
   }
 
-  @Cron('0 * * * *')
+  @Cron('0 */3 * * *')
   async handleCron(): Promise<void> {
     await this.checkAndWrite();
   }

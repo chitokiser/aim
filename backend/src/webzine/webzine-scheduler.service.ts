@@ -10,7 +10,7 @@ import { WebzineConfigService } from './webzine-config.service';
 import { CATEGORIES, findCategory, type CategoryDef } from './webzine.constants';
 
 // Target total core articles/day across all enabled categories combined.
-const DAILY_TARGET = 50;
+const DAILY_TARGET = 10;
 const DELAY_BETWEEN_CALLS_MS = 2500;
 
 function todayDateString(): string {

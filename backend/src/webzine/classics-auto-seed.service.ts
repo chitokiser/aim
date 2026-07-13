@@ -4,11 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import { BlogService } from '../blog/blog.service';
 import { WordPressService, type WordPressTarget } from '../blog/wordpress.service';
 import { ImageGeneratorService } from './image-generator.service';
-import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
+import { generateText, extractJSON, hasAiProvider, estimateTextCostUsd, type AiKeys } from '../common/ai-text.util';
+import { AiBudgetService } from '../common/ai-budget.service';
 
 const CATEGORY = 'classics';
 const DELAY_MS = 2500;
 const BUDDHIST_TAG = '불교철학';
+const PROPOSE_MAX_TOKENS = 2048;
+const WRITE_MAX_TOKENS = 4096;
 
 type ClassicsGroup = '철학' | '문학' | '동양고전' | '역사·정치·경제' | '자기계발·처세';
 const CLASSICS_GROUPS: ClassicsGroup[] = ['철학', '문학', '동양고전', '역사·정치·경제', '자기계발·처세'];
@@ -50,6 +53,7 @@ export class ClassicsAutoSeedService {
     private readonly wordpress: WordPressService,
     private readonly images: ImageGeneratorService,
     private readonly config: ConfigService,
+    private readonly budget: AiBudgetService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -94,6 +98,8 @@ export class ClassicsAutoSeedService {
   }
 
   private async proposeTopics(domain: string, count: number, existing: string[]): Promise<Topic[]> {
+    if (!(await this.budget.canSpend(estimateTextCostUsd(PROPOSE_MAX_TOKENS)))) return [];
+
     const prompt = `You are the content strategist for AI119's Korean web magazine "고전읽기" (classics) section, which covers: ${domain}.
 
 Here are titles already published in this section (do not repeat these or close variants):
@@ -105,7 +111,8 @@ Return ONLY valid JSON, no markdown fences:
 [{"title": "...", "hint": "..."}]`;
 
     try {
-      const text = await generateText(this.aiKeys, prompt, 2048);
+      const text = await generateText(this.aiKeys, prompt, PROPOSE_MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(PROPOSE_MAX_TOKENS));
       const parsed = JSON.parse(extractJSON(text)) as Array<{ title?: unknown; hint?: unknown }>;
       return parsed
         .filter((t) => t.title && t.hint)
@@ -159,8 +166,11 @@ Return ONLY valid JSON, no markdown fences:
   }
 
   private async writeAndCreate(prompt: string, fallbackTitle: string, extraTags: string[]): Promise<boolean> {
+    if (!(await this.budget.canSpend(estimateTextCostUsd(WRITE_MAX_TOKENS)))) return false;
+
     try {
-      const text = await generateText(this.aiKeys, prompt, 4096);
+      const text = await generateText(this.aiKeys, prompt, WRITE_MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(WRITE_MAX_TOKENS));
       const draft = JSON.parse(extractJSON(text)) as Record<string, unknown>;
       const title = String(draft.title ?? fallbackTitle);
       const content = String(draft.content ?? '');

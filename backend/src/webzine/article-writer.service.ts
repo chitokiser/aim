@@ -3,7 +3,10 @@ import { ConfigService } from '@nestjs/config';
 import type { CollectedArticle } from './news-collector.service';
 import type { CategoryDef } from './webzine.constants';
 import type { BlogSource } from '../blog/blog.service';
-import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
+import { generateText, extractJSON, hasAiProvider, estimateTextCostUsd, type AiKeys } from '../common/ai-text.util';
+import { AiBudgetService } from '../common/ai-budget.service';
+
+const MAX_TOKENS = 4096;
 
 export interface WrittenArticle {
   title: string;
@@ -19,7 +22,10 @@ export interface WrittenArticle {
 export class ArticleWriterService {
   private readonly aiKeys: AiKeys;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly budget: AiBudgetService,
+  ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
       anthropicKey: this.config.get<string>('ANTHROPIC_API_KEY'),
@@ -29,6 +35,7 @@ export class ArticleWriterService {
   async write(category: CategoryDef, articles: CollectedArticle[]): Promise<WrittenArticle | null> {
     if (!hasAiProvider(this.aiKeys)) throw new BadRequestException('AI writer is not configured');
     if (articles.length === 0) return null;
+    if (!(await this.budget.canSpend(estimateTextCostUsd(MAX_TOKENS)))) return null;
 
     const sourceList = articles
       .map((a, i) => `${i + 1}. ${a.title}\n   ${a.snippet}\n   URL: ${a.link}`)
@@ -54,7 +61,8 @@ Return ONLY valid JSON, no markdown fences:
 {"title": "...", "excerpt": "...", "content": "<h2>...</h2><p>...</p>", "keyPoints": ["...", "..."], "tags": ["...", "..."], "usedSourceIndexes": [1, 3], "imageQuery": "..."}`;
 
     try {
-      const text = await generateText(this.aiKeys, prompt, 4096);
+      const text = await generateText(this.aiKeys, prompt, MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(MAX_TOKENS));
       const draft = JSON.parse(extractJSON(text)) as Record<string, unknown>;
 
       const usedIndexes = Array.isArray(draft.usedSourceIndexes)

@@ -290,6 +290,7 @@ function BlogPageContent() {
                   <img
                     src={post.coverImage}
                     alt={post.title}
+                    referrerPolicy="no-referrer"
                     className="h-40 w-full object-cover"
                   />
                 )}

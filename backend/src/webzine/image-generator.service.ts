@@ -4,6 +4,8 @@ import { GoogleGenAI } from '@google/genai';
 import { FirebaseService } from '../firebase/firebase.service';
 import { StockImageService } from './stock-image.service';
 import { PexelsService } from './pexels.service';
+import { AiBudgetService } from '../common/ai-budget.service';
+import { IMAGE_GENERATION_COST_USD } from '../common/ai-text.util';
 
 const IMAGE_MODEL = 'imagen-4.0-generate-001';
 
@@ -17,6 +19,7 @@ export class ImageGeneratorService {
     private readonly firebase: FirebaseService,
     private readonly stockImages: StockImageService,
     private readonly pexels: PexelsService,
+    private readonly budget: AiBudgetService,
   ) {
     this.geminiKey = this.config.get<string>('GEMINI_API_KEY');
   }
@@ -26,17 +29,18 @@ export class ImageGeneratorService {
   }
 
   // Cover image for an article. Mixes real stock photos (via imageQuery, an
-  // English keyword phrase — no daily quota, and often more accurate for
-  // factual reference topics like real factories/equipment) with Imagen
+  // English keyword phrase — free, no daily quota, and often more accurate
+  // for factual reference topics like real factories/equipment) with Imagen
   // illustrations, instead of only generating a stock photo every time —
   // stock searches for similar/generic queries otherwise keep converging on
-  // near-identical images across articles. Rolls the dice first: about a
-  // third of covers go straight to AI generation for variety; the rest try
-  // stock photos first (Pexels, then Pixabay) and fall back to AI generation
-  // if neither has a match.
+  // near-identical images across articles. Rolls the dice first: a small
+  // fraction of covers go straight to AI generation for variety (kept low —
+  // Imagen is ~$0.04/image and is the dominant AI cost driver under
+  // AiBudgetService's monthly cap); the rest try stock photos first (Pexels,
+  // then Pixabay) and fall back to AI generation only if neither has a match.
   async generateCoverImage(title: string, imageQuery?: string): Promise<string | null> {
     const query = imageQuery || '';
-    const preferAiFirst = Math.random() < 0.35;
+    const preferAiFirst = Math.random() < 0.08;
 
     if (preferAiFirst && this.isConfigured()) {
       const aiUrl = await this.generateAiImage(title);
@@ -53,6 +57,7 @@ export class ImageGeneratorService {
 
   private async generateAiImage(title: string): Promise<string | null> {
     if (!this.isConfigured()) return null;
+    if (!(await this.budget.canSpend(IMAGE_GENERATION_COST_USD))) return null;
 
     try {
       const ai = new GoogleGenAI({ apiKey: this.geminiKey });
@@ -67,6 +72,7 @@ export class ImageGeneratorService {
       const imageBytes = resp.generatedImages?.[0]?.image?.imageBytes;
       if (!imageBytes) return null;
 
+      await this.budget.recordSpend(IMAGE_GENERATION_COST_USD);
       const buffer = Buffer.from(imageBytes, 'base64');
       return this.uploadBuffer(buffer, 'png', 'image/png');
     } catch (err) {

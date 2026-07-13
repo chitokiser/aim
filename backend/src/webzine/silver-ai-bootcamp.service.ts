@@ -3,9 +3,12 @@ import { Cron } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { BlogService } from '../blog/blog.service';
 import { ImageGeneratorService } from './image-generator.service';
-import { generateText, extractJSON, hasAiProvider, type AiKeys } from '../common/ai-text.util';
+import { generateText, extractJSON, hasAiProvider, estimateTextCostUsd, type AiKeys } from '../common/ai-text.util';
+import { AiBudgetService } from '../common/ai-budget.service';
 
 const CATEGORY = 'silver-ai-bootcamp';
+const PROPOSE_MAX_TOKENS = 2048;
+const WRITE_MAX_TOKENS = 4096;
 
 interface Topic {
   title: string;
@@ -35,6 +38,7 @@ export class SilverAiBootcampService {
     private readonly blog: BlogService,
     private readonly images: ImageGeneratorService,
     private readonly config: ConfigService,
+    private readonly budget: AiBudgetService,
   ) {
     this.aiKeys = {
       geminiKey: this.config.get<string>('GEMINI_API_KEY'),
@@ -42,13 +46,23 @@ export class SilverAiBootcampService {
     };
   }
 
-  // Publishes exactly one new tutorial per hour, offset from the other
-  // category crons.
-  @Cron('20 * * * *')
+  // Publishes exactly one new tutorial every 4 hours, offset from the other
+  // category crons. Admin-authored drafts (written by hand in the admin
+  // panel, left unpublished) always take priority over AI generation — if
+  // one is waiting, publish it and skip AI generation for this cycle instead
+  // of spending AI budget on a new one.
+  @Cron('20 */4 * * *')
   async handleHourlyCron(): Promise<void> {
     if (this.running) return;
     this.running = true;
     try {
+      const manualDraft = await this.blog.getOldestManualDraft(CATEGORY);
+      if (manualDraft) {
+        await this.blog.update(manualDraft.id, { published: true });
+        this.logger.log(`Silver AI Bootcamp: published admin-authored draft "${manualDraft.title}".`);
+        return;
+      }
+
       if (!hasAiProvider(this.aiKeys)) return;
       await this.topUp(1);
     } catch (err) {
@@ -64,6 +78,8 @@ export class SilverAiBootcampService {
   }
 
   private async proposeTopics(count: number, existing: string[]): Promise<Topic[]> {
+    if (!(await this.budget.canSpend(estimateTextCostUsd(PROPOSE_MAX_TOKENS)))) return [];
+
     const prompt = `You are the content strategist for AI119's Korean web magazine section "실버 AI부트캠프" (Silver AI Bootcamp).
 
 This section teaches readers in their 50s, 60s, and 70s+ concrete, hands-on skills for using AI tools (ChatGPT, Gemini, and similar) to write, create images, run a YouTube channel or blog, automate routine tasks, and earn online income — practical skills for starting a new, location-independent "digital nomad" chapter of life, regardless of age.
@@ -79,7 +95,8 @@ Return ONLY valid JSON, no markdown fences:
 [{"title": "...", "hint": "..."}]`;
 
     try {
-      const text = await generateText(this.aiKeys, prompt, 2048);
+      const text = await generateText(this.aiKeys, prompt, PROPOSE_MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(PROPOSE_MAX_TOKENS));
       const parsed = JSON.parse(extractJSON(text)) as Array<{ title?: unknown; hint?: unknown }>;
       return parsed
         .filter((t) => t.title && t.hint)
@@ -115,8 +132,11 @@ Return ONLY valid JSON, no markdown fences:
   }
 
   private async writeAndCreate(topic: Topic): Promise<boolean> {
+    if (!(await this.budget.canSpend(estimateTextCostUsd(WRITE_MAX_TOKENS)))) return false;
+
     try {
-      const text = await generateText(this.aiKeys, this.articlePrompt(topic), 4096);
+      const text = await generateText(this.aiKeys, this.articlePrompt(topic), WRITE_MAX_TOKENS);
+      await this.budget.recordSpend(estimateTextCostUsd(WRITE_MAX_TOKENS));
       const draft = JSON.parse(extractJSON(text)) as Record<string, unknown>;
       const title = String(draft.title ?? topic.title);
       const content = String(draft.content ?? '');
