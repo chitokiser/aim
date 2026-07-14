@@ -60,6 +60,7 @@ export class SilverAiBootcampService {
       if (manualDraft) {
         await this.blog.update(manualDraft.id, { published: true });
         this.logger.log(`Silver AI Bootcamp: published admin-authored draft "${manualDraft.title}".`);
+        await this.crossPostToAllSns(manualDraft.id, manualDraft.title);
         return;
       }
 
@@ -70,6 +71,30 @@ export class SilverAiBootcampService {
     } finally {
       this.running = false;
     }
+  }
+
+  // AI-generated posts trickle out to Blogger/WordPress/Tumblr/Facebook via
+  // each platform's own scheduled cron (a few per day, oldest-backlog-first).
+  // Admin-authored posts are hand-written and meant to go out everywhere at
+  // once, so cross-post to all four immediately instead of waiting for those
+  // crons to pick it up. Each backfill call is independently idempotent and
+  // already-posted-safe, so run them in parallel and let each fail on its own.
+  private async crossPostToAllSns(postId: string, title: string): Promise<void> {
+    const channels: Array<[string, () => Promise<{ status: string; url?: string }>]> = [
+      ['Blogger', () => this.blog.backfillBloggerPost(postId)],
+      ['WordPress', () => this.blog.backfillWordPressPost(postId)],
+      ['Tumblr', () => this.blog.backfillTumblrPost(postId)],
+      ['Facebook', () => this.blog.backfillFacebookPost(postId)],
+    ];
+    const results = await Promise.allSettled(channels.map(([, run]) => run()));
+    results.forEach((result, i) => {
+      const [label] = channels[i];
+      if (result.status === 'fulfilled') {
+        this.logger.log(`Silver AI Bootcamp: ${label} cross-post for "${title}" -> ${result.value.status}`);
+      } else {
+        this.logger.warn(`Silver AI Bootcamp: ${label} cross-post for "${title}" failed: ${String(result.reason)}`);
+      }
+    });
   }
 
   private async existingTitles(): Promise<string[]> {
